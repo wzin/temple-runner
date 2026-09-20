@@ -16,7 +16,12 @@ export const FLOOR_THICKNESS = 0.5;
 const MAX = 320;
 let slabs: THREE.InstancedMesh;
 let slabVariants: THREE.InstancedMesh[] = [];
+let brokenEdge: THREE.InstancedMesh;
+let wallBlocks: THREE.InstancedMesh[] = [];
 const counts: number[] = [0, 0, 0];
+const wallCounts: number[] = [0, 0, 0, 0];
+let nBroken = 0;
+const WALL_H = 2; const WALL_T = 0.5;
 const dummy = new THREE.Object3D();
 const segHash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
@@ -40,6 +45,45 @@ export function initFloorView(scene: THREE.Scene): void {
   const mossy = new THREE.InstancedMesh(geo, pbrMaterial(remoteSet('floor-mossy', 0x6a8060, 1), { color: tint }), MAX);
   slabVariants = [slabs, broken, mossy];
   for (const m of slabVariants) { m.count = 0; m.frustumCulled = false; m.receiveShadow = true; scene.add(m); }
+  // Ragged slab at the lip of a gap: the gap-facing edge is torn back randomly.
+  brokenEdge = new THREE.InstancedMesh(brokenSlabGeometry(), pbrMaterial(remoteSet('floor-broken', 0x807870, 1), { color: tint }), 64);
+  brokenEdge.count = 0; brokenEdge.frustumCulled = false; scene.add(brokenEdge);
+  // Walls of straight segments as 2 m blocks so gaps can cut them; four looks like trackView's.
+  const wg = new THREE.BoxGeometry(WALL_T, WALL_H, SLAB);
+  const wuv = wg.attributes.uv as THREE.BufferAttribute;
+  const wsizes: [number, number][] = [[SLAB, WALL_H], [SLAB, WALL_H], [WALL_T, SLAB], [WALL_T, SLAB], [WALL_T, WALL_H], [WALL_T, WALL_H]];
+  for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const idx = f * 4 + i; wuv.setXY(idx, wuv.getX(idx) * (wsizes[f][0] / 2), wuv.getY(idx) * (wsizes[f][1] / 2)); }
+  wuv.needsUpdate = true;
+  const wallTint = activeBiome().wallTint;
+  const mk = (folder: string, t: number) => pbrMaterial(remoteSet(folder, 0x8a8088, 1), { color: t });
+  wallBlocks = [
+    new THREE.InstancedMesh(wg, pbrMaterial(textures().wall, { color: wallTint }), MAX),
+    new THREE.InstancedMesh(wg, mk('wall-vines', 0xd8dcd0), MAX),
+    new THREE.InstancedMesh(wg, mk('wall-carved', 0xe0d8c8), MAX),
+    new THREE.InstancedMesh(wg, mk('wall-mossy', 0xc8d8c0), MAX),
+  ];
+  for (const m of wallBlocks) { m.count = 0; m.frustumCulled = false; scene.add(m); }
+}
+
+/** A slab whose +z edge is jagged: vertices along that edge are pulled back and dropped a little. */
+function brokenSlabGeometry(): THREE.BoxGeometry {
+  const geo = new THREE.BoxGeometry(TRACK_HALF_WIDTH * 2, FLOOR_THICKNESS, SLAB, 8, 1, 2);
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    if (pos.getZ(i) > SLAB / 2 - 1e-6) {
+      const r = segHash(Math.round(pos.getX(i) * 100), 7);
+      pos.setZ(i, SLAB / 2 - 0.15 - r * 0.9);
+      pos.setY(i, pos.getY(i) - r * 0.12);
+    }
+  }
+  pos.needsUpdate = true; geo.computeVertexNormals();
+  return geo;
+}
+
+/** Wall look per segment, matching trackView.wallFor. */
+function wallVariantFor(segId: number): number {
+  const r = segHash(segId, 77);
+  return r < 0.45 ? 0 : r < 0.7 ? 1 : r < 0.85 ? 2 : 3;
 }
 
 /** Floor look per segment: mostly the worn path, with broken and mossy stretches. */
@@ -51,19 +95,50 @@ function variantFor(segId: number): number {
 export function updateFloorView(game: Game): void {
   const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
   const holed = (s: number) => gaps.some((g) => s + SLAB / 2 > g.s0 + 1e-6 && s - SLAB / 2 < g.s1 - 1e-6);
-  counts[0] = counts[1] = counts[2] = 0;
+  counts[0] = counts[1] = counts[2] = 0; wallCounts.fill(0); nBroken = 0;
   let variant = 0;
-  const put = (x: number, z: number, dir: { x: number; z: number }) => {
-    if (counts[variant] >= MAX) return;
-    dummy.position.set(x, -FLOOR_THICKNESS / 2, z); dummy.scale.setScalar(1); faceHeading(dummy, dir); dummy.updateMatrix();
-    slabVariants[variant].setMatrixAt(counts[variant]++, dummy.matrix);
+  /** Slab with per-slab imperfections: a little tilt and height noise, some sunk, looks mixed per slab. */
+  const put = (x: number, z: number, dir: { x: number; z: number }, key = 0) => {
+    const j = segHash(Math.round(x * 10), Math.round(z * 10) + key);
+    const v = key === 0 ? variant : (j < 0.72 ? variant : j < 0.9 ? 1 : 2);
+    if (counts[v] >= MAX) return;
+    const sunk = j > 0.965 ? 0.12 : 0;
+    dummy.position.set(x, -FLOOR_THICKNESS / 2 - sunk + (j - 0.5) * 0.05, z); dummy.scale.setScalar(1);
+    faceHeading(dummy, dir);
+    dummy.rotation.x += (segHash(Math.round(z * 10), 3) - 0.5) * 0.05;
+    dummy.rotation.z += (segHash(Math.round(x * 10), 5) - 0.5) * 0.05;
+    dummy.updateMatrix();
+    slabVariants[v].setMatrixAt(counts[v]++, dummy.matrix);
   };
   const track = game.track;
+  const gapEdge = (s: number): -1 | 1 | 0 => {
+    for (const g of gaps) { if (Math.abs(s + SLAB / 2 - g.s0) < 1e-6) return 1; if (Math.abs(s - SLAB / 2 - g.s1) < 1e-6) return -1; }
+    return 0;
+  };
   const along = (seg: Segment, from: number, to: number) => {
     variant = variantFor(seg.id);
+    const wv = wallVariantFor(seg.id);
     for (let s = from + SLAB / 2; s < to + 1e-6; s += SLAB) {
       if (holed(s)) continue;
-      const w = track.sampleSegment(seg, s); put(w.x, w.z, w.dir);
+      const w = track.sampleSegment(seg, s);
+      const edge = gapEdge(s);
+      if (edge !== 0 && nBroken < 64) {
+        // Torn slab facing the gap (its jagged edge is +z locally, so flip when the gap is behind).
+        dummy.position.set(w.x, -FLOOR_THICKNESS / 2, w.z); dummy.scale.setScalar(1); faceHeading(dummy, w.dir);
+        if (edge === -1) dummy.rotation.y += Math.PI;
+        dummy.updateMatrix(); brokenEdge.setMatrixAt(nBroken++, dummy.matrix);
+      } else {
+        put(w.x, w.z, w.dir, 1);
+      }
+      if (seg.kind === 'straight') {
+        // Wall blocks on both sides; a gap cuts them too.
+        for (const side of [-1, 1] as const) {
+          if (wallCounts[wv] >= MAX) break;
+          const ws = track.sampleSegment(seg, s, side * (TRACK_HALF_WIDTH + WALL_T / 2));
+          dummy.position.set(ws.x, WALL_H / 2, ws.z); dummy.scale.setScalar(1); faceHeading(dummy, ws.dir); dummy.updateMatrix();
+          wallBlocks[wv].setMatrixAt(wallCounts[wv]++, dummy.matrix);
+        }
+      }
     }
   };
   for (const seg of track.allSegments()) {
@@ -79,6 +154,8 @@ export function updateFloorView(game: Game): void {
     if (seg.resolved) along(seg, corner + TRACK_HALF_WIDTH, s1);
   }
   for (let i = 0; i < 3; i++) { slabVariants[i].count = counts[i]; slabVariants[i].instanceMatrix.needsUpdate = true; }
+  for (let i = 0; i < 4; i++) { wallBlocks[i].count = wallCounts[i]; wallBlocks[i].instanceMatrix.needsUpdate = true; }
+  brokenEdge.count = nBroken; brokenEdge.instanceMatrix.needsUpdate = true;
 }
 
 export const STUB_LENGTH = 10;

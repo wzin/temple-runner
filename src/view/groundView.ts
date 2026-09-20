@@ -6,7 +6,7 @@ import { pbrMaterial, textures } from './textures';
 
 export const GROUND_Y = -14; // the track sits on an embankment; the land is far below
 const SIZE = 600;
-const TILE = 6; // metres per texture repeat (seen from 14 m up, coarser reads better)
+const TILE = 16; // metres per texture repeat: large enough that the tiling grid does not read from the ridge
 let plane: THREE.Mesh;
 
 export function initGround(scene: THREE.Scene): void {

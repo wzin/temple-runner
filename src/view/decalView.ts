@@ -28,14 +28,15 @@ const RELIEF_H = 0.6;
 export function initDecals(scene: THREE.Scene): void {
   const relief = remoteSet('relief', 0x6a6060);
   for (const t of [relief.map, relief.normalMap, relief.roughnessMap]) t.repeat.set(5, 1);
-  reliefs = new THREE.InstancedMesh(new THREE.PlaneGeometry(20, RELIEF_H), pbrMaterial(relief, { color: 0xd8d0c8, polygonOffset: true, polygonOffsetFactor: -1 }), MAX);
+  for (const t of [relief.map, relief.normalMap, relief.roughnessMap]) t.repeat.set(1, 1);
+  reliefs = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, RELIEF_H), pbrMaterial(relief, { color: 0xd8d0c8, polygonOffset: true, polygonOffsetFactor: -1 }), 512);
   arrows = new THREE.InstancedMesh(new THREE.PlaneGeometry(2.2, 2.2), new THREE.MeshBasicMaterial({ map: sprite('arrow'), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), MAX);
   portals = new THREE.InstancedMesh(new THREE.PlaneGeometry(5.2, 3.6), pbrMaterial(remoteSet('portal', 0x6a5a58), { polygonOffset: true, polygonOffsetFactor: -1 }), 32);
   const corn = remoteSet('cornice', 0x8a8088); for (const t of [corn.map, corn.normalMap, corn.roughnessMap]) t.repeat.set(1, 1);
   cornices = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.28, 2), pbrMaterial(corn, { color: 0xd8d0c8 }), 320);
   jaguars = new THREE.InstancedMesh(new THREE.PlaneGeometry(4.2, 4.2), pbrMaterial(remoteSet('jaguar-face', 0x6a5a58), { polygonOffset: true, polygonOffsetFactor: -1 }), 32);
-  const trim = remoteSet('gold-trim', 0xc9a24a); for (const t of [trim.map, trim.normalMap, trim.roughnessMap]) t.repeat.set(6, 1);
-  trims = new THREE.InstancedMesh(new THREE.PlaneGeometry(20, 0.22), pbrMaterial(trim, { color: 0xffe0a0, emissive: 0x6a4a10, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -1 }), MAX);
+  const trim = remoteSet('gold-trim', 0xc9a24a); for (const t of [trim.map, trim.normalMap, trim.roughnessMap]) t.repeat.set(1, 1);
+  trims = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 0.22), pbrMaterial(trim, { color: 0xffe0a0, emissive: 0x6a4a10, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -1 }), MAX);
   const leafy = (name: string, w: number, h: number, alpha = 0.4) => new THREE.InstancedMesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: sprite(name), transparent: true, alphaTest: alpha, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }), MAX);
   vines = leafy('vines', 3.2, 2.6, 0.35);
   banners = leafy('banner', 1.2, 1.7, 0.4);
@@ -49,6 +50,8 @@ export function initDecals(scene: THREE.Scene): void {
 
 export function updateDecals(game: Game, timeMs: number): void {
   const track = game.track;
+  const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
+  const holed = (s: number) => gaps.some((g) => s + 1 > g.s0 + 1e-6 && s - 1 < g.s1 - 1e-6);
   let nR = 0; let nA = 0; let nP = 0; let nJ = 0; let nC = 0; let nT = 0; let nV = 0; let nB = 0;
   mosaic.visible = track.segments.length > 0 && track.segments[0].s0 === 0;
   const cornice = (x: number, z: number, dir: { x: number; z: number }) => {
@@ -59,22 +62,25 @@ export function updateDecals(game: Game, timeMs: number): void {
   for (const seg of track.allSegments()) {
     if (seg.kind === 'straight') {
       for (const side of [-1, 1] as const) {
-        if (nR >= MAX) break;
-        const w = track.sampleSegment(seg, seg.s0 + seg.length / 2, side * (TRACK_HALF_WIDTH - 0.03));
-        dummy.position.set(w.x, RELIEF_Y, w.z);
-        // Plane faces +z locally; rotate so it faces into the corridor.
-        const right = { x: -w.dir.z, z: w.dir.x };
-        dummy.rotation.set(0, Math.atan2(-side * right.x, -side * right.z), 0);
-        dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-        reliefs.setMatrixAt(nR++, dummy.matrix);
-        // Gold trim just under the cornice.
-        if (nT < MAX) { dummy.position.y = 1.9; dummy.updateMatrix(); trims.setMatrixAt(nT++, dummy.matrix); }
+        const w0 = track.sampleSegment(seg, seg.s0 + seg.length / 2, side * (TRACK_HALF_WIDTH - 0.03));
+        const right = { x: -w0.dir.z, z: w0.dir.x };
+        const yawIn0 = Math.atan2(-side * right.x, -side * right.z);
+        // Relief band and gold trim per 2 m wall block, skipping blocks a gap has removed.
+        for (let s = seg.s0 + 1; s < seg.s0 + seg.length; s += 2) {
+          if (holed(s) || nR >= 512 || nT >= MAX) continue;
+          const w = track.sampleSegment(seg, s, side * (TRACK_HALF_WIDTH - 0.03));
+          dummy.position.set(w.x, RELIEF_Y, w.z); dummy.rotation.set(0, yawIn0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+          reliefs.setMatrixAt(nR++, dummy.matrix);
+          dummy.position.y = 1.9; dummy.updateMatrix(); trims.setMatrixAt(nT++, dummy.matrix);
+        }
         // Hanging vines and the odd banner, seeded per segment and side.
         const yawIn = Math.atan2(-side * right.x, -side * right.z);
         for (let k = 0; k < 2; k++) {
           const r = segHash(seg.id, 700 + side * 10 + k);
+          const vs = seg.s0 + 3 + segHash(seg.id, 800 + side * 10 + k) * 14;
+          if (holed(vs)) continue;
           if (r < 0.55 && nV < MAX) {
-            const v = track.sampleSegment(seg, seg.s0 + 3 + segHash(seg.id, 800 + side * 10 + k) * 14, side * (TRACK_HALF_WIDTH - 0.06));
+            const v = track.sampleSegment(seg, vs, side * (TRACK_HALF_WIDTH - 0.06));
             dummy.position.set(v.x, 1.35, v.z); dummy.rotation.set(0, yawIn, 0); dummy.scale.set(0.8 + r, 0.8 + r, 1); dummy.updateMatrix();
             vines.setMatrixAt(nV++, dummy.matrix);
           } else if (r > 0.9 && nB < MAX) {
@@ -85,6 +91,7 @@ export function updateDecals(game: Game, timeMs: number): void {
         }
         // Cornice blocks along the top of this wall, one per 2 m slab.
         for (let s = seg.s0 + 1; s < seg.s0 + seg.length; s += 2) {
+          if (holed(s)) continue;
           const c = track.sampleSegment(seg, s, side * (TRACK_HALF_WIDTH + 0.25));
           cornice(c.x, c.z, c.dir);
         }

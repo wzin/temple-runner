@@ -63,11 +63,13 @@ describe('Game', () => {
     expect(events.some((e) => e.type === 'fall' && e.reason === 'missedTurn')).toBe(true);
   });
 
-  it('wrong turn in the window falls, missed turn falls and freezes a pose', () => {
+  it('wrong turn is ignored, missed turn falls and freezes a pose', () => {
     let { g, sim } = gameWithEarlyTurn(); let w = g.track.turnWindows()[0];
-    sim.run(() => g.player.s >= w.strictFrom + 0.5, { noObstacles: true });   // inside the reaction zone a wrong press is fatal
+    sim.run(() => g.player.s >= w.strictFrom + 0.5, { noObstacles: true });   // a wrong press (a sideways dodge) is ignored, never fatal
     sim.press(w.segment.turn === 'left' ? 'right' : 'left');
-    expect(sim.tick().some((e) => e.type === 'fall' && e.reason === 'wrongTurn')).toBe(true);
+    expect(sim.tick().some((e) => e.type === 'fall')).toBe(false);
+    sim.press(w.segment.turn!);
+    expect(sim.run(() => w.segment.turnDone || g.player.s > w.to + 1, { noObstacles: true }).some((e) => e.type === 'turn')).toBe(true);
 
     ({ g, sim } = gameWithEarlyTurn()); w = g.track.turnWindows()[0];
     // First window of the run, nobody presses: the corner is missed once the late window closes.

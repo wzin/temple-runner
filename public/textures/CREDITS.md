@@ -39,3 +39,7 @@ portal, mosaic, cornice, iron, feather, monkey-face, water, floor-path (current 
 wall-vines, wall-carved, wall-mossy, pillar, bridge-plank (unused yet), gold-trim, stone-steps (unused yet), jaguar-face.
 Sprites: fire, icon-*, fern, bush, ruins, soot, arrow, clouds, vines, canopy, roots, statue, idol (unused yet), banner, skull, palm, fog-wisp, temple-far.
 Art: menu-bg, og-image, sky.
+
+## Models
+
+`public/models/kenney/*.glb` are from the Kenney Nature Kit (https://kenney.nl/assets/nature-kit), CC0 1.0 (licence file alongside).

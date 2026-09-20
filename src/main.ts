@@ -21,7 +21,7 @@ import { initProps, updateProps } from './view/propView';
 import { initRuins, updateRuins } from './view/ruinsView';
 import { tickFlames } from './view/flameMaterial';
 import { initSky, updateSky } from './view/skyView';
-import { initTrees, updateTrees } from './view/treeView';
+import { initModels, updateModels } from './view/modelView';
 import { activeBiome } from './view/biome';
 import { loadRealTextures, onAssetProgress, releaseAssets } from './view/textures';
 import { endFrame, initDomInput, onTurn, pollInput, setTouchControlsVisible, wasPausePressed } from './ui/domInput';
@@ -63,7 +63,7 @@ function init(): void {
   initSky(scene, activeBiome());
   initGround(scene);
   initCliffs(scene);
-  initTrees(scene, activeBiome());
+  initModels(scene);
   initFloorView(scene);
   initTrackView(scene);
   initTorches(scene);
@@ -234,7 +234,7 @@ function syncViews(now: number): void {
   updateTorches(game, now);
   updateDecals(game, now);
   updateProps(game, camera);
-  updateTrees(game);
+  updateModels(game);
   updatePlayerView(game, now);
   updateCoinView(game, now);
   updateObstacleView(game, now);

@@ -201,7 +201,7 @@ export class Game {
       }
       return;
     }
-    const inZone = p.s >= w.strictFrom;
+    const inZone = p.s >= w.strictFrom;   // forks commit here; earlier presses are only remembered
     if (pressed) {
       this.buffer.consume();
       if (seg.fork && !seg.resolved) {
@@ -211,8 +211,8 @@ export class Game {
         this.track.resolveFork(seg, pressed);
       }
       if (pressed === seg.turn) { seg.turnDone = true; this.forkIntent = null; events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; return; }
-      // Wrong direction: fatal only inside the reaction zone; earlier it is just ignored.
-      if (inZone) { seg.turnDone = true; this.startFall('wrongTurn', events); }
+      // Wrong direction is ignored: the same keys drift the runner sideways, so a dodge right before a
+      // corner must never count as a fatal turn. Missing the corner altogether still ends the run.
       return;
     }
     if (seg.fork && !seg.resolved && this.forkIntent && p.s > w.corner) {

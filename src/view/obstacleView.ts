@@ -24,7 +24,6 @@ let branches: THREE.InstancedMesh; let puffs: THREE.InstancedMesh;
 let pits: THREE.InstancedMesh;
 let waterPits: THREE.InstancedMesh;
 let waterMaps: ReturnType<typeof remoteSet>;
-let gapRims: THREE.InstancedMesh;
 let gapVeils: THREE.InstancedMesh;
 
 export function initObstacleView(scene: THREE.Scene): void {
@@ -60,14 +59,12 @@ export function initObstacleView(scene: THREE.Scene): void {
   const water = pbrMaterial(waterMaps, { color: 0x9ac0d0, emissive: 0x0a2030, emissiveIntensity: 0.4, metalness: 0.6, roughness: 0.15 });
   waterPits = add(new THREE.InstancedMesh(new THREE.PlaneGeometry(GAP_WIDTH + 6, OBSTACLES.gap.depth + 10).rotateX(-Math.PI / 2), water, MAX));
 
-  const rimMaterial = new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffb000, emissiveIntensity: 1.4 });
-  gapRims = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.16, 0.3), rimMaterial, MAX * 2));
   const veilMaterial = new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
   gapVeils = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.06, 1), veilMaterial, MAX));
 }
 
 export function updateObstacleView(game: Game, timeMs: number): void {
-  let nFire = 0; let nLog = 0; let nBranch = 0; let nPuff = 0; let nPit = 0; let nWater = 0; let rims = 0; let veils = 0;
+  let nFire = 0; let nLog = 0; let nBranch = 0; let nPuff = 0; let nPit = 0; let nWater = 0; let veils = 0;
   waterMaps.map.offset.set(timeMs * 0.00002, timeMs * 0.00003);
   const track = game.track;
   for (const o of game.spawner.obstacles) {
@@ -122,16 +119,10 @@ export function updateObstacleView(game: Game, timeMs: number): void {
         }
       }
     }
-    if (o.kind === 'gap') {
-      for (const edge of [o.s0, o.s1]) for (const e of track.samplesAt(edge, midX)) {
-        if (rims >= MAX * 2) break;
-        dummy.position.set(e.x, 0.06, e.z); faceHeading(dummy, e.dir); dummy.scale.set(1, 1 + Math.sin(timeMs * 0.006) * 0.3, 1); dummy.updateMatrix();
-        gapRims.setMatrixAt(rims++, dummy.matrix);
-      }
-    }
+
   }
   const flush = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; };
-  flush(fireA, nFire); flush(fireB, nFire); flush(fireC, nFire); flush(logs, nLog); flush(branches, nBranch); flush(puffs, nPuff); flush(pits, nPit); flush(waterPits, nWater); flush(gapRims, rims); flush(gapVeils, veils);
+  flush(fireA, nFire); flush(fireB, nFire); flush(fireC, nFire); flush(logs, nLog); flush(branches, nBranch); flush(puffs, nPuff); flush(pits, nPit); flush(waterPits, nWater); flush(gapVeils, veils);
 }
 
 export const OBSTACLE_KINDS: ObstacleKind[] = ['fire', 'log', 'branch', 'gap'];

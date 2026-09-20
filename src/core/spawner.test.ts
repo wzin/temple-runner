@@ -25,7 +25,7 @@ describe('Spawner', () => {
     const { sp, track } = build(12);
     for (const o of sp.obstacles) {
       expect(track.nearTurnWindow(o.s0, 10)).toBe(false);
-      for (const w of track.turnWindows()) if (o.s0 > w.corner) expect(o.s0 - w.corner).toBeGreaterThanOrEqual(1.2 * 15 - 1e-6);
+      for (const w of track.turnWindows()) { if (o.s0 > w.corner) expect(o.s0 - w.corner).toBeGreaterThanOrEqual(1.2 * 15 - 1e-6); else expect(w.corner - o.s1).toBeGreaterThanOrEqual(1.2 * 15 - 1e-6); }
     }
     for (const c of sp.coins) expect(track.nearTurnWindow(c.s, 2)).toBe(false);
   });

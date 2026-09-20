@@ -164,7 +164,7 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   const s1 = seg.s0 + seg.length;
 
   if (seg.kind === 'straight') {
-    addStraightPiece(group, track, seg, s0, s1, 0, 0.1, { left: true, right: true });
+    // Straight walls are instanced 2 m blocks in floorView (so gaps can cut them); nothing to build here.
     return group;
   }
 

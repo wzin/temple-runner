@@ -34,18 +34,7 @@ export function updateProps(game: Game, camera: THREE.Camera): void {
   const track = game.track;
   const bill = (x: number, z: number) => Math.atan2(camera.position.x - x, camera.position.z - z);
   for (const seg of track.allSegments()) {
-    if (seg.kind !== 'straight') {
-      // A statue watches every bend from the low ground on the outer side.
-      if (nS < 64) {
-        const corner = track.cornerOf(seg);
-        const c = track.sampleSegment(seg, corner - 1e-6);
-        const outer = seg.turn === 'left' ? 1 : -1; const right = { x: -c.dir.z, z: c.dir.x };
-        const x = c.x + outer * right.x * (TRACK_HALF_WIDTH + 7) + c.dir.x * 6; const z = c.z + outer * right.z * (TRACK_HALF_WIDTH + 7) + c.dir.z * 6;
-        dummy.position.set(x, GROUND_Y + 2.1, z); dummy.rotation.set(0, bill(x, z), 0); dummy.scale.setScalar(1.2); dummy.updateMatrix();
-        statues.setMatrixAt(nS++, dummy.matrix);
-      }
-      continue;
-    }
+    if (seg.kind !== 'straight') continue;   // bends get real statue models (modelView)
     // Roots gripping the cliff face, two per segment on random sides.
     for (let k = 0; k < 2; k++) {
       if (nRt >= 96) break;
@@ -62,20 +51,13 @@ export function updateProps(game: Game, camera: THREE.Camera): void {
       const s = seg.s0 + 1 + r1 * (seg.length - 2);
       const lateral = side * (TRACK_HALF_WIDTH + 6 + r2 * 18);
       const w = track.sampleSegment(seg, s, lateral);
-      if (kind < 0.06 && nP < 64) {
+      if (kind < 0.35) { /* trees, palms and rocks are real models now (modelView) */ } else if (kind < 0.41 && nP < 64) {
         dummy.position.set(w.x, GROUND_Y + 3.5, w.z); dummy.rotation.set(0, r2 * 6.28, 0); dummy.scale.setScalar(0.8 + r3 * 0.5); dummy.updateMatrix();
         pillars.setMatrixAt(nP++, dummy.matrix);
-      } else if (kind < 0.1 && nK < 64) {
+      } else if (kind < 0.45 && nK < 64) {
         dummy.position.set(w.x, GROUND_Y + 0.6, w.z); dummy.rotation.set(0, bill(w.x, w.z), 0); dummy.scale.setScalar(1); dummy.updateMatrix();
         skulls.setMatrixAt(nK++, dummy.matrix);
-      } else if (kind < 0.2 && nPa < MAX) {
-        dummy.position.set(w.x, GROUND_Y + 4.3, w.z); dummy.rotation.set(0, bill(w.x, w.z), 0); dummy.scale.setScalar(0.9 + r3 * 0.6); dummy.updateMatrix();
-        palms.setMatrixAt(nPa++, dummy.matrix);
-      } else if (kind < 0.35 && nR < MAX) {
-        const sc = 0.6 + r3 * 1.2;
-        dummy.position.set(w.x, GROUND_Y + 0.6 * sc, w.z); dummy.rotation.set(r1 * 3, r2 * 6, r3 * 3); dummy.scale.setScalar(sc); dummy.updateMatrix();
-        rocks.setMatrixAt(nR++, dummy.matrix);
-      } else if (kind < 0.4 && nC < MAX / 4) {
+      } else if (kind < 0.5 && nC < MAX / 4) {
         dummy.position.set(w.x, GROUND_Y + 0.6, w.z); dummy.rotation.set(0, r2 * 6.28, 0.05); dummy.scale.setScalar(1); dummy.updateMatrix();
         columns.setMatrixAt(nC++, dummy.matrix);
       } else if (kind < 0.66 && nF < MAX) {
