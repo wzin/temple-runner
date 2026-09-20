@@ -89,6 +89,8 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 
 Two containers: `web` (Dockerfile: node build → Caddy serving `dist/`, proxying `/api/*` to `api:3002`) and `api` (Dockerfile.api: Node 22 + node:sqlite, DB in the `scores_data` volume). `compose.yaml` is the Komodo stack (`temple-runner` on mail.ziniewicz.eu, `web` on `traefik_proxy`, both on the stack's `internal` network); Traefik route lives in `homecloud/traefik/dynamic/temple-runner.yml` → https://temple.ziniewicz.eu.
 
+**Komodo webhook: Force deploy must be ON** (Stack → Config → Webhooks). The default `DeployStackIfChanged` only diffs `compose.yaml`; this stack builds its images from source, so a code-only push is accepted but nothing redeploys (Komodo shows the new commit as "available" but keeps the old one running). Same lesson as the accountant stack in homecloud.
+
 ## Roadmap
 
 2. Done (2026-09-20): speed ramp, camera swing/dip/shake, landing squash, power-ups, monkeys, patterns, persistence, basic procedural textures.
