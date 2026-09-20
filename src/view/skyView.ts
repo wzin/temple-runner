@@ -87,7 +87,7 @@ export function paintSky(b: Biome): THREE.CanvasTexture {
 export function initSky(scene: THREE.Scene, biome: Biome): void {
   scene.background = paintSky(biome);
   // Generated panorama (public/art/sky.jpg, horizon already blended into the fog colour) replaces the painted sky when it loads.
-  new THREE.TextureLoader().load('/art/sky.jpg', (tex) => {
+  new THREE.TextureLoader().load('/art/sky.webp', (tex) => {
     tex.mapping = THREE.EquirectangularReflectionMapping;
     tex.colorSpace = THREE.SRGBColorSpace;
     scene.background = tex;

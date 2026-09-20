@@ -19,6 +19,13 @@ export function initRuins(scene: THREE.Scene): void {
     m.lookAt(0, GROUND_Y + 30, 0);
     ring.add(m);
   }
+  const tmat = new THREE.MeshBasicMaterial({ map: sprite('temple-far'), transparent: true, depthWrite: false, fog: false, color: fog.clone().lerp(new THREE.Color(0xffffff), 0.45), opacity: 0.95 });
+  for (const a of [1.9, 4.6]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(160, 80), tmat);
+    m.position.set(Math.sin(a) * (DIST - 15), GROUND_Y + 34, Math.cos(a) * (DIST - 15));
+    m.lookAt(0, GROUND_Y + 34, 0);
+    ring.add(m);
+  }
   ring.renderOrder = -5;
   scene.add(ring);
 }

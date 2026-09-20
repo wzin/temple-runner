@@ -226,25 +226,49 @@ export function textures(): TextureSet {
  */
 export function loadRealTextures(): void {
   const loader = new THREE.TextureLoader();
-  const sets: [keyof TextureSet, string][] = [
-    ['floor', 'floor-temple'], ['wall', 'wall-inca'], ['bark', 'bark-tropical'], ['ground', 'ground-jungle'],
-    ['leaves', 'leaves'], ['leaves2', 'leaves2'], ['cliff', 'cliff-rock'], ['totem', 'totem'], ['glyph', 'gold-glyph'],
+  // [set, folder, priority]: 0 = before anything else, 1 = soon after the first frame, 2 = whenever.
+  const sets: [keyof TextureSet, string, number][] = [
+    ['floor', 'floor-path', 0], ['wall', 'wall-inca', 0], ['cliff', 'cliff-rock', 0], ['ground', 'ground-jungle', 1],
+    ['bark', 'bark-tropical', 1], ['leaves', 'leaves', 1], ['leaves2', 'leaves2', 2], ['totem', 'totem', 2], ['glyph', 'gold-glyph', 2],
   ];
-  for (const [key, folder] of sets) {
+  for (const [key, folder, priority] of sets) {
     const maps = textures()[key];
-    const swap = (target: THREE.CanvasTexture, file: string) => {
-      loader.load(`/textures/${folder}/${file}.jpg`, (tex) => {
-        target.image = tex.image;
-        target.needsUpdate = true;
-        console.info(`[textures] ${folder}/${file} loaded`);
-      }, undefined, () => { /* keep procedural */ });
-    };
+    const swap = (target: THREE.CanvasTexture, file: string) => schedule(priority, () => {
+      loader.load(`/textures/${folder}/${file}.${ASSET_EXT}`, (tex) => { target.dispose(); target.image = tex.image; target.needsUpdate = true; finished(); }, undefined, () => finished());
+    });
     swap(maps.map, 'color'); swap(maps.normalMap, 'normal'); swap(maps.roughnessMap, 'roughness');
   }
 }
 
-/** A PBR set that starts as flat colour placeholders and fills in from /textures/<folder>/ when the JPEGs load. */
-export function remoteSet(folder: string, fallback: number): Maps {
+/**
+ * Progressive asset queue. Priority 0 (the world you see first: floor, walls, cliffs, sky) starts
+ * immediately; everything else waits until `releaseAssets()` (after the first frame) and is
+ * started a few at a time so the first seconds are not one big download.
+ */
+type Job = () => void;
+const queued: { priority: number; job: Job }[] = [];
+let released = false;
+let pending = 0; let done = 0;
+const listeners: ((done: number, total: number) => void)[] = [];
+export function onAssetProgress(cb: (done: number, total: number) => void): void { listeners.push(cb); }
+function notify(): void { for (const cb of listeners) cb(done, done + pending); }
+function schedule(priority: number, job: Job): void {
+  pending++; notify();
+  if (priority === 0 || released) job(); else queued.push({ priority, job });
+}
+function finished(): void { pending--; done++; notify(); }
+export function releaseAssets(): void {
+  if (released) return;
+  released = true;
+  queued.sort((a, b) => a.priority - b.priority);
+  let i = 0;
+  const step = () => { for (let k = 0; k < 3 && i < queued.length; k++) queued[i++].job(); if (i < queued.length) setTimeout(step, 120); };
+  setTimeout(step, 250);
+}
+export const ASSET_EXT = 'webp';
+
+/** A PBR set that starts as flat colour placeholders and fills in from /textures/<folder>/ when the images load. */
+export function remoteSet(folder: string, fallback: number, priority = 1): Maps {
   const tiny = (r: number, g: number, b: number, srgb: boolean) => {
     const c = document.createElement('canvas'); c.width = c.height = 2;
     const ctx = c.getContext('2d')!; ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, 0, 2, 2);
@@ -256,9 +280,9 @@ export function remoteSet(folder: string, fallback: number): Maps {
     roughnessMap: tiny(200, 200, 200, false),
   };
   const loader = new THREE.TextureLoader();
-  const swap = (target: THREE.CanvasTexture, file: string) => {
-    loader.load(`/textures/${folder}/${file}.jpg`, (tex) => { target.image = tex.image; target.needsUpdate = true; }, undefined, () => { /* keep flat */ });
-  };
+  const swap = (target: THREE.CanvasTexture, file: string) => schedule(priority, () => {
+    loader.load(`/textures/${folder}/${file}.${ASSET_EXT}`, (tex) => { target.dispose(); target.image = tex.image; target.needsUpdate = true; finished(); }, undefined, () => finished());
+  });
   swap(maps.map, 'color'); swap(maps.normalMap, 'normal'); swap(maps.roughnessMap, 'roughness');
   return maps;
 }
@@ -272,7 +296,9 @@ export function sprite(name: string): THREE.Texture {
   t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   const target = t;
-  new THREE.TextureLoader().load(`/sprites/${name}.png`, (tex) => { target.image = tex.image; target.needsUpdate = true; }, undefined, () => { /* stays transparent */ });
+  schedule(2, () => {
+    new THREE.TextureLoader().load(`/sprites/${name}.${ASSET_EXT}`, (tex) => { target.dispose(); target.image = tex.image; target.needsUpdate = true; finished(); }, undefined, () => finished());
+  });
   spriteCache.set(name, t);
   return t;
 }

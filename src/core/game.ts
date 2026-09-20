@@ -10,7 +10,7 @@ import { Track, TurnDir, Vec2 } from './track';
 export type FallReason = 'missedTurn' | 'wrongTurn' | 'gap' | 'caught';
 
 export type GameEvent =
-  | { type: 'coin' }
+  | { type: 'coin'; value: number }
   | { type: 'hit'; kind: ObstacleKind }
   | { type: 'shielded'; kind: ObstacleKind }
   | { type: 'turn'; dir: TurnDir }
@@ -47,6 +47,8 @@ export class Game {
   private boostGrace = 0;
   /** Set when a turn was just taken; the camera uses it for its swing. */
   lastTurn: { dir: TurnDir; age: number } | null = null;
+  /** Direction pressed early at a fork; applied when the reaction zone or the corner is reached. */
+  private forkIntent: TurnDir | null = null;
   fallPose: { x: number; z: number; dir: Vec2; s: number } | null = null;
   private deadReported = false;
 
@@ -66,7 +68,7 @@ export class Game {
     this.spawner = new Spawner(rng, this.track, { tuning: (s) => difficultyAt(s) });
     this.buffer.clear();
     this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false;
-    this.active = null; this.shield = false; this.boostGrace = 0; this.lastTurn = null; this.fallPose = null; this.deadReported = false;
+    this.active = null; this.shield = false; this.boostGrace = 0; this.lastTurn = null; this.forkIntent = null; this.fallPose = null; this.deadReported = false;
     this.applyDifficulty();
     this.layAhead();
   }
@@ -104,7 +106,7 @@ export class Game {
     if (p.down) return events;
 
     if (this.magnet) this.pullCoins(dt);
-    for (const c of pickCoins(this.spawner.coins, p.s, p.x, p.y, COIN_RADIUS)) { void c; this.coins++; events.push({ type: 'coin' }); }
+    for (const c of pickCoins(this.spawner.coins, p.s, p.x, p.y, COIN_RADIUS)) { this.coins += c.value; events.push({ type: 'coin', value: c.value }); }
     for (const pu of pickPowerUps(this.spawner.powerUps, p.s, p.x, p.y, POWERUP_RADIUS)) this.activate(pu.kind, events);
 
     if (!this.invulnerable) {
@@ -131,7 +133,7 @@ export class Game {
     const boost = this.boosting ? BOOST_SPEED_FACTOR : 1;
     this.player.speedScale = (d.speed / this.player.cfg.speed) * boost;
     this.track.turnEarly = d.reactionTime * d.speed * boost;
-    this.track.turnLate = Math.max(2, 0.15 * d.speed * boost);   // a late press still counts for ~150 ms past the corner
+    this.track.turnLate = Math.max(3, 0.35 * d.speed * boost);   // the runner follows the bend visually; a press up to ~350 ms late still counts
     this.track.turnLead = 1.0 * d.speed * boost;                   // a correct press a full second early is fine
   }
 
@@ -171,8 +173,21 @@ export class Game {
 
   private handleTurns(nowMs: number, events: GameEvent[]): void {
     const p = this.player;
-    const w = this.track.turnWindowAt(p.s);
     const pressed = this.buffer.peek(nowMs);
+    // A window we ran through without ever turning: fork intent from earlier still counts, otherwise fall.
+    const missed = this.track.turnWindows().find((tw) => !tw.segment.turnDone && p.s > tw.to);
+    if (missed) {
+      const seg = missed.segment;
+      if (seg.fork && !seg.resolved && this.forkIntent) {
+        this.track.resolveFork(seg, this.forkIntent);
+        seg.turnDone = true; events.push({ type: 'turn', dir: this.forkIntent }); this.lastTurn = { dir: this.forkIntent, age: 0 }; this.forkIntent = null;
+        return;
+      }
+      seg.turnDone = true;
+      this.startFall('missedTurn', events);
+      return;
+    }
+    const w = this.track.turnWindowAt(p.s);
     if (!w) return;
     const seg = w.segment;
     if (this.invulnerable) {
@@ -186,17 +201,30 @@ export class Game {
       }
       return;
     }
+    const inZone = p.s >= w.strictFrom;
     if (pressed) {
       this.buffer.consume();
-      if (seg.fork && !seg.resolved) this.track.resolveFork(seg, pressed);   // a fork accepts either direction
-      if (pressed === seg.turn) { seg.turnDone = true; events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; return; }
+      if (seg.fork && !seg.resolved) {
+        // Early at a fork: remember the choice but keep both branches until the reaction zone,
+        // so nothing despawns before the player has actually committed.
+        if (!inZone) { this.forkIntent = pressed; return; }
+        this.track.resolveFork(seg, pressed);
+      }
+      if (pressed === seg.turn) { seg.turnDone = true; this.forkIntent = null; events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; return; }
       // Wrong direction: fatal only inside the reaction zone; earlier it is just ignored.
-      if (p.s >= w.strictFrom) { seg.turnDone = true; this.startFall('wrongTurn', events); }
+      if (inZone) { seg.turnDone = true; this.startFall('wrongTurn', events); }
       return;
     }
-    if (p.s > w.corner) {
+    if (seg.fork && !seg.resolved && this.forkIntent && p.s > w.corner) {
+      // Committed early, no later press: take the remembered branch at the corner.
+      this.track.resolveFork(seg, this.forkIntent);
+      seg.turnDone = true; events.push({ type: 'turn', dir: this.forkIntent }); this.lastTurn = { dir: this.forkIntent, age: 0 }; this.forkIntent = null;
+      return;
+    }
+    if (p.s > w.to) {
+      // The runner visibly follows the bend past the corner; only when the late window closes with
+      // no press does the run end, with the fall staged back at the corner.
       seg.turnDone = true;
-      // Past the corner with no input: keep running straight off the edge.
       this.startFall('missedTurn', events);
     }
   }

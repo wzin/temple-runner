@@ -274,7 +274,7 @@ body {
 }
 
 /* Menu backdrop: generated key art behind a dark vignette */
-#main-menu { background: linear-gradient(rgba(10,8,20,0.55), rgba(10,8,20,0.8)), url('/art/menu-bg.jpg') center / cover no-repeat; }
+#main-menu { background: linear-gradient(rgba(10,8,20,0.55), rgba(10,8,20,0.8)), url('/art/menu-bg.webp') center / cover no-repeat; }
 #game-over { background: linear-gradient(rgba(10,8,20,0.75), rgba(10,8,20,0.9)); }
 
 /* Pause button: large and tappable on every device */
@@ -298,3 +298,15 @@ html, body, #game-container { user-select: none; -webkit-user-select: none; -web
 .ui-screen, .hud-top, .banner, .hint, .leaderboard, .board-status { user-select: none; -webkit-user-select: none; }
 #nick { user-select: text; -webkit-user-select: text; }
 @supports (height: 100dvh) { .touch-controls { bottom: calc(12dvh + env(safe-area-inset-bottom, 0px)); } }
+
+/* Skin picker */
+.skin-row { display: flex; align-items: center; gap: 0.6rem; margin-top: 0.7rem; justify-content: center; }
+.skin-label { font-size: 0.75rem; letter-spacing: 0.25em; color: #e94560; }
+.skin-picker { display: flex; gap: 0.4rem; }
+.skin-btn { pointer-events: auto; padding: 0.35rem 0.7rem; font: inherit; font-size: 0.8rem; letter-spacing: 0.08em; color: #ddd; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; cursor: pointer; }
+.skin-btn.active { border-color: #e94560; color: #fff; box-shadow: 0 0 10px rgba(233,69,96,0.6); }
+
+/* Asset loading indicator on the menu */
+.loading { font-size: 0.75rem; letter-spacing: 0.15em; color: #9aa; margin-top: 0.5rem; min-height: 1em; }
+.loading .bar { display: block; width: 12rem; height: 3px; margin: 0.3rem auto 0; background: rgba(255,255,255,0.12); border-radius: 2px; overflow: hidden; }
+.loading .bar span { display: block; height: 100%; width: 0; background: #e94560; transition: width 0.2s; }

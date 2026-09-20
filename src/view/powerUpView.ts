@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
 import { POWERUP_KINDS, PowerUpKind } from '../core/powerups';
-import { sprite } from './textures';
+import { pbrMaterial, remoteSet, sprite, textures } from './textures';
 
 /** Spinning gem plus a camera-facing icon billboard above it (generated sprites). */
 
@@ -10,12 +10,17 @@ const gems = new Map<PowerUpKind, THREE.InstancedMesh>();
 const icons = new Map<PowerUpKind, THREE.InstancedMesh>();
 const dummy = new THREE.Object3D();
 
-const COLORS: Record<PowerUpKind, number> = { magnet: 0x3b82f6, shield: 0x5fd8ff, boost: 0xf97316 };
 const ICON: Record<PowerUpKind, string> = { magnet: 'icon-magnet', shield: 'icon-shield', boost: 'icon-bolt' };
 
 export function initPowerUpView(scene: THREE.Scene): void {
+  // Artefacts: an iron horseshoe (magnet), a gold sun disc (shield), a condor feather (boost).
+  const shells: Record<PowerUpKind, () => THREE.InstancedMesh> = {
+    magnet: () => new THREE.InstancedMesh(new THREE.TorusGeometry(0.32, 0.11, 8, 14, Math.PI * 1.5).rotateZ(-Math.PI * 0.75), pbrMaterial(remoteSet('iron', 0x444448), { emissive: 0x3b82f6, emissiveIntensity: 0.25, metalness: 0.8 }), MAX),
+    shield: () => new THREE.InstancedMesh(new THREE.CylinderGeometry(0.42, 0.42, 0.08, 24).rotateX(Math.PI / 2), pbrMaterial(textures().glyph, { color: 0xffe0a0, emissive: 0x5fd8ff, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.35 }), MAX),
+    boost: () => new THREE.InstancedMesh(new THREE.ConeGeometry(0.22, 1.1, 6).rotateZ(0.5), pbrMaterial(remoteSet('feather', 0x222222), { emissive: 0xf97316, emissiveIntensity: 0.3 }), MAX),
+  };
   for (const kind of POWERUP_KINDS) {
-    const gem = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.4, 0), new THREE.MeshStandardMaterial({ color: COLORS[kind], emissive: COLORS[kind], emissiveIntensity: 0.6, metalness: 0.3, roughness: 0.3 }), MAX);
+    const gem = shells[kind]();
     const icon = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.1, 1.1), new THREE.MeshBasicMaterial({ map: sprite(ICON[kind]), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), MAX);
     for (const m of [gem, icon]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
     gems.set(kind, gem); icons.set(kind, icon);

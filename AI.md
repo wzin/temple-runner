@@ -7,6 +7,17 @@ imports, unit-tested with vitest); Three.js only renders it (`src/view/`).
 Design spec: `docs/superpowers/specs/2026-09-20-track-space-core-design.md`.
 Implementation plan: `docs/superpowers/plans/2026-09-20-track-space-core.md`.
 
+## Assets
+
+All art is generated with `scripts/gen-texture.mjs` (fal.ai Flux; `--kind pbr|sprite|image|panorama`) and then
+`node scripts/optimize-assets.mjs` converts everything under `public/` to WebP (small sets and sprites downscaled to 512).
+Loaders read `.webp` only (`ASSET_EXT`). Loading is progressive: priority 0 (floor, walls, cliff) starts at once,
+the rest after the first frame a few files at a time; the menu shows `LOADING WORLD n/total`. Every asset has a
+flat-colour or transparent placeholder, so the game runs before anything arrives. When the real image arrives the
+placeholder texture is `dispose()`d before its image is swapped: WebGL2 sizes texture storage on the first upload, so
+without that a 2×2 placeholder would keep showing a single colour (this was the 'flat textures' bug).
+`scripts/rebuild-normals.mjs` recomputes all normal maps from colour (high-passed luminance with contrast stretch). Credits: `public/textures/CREDITS.md`.
+
 ## Commands (all inside Docker, nothing on the host)
 
 ```bash
@@ -41,7 +52,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/scene.ts` | renderer, lights |
 | `src/view/camera.ts` | follow camera from `track.sample`; frozen pose while falling |
 | `src/view/trackView.ts` | one `Group` per segment, added/disposed with the track |
-| `src/view/playerView.ts` | low-poly rigged runner (arms/legs swing by distance, tuck on jump, lean on slide), shield aura, warm point light |
+| `src/view/playerView.ts` | low-poly rigged runner with selectable skins (`SKINS`, `setSkin`): portrait on the front hemisphere of the head, hair colour behind, tunic front/back panels on the torso, weave on limbs; shield aura, boost ghosting, warm point light |
 | `coinView.ts`, `obstacleView.ts`, `powerUpView.ts`, `monkeyView.ts` | instanced meshes placed from track coordinates each frame; monkeys sit `9 → 2.5 m` behind the player as proximity rises |
 | `src/view/floorView.ts` | one instanced mesh of 2 m floor slabs rebuilt per frame; slabs over gap obstacles are skipped, so gaps are real holes; fork stubs |
 | `src/view/groundView.ts`, `cliffView.ts` | the land lies 14 m below; the track runs on an instanced stone embankment (2 m blocks), trees grow on the low ground 7–21 m out |
@@ -49,7 +60,8 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/torchView.ts` | wall torches as four instanced meshes (handle, bowl, flame, glow), rebuilt per frame |
 | `src/view/trackView.ts` props | a totem with glowing eyes at every corner / fork far wall; walls per segment |
 | `src/view/flameMaterial.ts` | procedural additive flame shader (instancing-aware); torches and fire obstacles; `tickFlames(seconds)` each frame |
-| `src/view/decalView.ts`, `propView.ts`, `ruinsView.ts` | wall relief bands and corner arrow glyphs; boulders, fallen columns, ferns, bushes on the low ground; skyline ruins billboards |
+| `src/view/decalView.ts` | per-frame decals: relief bands, gold trim, hanging vines and banners on walls, cornice blocks on wall tops, portal arch or jaguar face on bend walls, arrow glyphs on corner plates, start mosaic |
+| `src/view/propView.ts`, `ruinsView.ts`, `cloudView.ts` | low-ground dressing (boulders, fallen columns, pillars, ferns, bushes, palms, skulls, statues at bends, roots on the cliff); skyline ruins and far temples; cloud layer, jungle canopy overhead, ground mist wisps |
 | `src/view/particles.ts` | pooled additive point sprites: embers over fire obstacles, gold sparks on coin pickup |
 | `scripts/gen-texture.mjs` | fal.ai (Flux) asset generator: `--kind pbr` (seamless set, normals from Marigold depth), `sprite` (RGBA from black), `image`, `panorama`; key from `FAL_KEY` or `.api_keys` (gitignored). `remoteSet()`/`sprite()` in textures.ts load results lazily with flat/transparent placeholders |
 | `src/view/textures.ts` | procedural PBR sets baked at startup as the fallback; `loadRealTextures()` swaps in `public/textures/<set>/{color,normal,roughness}.jpg` (CC0 from ambientCG, see `public/textures/CREDITS.md`) in place when present |
@@ -81,7 +93,8 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 - High score persists in `localStorage['temple-runner.highScore']`; Space/Enter restarts from the menu or game-over screen. The menu shows the top five from the API.
 - Version: `VERSION` file injected as `__APP_VERSION__` (bottom-right corner). Release with `scripts/release.sh X.Y.Z` (writes VERSION, tags `vX.Y.Z`, pushes; Komodo redeploys from main).
 - Touch: arrow panel on coarse-pointer devices, shown only during a run, raised above browser bars (12dvh + safe area); text selection/callouts/scroll blocked on the canvas; swipe gestures; coach hints at run start and before the first corner
-- Turn window: a correct press counts from `1.0 s × speed` before the corner (`turnLead`), a wrong press is fatal only inside the last `0.4 s × speed` (`strictFrom`), and presses up to `max(2 m, 0.15 s × speed)` after the corner still count. Early wrong presses are ignored. (tap = turn, hold = drift, ▲ jump, ▼ slide) plus swipe gestures on the canvas.
+- Turn window: a correct press counts from `1.0 s × speed` before the corner (`turnLead`), a wrong press is fatal only inside the last `0.4 s × speed` (`strictFrom`), and presses up to `max(3 m, 0.35 s × speed)` after the corner still count; the runner visibly follows the bend meanwhile and only falls (staged back at the corner) when the late window closes unanswered. At a fork an early press is remembered as intent and the branches stay until the reaction zone or the corner, so nothing despawns before you commit.
+- Coins carry a `value` (1, or 5 for the big medallion in the middle of some runs). Gaps are real breaks in the ridge (floor and cliff blocks skipped) with a lava pool or river bend on the ground 14 m below. (tap = turn, hold = drift, ▲ jump, ▼ slide) plus swipe gestures on the canvas.
 - Performance: no shadow maps, pixel ratio capped at 1.5, everything repeated is instanced (floor, cliffs, trees, torches, coins, obstacles, power-ups).
 - Turn presses survive a frame hitch: the buffer expires 150 ms after the press but never before one tick has seen it.
 - Proximity meter: +25 per hit, −2/s, 100 = caught. Score = floor(distance) + 10 × coins.

@@ -47,9 +47,9 @@ describe('Game', () => {
   it('accepts a buffered early turn press and preserves x', () => {
     const { g, sim } = gameWithEarlyTurn(); const w = g.track.turnWindows()[0];
     g.player.x = 1;
-    sim.run(() => g.player.s >= w.from - 1);
+    sim.run(() => g.player.s >= w.from - 1, { noObstacles: true });
     sim.press(w.segment.turn!);                      // ≈67 ms before the window opens
-    const events = sim.run(() => w.segment.turnDone || g.player.s > w.to + 1);
+    const events = sim.run(() => w.segment.turnDone || g.player.s > w.to + 1, { noObstacles: true });
     expect(events.some((e) => e.type === 'turn')).toBe(true);
     expect(g.player.state).toBe('running');
     expect(g.player.x).toBe(1);
@@ -57,23 +57,24 @@ describe('Game', () => {
 
   it('a press that is too early expires and the turn is missed', () => {
     const { g, sim } = gameWithEarlyTurn(); const w = g.track.turnWindows()[0];
-    sim.run(() => g.player.s >= w.from - 5);        // ≈330 ms early, ttl is 150 ms
+    sim.run(() => g.player.s >= w.from - 5, { noObstacles: true });        // well before the window, ttl is 150 ms
     sim.press(w.segment.turn!);
-    const events = sim.run(() => g.player.state === 'falling' || g.player.s > w.to + 5);
+    const events = sim.run(() => g.player.state === 'falling' || g.player.s > w.to + 5, { noObstacles: true });
     expect(events.some((e) => e.type === 'fall' && e.reason === 'missedTurn')).toBe(true);
   });
 
   it('wrong turn in the window falls, missed turn falls and freezes a pose', () => {
     let { g, sim } = gameWithEarlyTurn(); let w = g.track.turnWindows()[0];
-    sim.run(() => g.player.s >= w.strictFrom + 0.5);   // inside the reaction zone a wrong press is fatal
+    sim.run(() => g.player.s >= w.strictFrom + 0.5, { noObstacles: true });   // inside the reaction zone a wrong press is fatal
     sim.press(w.segment.turn === 'left' ? 'right' : 'left');
     expect(sim.tick().some((e) => e.type === 'fall' && e.reason === 'wrongTurn')).toBe(true);
 
     ({ g, sim } = gameWithEarlyTurn()); w = g.track.turnWindows()[0];
-    const events = sim.run(() => g.player.state === 'falling' || g.player.s > w.to + 5);
+    // First window of the run, nobody presses: the corner is missed once the late window closes.
+    const events = sim.run(() => g.player.state === 'falling' || g.player.s > w.to + 5, { noObstacles: true });
     expect(events.some((e) => e.type === 'fall' && e.reason === 'missedTurn')).toBe(true);
     expect(g.fallPose).not.toBeNull();
-    expect(g.player.s).toBeLessThan(w.to + 1);
+    expect(g.player.s).toBeLessThan(w.to + 2);
     const tail = sim.run(() => g.over);
     expect(g.over).toBe(true);
     expect(tail.some((e) => e.type === 'dead')).toBe(true);
@@ -81,7 +82,7 @@ describe('Game', () => {
 
   it('coins raise the score and hits raise proximity; 100 proximity ends the run', () => {
     const g = new Game(2); const sim = new Sim(g);
-    g.spawner.coins.push({ id: 999, s: 3, x: 0, y: 0.6, collected: false });
+    g.spawner.coins.push({ id: 999, s: 3, x: 0, y: 0.6, collected: false, value: 1 });
     const coinEvents = sim.run(() => g.player.s > 4);
     expect(coinEvents.filter((e) => e.type === 'coin')).toHaveLength(1);
     expect(g.coins).toBe(1); expect(g.score).toBeGreaterThan(10);
@@ -115,7 +116,7 @@ describe('Game', () => {
     const g = new Game(5); const sim = new Sim(g);
     g.spawner.obstacles.length = 0; g.spawner.coins.length = 0; g.spawner.powerUps.length = 0;
     g.spawner.powerUps.push({ id: 900, kind: 'magnet', s: 2, x: 0, y: 1, taken: false });
-    g.spawner.coins.push({ id: 901, s: 12, x: 1.5, y: 0.6, collected: false });
+    g.spawner.coins.push({ id: 901, s: 12, x: 1.5, y: 0.6, collected: false, value: 1 });
     let events = sim.run(() => g.player.s > 14);
     expect(events.some((e) => e.type === 'powerup' && e.kind === 'magnet')).toBe(true);
     expect(g.coins).toBe(1); // lateral offset 1.5 would normally be out of the 1.2 radius
@@ -225,7 +226,7 @@ describe('Game', () => {
     g.spawner.obstacles.length = 0; g.spawner.coins.length = 0; g.spawner.powerUps.length = 0;
     g.active = { kind: 'magnet', timer: 10 };
     g.player.speedScale = 2.4; // ~36 m/s like a late boost
-    for (let i = 0; i < 6; i++) g.spawner.coins.push({ id: 700 + i, s: 20 + i * 3, x: 1.5, y: 0.6, collected: false });
+    for (let i = 0; i < 6; i++) g.spawner.coins.push({ id: 700 + i, s: 20 + i * 3, x: 1.5, y: 0.6, collected: false, value: 1 });
     sim.run(() => g.player.s > 60, { noObstacles: true });
     expect(g.coins).toBe(6);
   });

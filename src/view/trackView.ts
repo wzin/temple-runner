@@ -3,7 +3,7 @@ import type { Game } from '../core/game';
 import { Segment, TRACK_HALF_WIDTH, Track } from '../core/track';
 import { STUB_LENGTH } from './floorView';
 import { activeBiome } from './biome';
-import { pbrMaterial, textures } from './textures';
+import { pbrMaterial, remoteSet, textures } from './textures';
 import { disposeGroup, faceHeading } from './util';
 
 const WALL_HEIGHT = 2;
@@ -11,6 +11,8 @@ const WALL_THICKNESS = 0.5;
 
 // Textures are created lazily because the canvas needs a DOM; materials are shared by all segments.
 let wallMaterial: THREE.MeshStandardMaterial;
+let wallVariants: THREE.MeshStandardMaterial[] = [];
+const segHash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const TEXTURE_METRES = 2; // one texture tile covers 2 m of track
 
 const groups = new Map<number, THREE.Group>();
@@ -46,6 +48,9 @@ export function initTrackView(scene: THREE.Scene): void {
   root = scene;
   const tex = textures();
   wallMaterial = pbrMaterial(tex.wall, { color: activeBiome().wallTint });
+  // Wall looks alternate per segment: Inca masonry, vine-covered, carved warriors, wet moss.
+  const mk = (folder: string, tint: number) => { const m = remoteSet(folder, 0x8a8088, 1); return pbrMaterial(m, { color: tint }); };
+  wallVariants = [wallMaterial, mk('wall-vines', 0xd8dcd0), mk('wall-carved', 0xe0d8c8), mk('wall-mossy', 0xc8d8c0)];
   // The totem is a 0.9 × 3.4 m pole: stack the carved face texture instead of stretching it.
   for (const t of [tex.totem.map, tex.totem.normalMap, tex.totem.roughnessMap]) t.repeat.set(1, 3.5);
   totemMat = pbrMaterial(tex.totem, { color: 0xffffff });
@@ -97,15 +102,21 @@ export function resetTrackView(): void {
 }
 
 /** Walls covering the centre line from s0 to s1 (world placement from sample()); floors are instanced in floorView. */
+function wallFor(seg: Segment): THREE.MeshStandardMaterial {
+  const r = segHash(seg.id, 77);
+  return r < 0.45 ? wallVariants[0] : r < 0.7 ? wallVariants[1] : r < 0.85 ? wallVariants[2] : wallVariants[3];
+}
+
 function addStraightPiece(group: THREE.Group, track: Track, seg: Segment, s0: number, s1: number, x: number, overhang: number, walls: { left: boolean; right: boolean }): void {
   const length = s1 - s0 + overhang;
+  const wallMat = wallVariants.length ? wallFor(seg) : wallMaterial;
   const mid = track.sampleSegment(seg, (s0 + s1) / 2, x);
   const dir = mid.dir;
 
   for (const side of [-1, 1] as const) {
     if ((side === -1 && !walls.left) || (side === 1 && !walls.right)) continue;
     const wallSample = track.sampleSegment(seg, (s0 + s1) / 2, side * (TRACK_HALF_WIDTH + WALL_THICKNESS / 2));
-    const wall = new THREE.Mesh(texturedBox(WALL_THICKNESS, WALL_HEIGHT, length), wallMaterial);
+    const wall = new THREE.Mesh(texturedBox(WALL_THICKNESS, WALL_HEIGHT, length), wallMat);
     wall.position.set(wallSample.x, WALL_HEIGHT / 2, wallSample.z);
     faceHeading(wall, dir);
     wall.castShadow = true;

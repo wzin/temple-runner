@@ -36,6 +36,9 @@ export function updateCliffs(game: Game): void {
   const track = game.track;
   const yMid = (GROUND_Y + -0.5) / 2;
   let n = 0;
+  // The embankment is missing where the floor is: a gap is a real break in the ridge.
+  const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
+  const holed = (s: number) => gaps.some((g) => s + SLAB / 2 > g.s0 + 1e-6 && s - SLAB / 2 < g.s1 - 1e-6);
   const put = (x: number, z: number, dir: { x: number; z: number }) => {
     if (n >= MAX) return;
     dummy.position.set(x, yMid, z); dummy.scale.setScalar(1); faceHeading(dummy, dir); dummy.updateMatrix();
@@ -44,7 +47,7 @@ export function updateCliffs(game: Game): void {
   for (const seg of track.allSegments()) {
     const s1 = seg.s0 + seg.length;
     if (seg.kind === 'straight') {
-      for (let s = seg.s0 + SLAB / 2; s < s1; s += SLAB) { const w = track.sampleSegment(seg, s); put(w.x, w.z, w.dir); }
+      for (let s = seg.s0 + SLAB / 2; s < s1; s += SLAB) { if (holed(s)) continue; const w = track.sampleSegment(seg, s); put(w.x, w.z, w.dir); }
       continue;
     }
     const corner = track.cornerOf(seg);

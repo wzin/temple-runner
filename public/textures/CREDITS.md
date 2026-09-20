@@ -7,7 +7,8 @@ luminance, `roughness.jpg`). Prompts are in the git history of the generating co
 | Folder | Used on |
 |--------|---------|
 | wall-inca | track walls |
-| floor-temple | floor slabs |
+| floor-path | floor slabs (irregular flagstones) |
+| floor-temple | alternative floor (glyph tiles), unused |
 | cliff-rock | embankment blocks |
 | totem | corner totems |
 | gold-glyph | corner marker plate |
@@ -30,3 +31,11 @@ PBR normal maps come from Marigold depth (fal-ai/imageutils/marigold-depth) wher
 Earlier CC0 sets from ambientCG (PavingStones070, Bricks075A, Bark012, Grass004) were
 used up to v0.4.1 and can be restored from git if wanted. If a set is missing at runtime
 the game falls back to its procedural texture (`src/view/textures.ts`).
+
+## Later batches (all generated, WebP)
+
+PBR: tunic, skin, fur, bronze, relief, rock, column, lava, log-end, coin, coin-big, skin-{runner,runner-f,guardian}-{face,front,back},
+portal, mosaic, cornice, iron, feather, monkey-face, water, floor-path (current floor), floor-broken, floor-mossy,
+wall-vines, wall-carved, wall-mossy, pillar, bridge-plank (unused yet), gold-trim, stone-steps (unused yet), jaguar-face.
+Sprites: fire, icon-*, fern, bush, ruins, soot, arrow, clouds, vines, canopy, roots, statue, idol (unused yet), banner, skull, palm, fog-wisp, temple-far.
+Art: menu-bg, og-image, sky.

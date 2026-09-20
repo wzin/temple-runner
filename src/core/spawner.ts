@@ -5,7 +5,7 @@ import { TRACK_HALF_WIDTH, Track } from './track';
 export type ObstacleKind = 'fire' | 'log' | 'branch' | 'gap';
 
 export interface Obstacle { id: number; kind: ObstacleKind; s0: number; s1: number; x0: number; x1: number; y0: number; y1: number; hit: boolean; passed: boolean }
-export interface Coin { id: number; s: number; x: number; y: number; collected: boolean }
+export interface Coin { id: number; s: number; x: number; y: number; collected: boolean; value: number }
 
 /** y ranges are chosen against the player: standing 0–1.8, sliding 0–0.9, jump apex 2.2. */
 export const OBSTACLES: Record<ObstacleKind, { depth: number; y0: number; y1: number; lane: boolean; fatal: boolean }> = {
@@ -139,7 +139,7 @@ export class Spawner {
         // Five coins arcing over the log; the middle one sits above the jump apex's reach only if you jump early.
         for (let i = 0; i < 5; i++) {
           const y = 0.6 + 1.7 * Math.sin((Math.PI * i) / 4);
-          this.coins.push({ id: this.nextId++, s: s + i * COIN_SPACING, x: lane, y, collected: false });
+          this.coins.push({ id: this.nextId++, s: s + i * COIN_SPACING, x: lane, y, collected: false, value: i === 2 ? 5 : 1 });
         }
         return;
       }
@@ -171,7 +171,9 @@ export class Spawner {
     for (const ob of this.obstacles) if (end >= ob.s0 - 1 && s <= ob.s1 + 1) return;
     for (let i = 0; i < n; i++) {
       const y = arc ? 0.6 + 1.6 * Math.sin((Math.PI * i) / (n - 1)) : 0.6;
-      this.coins.push({ id: this.nextId++, s: s + i * COIN_SPACING, x: lane, y, collected: false });
+      // The middle coin of a run is sometimes a big medallion worth five.
+      const value = i === Math.floor(n / 2) && chance(this.rng, 0.12) ? 5 : 1;
+      this.coins.push({ id: this.nextId++, s: s + i * COIN_SPACING, x: lane, y, collected: false, value });
     }
   }
 }

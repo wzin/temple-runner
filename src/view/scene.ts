@@ -17,6 +17,9 @@ export function initScene(): void {
   // directional light's shadow camera would only ever cover the start area, and the pass is expensive.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   renderer.shadowMap.enabled = false;
+  // Filmic tone mapping keeps light stone from blowing out under sun + torches + the runner's lamp.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
 
   // Ambient light
   const ambientLight = new THREE.AmbientLight(biome.light.ambient, biome.light.ambientIntensity);

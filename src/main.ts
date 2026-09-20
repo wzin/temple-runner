@@ -9,7 +9,9 @@ import { initCoinView, updateCoinView } from './view/coinView';
 import { initObstacleView, updateObstacleView } from './view/obstacleView';
 import { initPowerUpView, updatePowerUpView } from './view/powerUpView';
 import { initMonkeyView, updateMonkeyView } from './view/monkeyView';
-import { coinBurst, initParticles, updateParticles } from './view/particles';
+import { coinBurst, hitSparks, initParticles, landingDust, powerUpBurst, updateParticles } from './view/particles';
+import { initClouds, updateClouds } from './view/cloudView';
+import { SKINS, currentSkinId, setSkin } from './view/playerView';
 import { initFloorView, updateFloorView } from './view/floorView';
 import { initGround, updateGround } from './view/groundView';
 import { initCliffs, updateCliffs } from './view/cliffView';
@@ -21,7 +23,7 @@ import { tickFlames } from './view/flameMaterial';
 import { initSky, updateSky } from './view/skyView';
 import { initTrees, updateTrees } from './view/treeView';
 import { activeBiome } from './view/biome';
-import { loadRealTextures } from './view/textures';
+import { loadRealTextures, onAssetProgress, releaseAssets } from './view/textures';
 import { endFrame, initDomInput, onTurn, pollInput, setTouchControlsVisible, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD, showHighScoreBanner, hideHighScoreBanner } from './ui/HUD';
@@ -68,6 +70,7 @@ function init(): void {
   initDecals(scene);
   initProps(scene);
   initRuins(scene);
+  initClouds(scene);
   loadRealTextures();   // upgrades the procedural maps in place once the JPEGs arrive
   initPlayerView(scene);
   initCoinView(scene);
@@ -88,6 +91,7 @@ function init(): void {
   });
 
   initMainMenu(startGame);
+  initSkinPicker();
   initHUD(pauseGame);
   initPauseMenu(resumeGame, restartGame, quitToMenu);
   initGameOver(restartGame, quitToMenu);
@@ -102,6 +106,16 @@ function init(): void {
 
   lastTime = performance.now();
   requestAnimationFrame(loop);
+  // Everything that is not the immediate world starts loading after the first frame, a few files at a time.
+  requestAnimationFrame(() => releaseAssets());
+  const loading = document.getElementById('loading'); const count = document.getElementById('loading-count'); const fill = document.getElementById('loading-fill');
+  onAssetProgress((d, total) => {
+    if (!loading) return;
+    const finishedAll = d >= total;
+    loading.classList.toggle('hidden', finishedAll);
+    if (count) count.textContent = `${d}/${total}`;
+    if (fill) fill.style.width = `${total ? Math.round((d / total) * 100) : 100}%`;
+  });
 }
 
 function loop(now: number): void {
@@ -140,6 +154,7 @@ function loop(now: number): void {
   updateSky(camera);
   updateGround(camera);
   updateRuins(camera);
+  updateClouds(camera, now);
   renderer.render(scene, camera);
   endFrame();
 }
@@ -151,13 +166,13 @@ function handleEvents(events: GameEvent[]): void {
       case 'coin': playSound('coin'); coinBurst(game); break;
       case 'jump': playSound('jump'); break;
       case 'slide': playSound('slide'); break;
-      case 'land': playSound('land'); playerLanded(); cameraLand(); break;
-      case 'hit': playSound('stumble'); cameraHit(); break;
+      case 'land': playSound('land'); playerLanded(); cameraLand(); landingDust(game); break;
+      case 'hit': playSound('stumble'); cameraHit(); hitSparks(game); break;
       case 'shielded': playSound('powerup'); cameraHit(); break;
       case 'fall': playSound('stumble'); cameraHit(); break;
       case 'dead': playSound('gameOver'); break;
       case 'turn': cameraTurn(e.dir); break;
-      case 'powerup': playSound('powerup'); break;
+      case 'powerup': playSound('powerup'); powerUpBurst(game, e.kind === 'magnet' ? [0.3, 0.5, 1] : e.kind === 'shield' ? [0.4, 0.9, 1] : [1, 0.6, 0.2]); break;
       case 'powerupEnd': break;
     }
   }
@@ -180,6 +195,23 @@ function updateHint(now: number): void {
   }
   if (text) { if (el.textContent !== text) el.textContent = text; el.classList.remove('hidden'); }
   else el.classList.add('hidden');
+}
+
+/** Skin buttons on the main menu. */
+function initSkinPicker(): void {
+  const box = document.getElementById('skin-picker');
+  if (!box) return;
+  const render = () => {
+    box.innerHTML = '';
+    for (const sk of SKINS) {
+      const b = document.createElement('button');
+      b.className = 'skin-btn' + (sk.id === currentSkinId() ? ' active' : '');
+      b.textContent = sk.name;
+      b.addEventListener('click', () => { setSkin(sk.id); playSound('click'); render(); });
+      box.appendChild(b);
+    }
+  };
+  render();
 }
 
 function syncState(): void {

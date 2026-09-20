@@ -52,13 +52,17 @@ class Pool {
 
 let embers: Pool;
 let sparks: Pool;
+let dust: Pool;
 let seed = 7;
 const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
 
 export function initParticles(scene: THREE.Scene): void {
   embers = new Pool(0.28, 0.6);
   sparks = new Pool(0.16, -9);
-  scene.add(embers.points, sparks.points);
+  dust = new Pool(0.45, 0.4);
+  (dust.points.material as THREE.PointsMaterial).blending = THREE.NormalBlending;
+  (dust.points.material as THREE.PointsMaterial).opacity = 0.45;
+  scene.add(embers.points, sparks.points, dust.points);
 }
 
 /** Gold burst where a coin was picked up. */
@@ -68,6 +72,36 @@ export function coinBurst(game: Game): void {
   for (let i = 0; i < 14; i++) {
     const a = rnd() * Math.PI * 2; const sp = 1.5 + rnd() * 2.5;
     sparks.emit(w.x, w.y, w.z, Math.cos(a) * sp, 2 + rnd() * 3, Math.sin(a) * sp, 0.35 + rnd() * 0.3, 1.0, 0.85, 0.3);
+  }
+}
+
+/** Grey-brown puff at the feet when landing. */
+export function landingDust(game: Game): void {
+  const p = game.player;
+  const w = game.track.sample(p.s, p.x, 0.1);
+  for (let i = 0; i < 18; i++) {
+    const a = rnd() * Math.PI * 2; const sp = 0.8 + rnd() * 1.6;
+    dust.emit(w.x, w.y, w.z, Math.cos(a) * sp, 0.3 + rnd() * 0.6, Math.sin(a) * sp, 0.4 + rnd() * 0.4, 0.55, 0.5, 0.42);
+  }
+}
+
+/** Orange sparks when the runner hits something. */
+export function hitSparks(game: Game): void {
+  const p = game.player;
+  const w = game.track.sample(p.s, p.x, p.y + 1.0);
+  for (let i = 0; i < 20; i++) {
+    const a = rnd() * Math.PI * 2; const sp = 2 + rnd() * 3;
+    sparks.emit(w.x, w.y, w.z, Math.cos(a) * sp, 1 + rnd() * 4, Math.sin(a) * sp, 0.3 + rnd() * 0.3, 1.0, 0.5, 0.15);
+  }
+}
+
+/** Coloured sparkle ring when a power-up is picked up. */
+export function powerUpBurst(game: Game, rgb: [number, number, number]): void {
+  const p = game.player;
+  const w = game.track.sample(p.s, p.x, p.y + 1.0);
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2; const sp = 3 + rnd() * 2;
+    sparks.emit(w.x, w.y, w.z, Math.cos(a) * sp, 2 + rnd() * 2, Math.sin(a) * sp, 0.5 + rnd() * 0.3, rgb[0], rgb[1], rgb[2]);
   }
 }
 
@@ -86,4 +120,5 @@ export function updateParticles(game: Game, dt: number): void {
   }
   embers.update(dt);
   sparks.update(dt);
+  dust.update(dt);
 }

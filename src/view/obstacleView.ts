@@ -3,6 +3,7 @@ import type { Game } from '../core/game';
 import { OBSTACLES, ObstacleKind } from '../core/spawner';
 import { flameMaterial } from './flameMaterial';
 import { pbrMaterial, remoteSet, sprite, textures } from './textures';
+import { GROUND_Y } from './groundView';
 import { faceHeading } from './util';
 
 /**
@@ -14,7 +15,6 @@ import { faceHeading } from './util';
  */
 
 const MAX = 64;
-const PIT_DEPTH = 8;
 const GAP_WIDTH = 6.2;
 const dummy = new THREE.Object3D();
 
@@ -22,6 +22,8 @@ let fireA: THREE.InstancedMesh; let fireB: THREE.InstancedMesh; let fireC: THREE
 let logs: THREE.InstancedMesh;
 let branches: THREE.InstancedMesh; let puffs: THREE.InstancedMesh;
 let pits: THREE.InstancedMesh;
+let waterPits: THREE.InstancedMesh;
+let waterMaps: ReturnType<typeof remoteSet>;
 let gapRims: THREE.InstancedMesh;
 let gapVeils: THREE.InstancedMesh;
 
@@ -49,12 +51,14 @@ export function initObstacleView(scene: THREE.Scene): void {
   puffs = add(new THREE.InstancedMesh(new THREE.SphereGeometry(0.9, 10, 8), pbrMaterial(tex.leaves, { color: 0xd0e0c0 }), MAX * 3));
   void brSpec;
 
-  // Pit: BoxGeometry groups [+x, -x, +y, -y, +z, -z]; back faces only, so the camera looks into it.
-  const stone = pbrMaterial(tex.cliff, { color: 0x4a4a52, side: THREE.BackSide });
+  // A gap is a real break in the embankment (floor and cliff blocks are skipped there). Far below, on
+  // the ground, a pool of lava or a river bend marks where you would land.
   const lavaSet = remoteSet('lava', 0xff5a10);
-  const lava = pbrMaterial(lavaSet, { color: 0xffffff, emissive: 0xff6a20, emissiveIntensity: 1.2, side: THREE.BackSide });
-  const none = new THREE.MeshBasicMaterial({ visible: false });
-  pits = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, PIT_DEPTH, OBSTACLES.gap.depth), [stone, stone, none, lava, stone, stone], MAX));
+  const lava = pbrMaterial(lavaSet, { color: 0xffffff, emissive: 0xff6a20, emissiveIntensity: 1.2 });
+  pits = add(new THREE.InstancedMesh(new THREE.PlaneGeometry(GAP_WIDTH + 6, OBSTACLES.gap.depth + 10).rotateX(-Math.PI / 2), lava, MAX));
+  waterMaps = remoteSet('water', 0x1a3a4a);
+  const water = pbrMaterial(waterMaps, { color: 0x9ac0d0, emissive: 0x0a2030, emissiveIntensity: 0.4, metalness: 0.6, roughness: 0.15 });
+  waterPits = add(new THREE.InstancedMesh(new THREE.PlaneGeometry(GAP_WIDTH + 6, OBSTACLES.gap.depth + 10).rotateX(-Math.PI / 2), water, MAX));
 
   const rimMaterial = new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffb000, emissiveIntensity: 1.4 });
   gapRims = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.16, 0.3), rimMaterial, MAX * 2));
@@ -63,7 +67,8 @@ export function initObstacleView(scene: THREE.Scene): void {
 }
 
 export function updateObstacleView(game: Game, timeMs: number): void {
-  let nFire = 0; let nLog = 0; let nBranch = 0; let nPuff = 0; let nPit = 0; let rims = 0; let veils = 0;
+  let nFire = 0; let nLog = 0; let nBranch = 0; let nPuff = 0; let nPit = 0; let nWater = 0; let rims = 0; let veils = 0;
+  waterMaps.map.offset.set(timeMs * 0.00002, timeMs * 0.00003);
   const track = game.track;
   for (const o of game.spawner.obstacles) {
     const midS = (o.s0 + o.s1) / 2; const midX = (o.x0 + o.x1) / 2;
@@ -102,8 +107,10 @@ export function updateObstacleView(game: Game, timeMs: number): void {
           break;
         }
         case 'gap': {
-          if (nPit < MAX) {
-            dummy.position.set(p.x, -0.5 - PIT_DEPTH / 2, p.z); faceHeading(dummy, p.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+          if ((o.id * 2654435761) % 5 < 2) {      // ~40% of gaps are river crossings
+            if (nWater < MAX) { dummy.position.set(p.x, GROUND_Y + 0.08, p.z); faceHeading(dummy, p.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); waterPits.setMatrixAt(nWater++, dummy.matrix); }
+          } else if (nPit < MAX) {
+            dummy.position.set(p.x, GROUND_Y + 0.08, p.z); faceHeading(dummy, p.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
             pits.setMatrixAt(nPit++, dummy.matrix);
           }
           if (game.invulnerable && veils < MAX) {
@@ -124,7 +131,7 @@ export function updateObstacleView(game: Game, timeMs: number): void {
     }
   }
   const flush = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; };
-  flush(fireA, nFire); flush(fireB, nFire); flush(fireC, nFire); flush(logs, nLog); flush(branches, nBranch); flush(puffs, nPuff); flush(pits, nPit); flush(gapRims, rims); flush(gapVeils, veils);
+  flush(fireA, nFire); flush(fireB, nFire); flush(fireC, nFire); flush(logs, nLog); flush(branches, nBranch); flush(puffs, nPuff); flush(pits, nPit); flush(waterPits, nWater); flush(gapRims, rims); flush(gapVeils, veils);
 }
 
 export const OBSTACLE_KINDS: ObstacleKind[] = ['fire', 'log', 'branch', 'gap'];

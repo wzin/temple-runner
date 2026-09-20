@@ -25,10 +25,10 @@ describe('sweepObstacles', () => {
 
 describe('pickCoins', () => {
   it('collects within radius once', () => {
-    const c: Coin = { id: 1, s: 5, x: 0, y: 0.6, collected: false };
+    const c: Coin = { id: 1, s: 5, x: 0, y: 0.6, collected: false, value: 1 };
     expect(pickCoins([c], 5.5, 0.3, 0, 1.2)).toEqual([c]);
     expect(pickCoins([c], 5.5, 0.3, 0, 1.2)).toEqual([]);
-    const far: Coin = { id: 2, s: 5, x: 0, y: 2.2, collected: false };
+    const far: Coin = { id: 2, s: 5, x: 0, y: 2.2, collected: false, value: 1 };
     expect(pickCoins([far], 5, 0, 0, 1.2)).toEqual([]);
   });
 });
