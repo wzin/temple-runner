@@ -12,3 +12,5 @@ released under CC0 1.0 (public domain). Downscaled to 1024² JPEG.
 
 Files per set: `color.jpg`, `normal.jpg` (OpenGL convention), `roughness.jpg`.
 If a set is missing the game falls back to its procedural texture (`src/view/textures.ts`).
+
+| leaves | generated with fal.ai (Flux dev) via `scripts/gen-texture.mjs`, post-processed to a seamless PBR set |

@@ -5,3 +5,6 @@ docs
 *.md
 .claude
 .superpowers
+.api_keys
+.env
+.env.*

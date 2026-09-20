@@ -21,9 +21,12 @@ describe('Spawner', () => {
       if (sorted[i].s0 - groupStart > 12) { expect(dist).toBeGreaterThanOrEqual(15); groupStart = sorted[i].s0; }
     }
   });
-  it('keeps obstacles and coins away from turn windows', () => {
+  it('keeps obstacles and coins away from turn windows, with a time-based margin after corners', () => {
     const { sp, track } = build(12);
-    for (const o of sp.obstacles) expect(track.nearTurnWindow(o.s0, 10)).toBe(false);
+    for (const o of sp.obstacles) {
+      expect(track.nearTurnWindow(o.s0, 10)).toBe(false);
+      for (const w of track.turnWindows()) if (o.s0 > w.corner) expect(o.s0 - w.corner).toBeGreaterThanOrEqual(1.2 * 15 - 1e-6);
+    }
     for (const c of sp.coins) expect(track.nearTurnWindow(c.s, 2)).toBe(false);
   });
   it('ground coins do not overlap obstacles (arcs over logs may)', () => {

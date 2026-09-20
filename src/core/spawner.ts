@@ -38,10 +38,12 @@ export interface SpawnerOptions {
   coinChance: number;
   powerUpChance: number;
   firstPowerUpAt: number;
+  /** Seconds of running after a corner before the first obstacle may appear. */
+  afterCornerSeconds: number;
   tuning: (s: number) => SpawnTuning;
 }
 const DEFAULTS: SpawnerOptions = {
-  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.55, powerUpChance: 0.08, firstPowerUpAt: 120,
+  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.55, powerUpChance: 0.08, firstPowerUpAt: 120, afterCornerSeconds: 1.2,
   tuning: () => ({ obstacleChance: 0.45, obstacleSpacing: 25, speed: 15 }),
 };
 
@@ -75,7 +77,10 @@ export class Spawner {
     const pattern = this.choosePattern(s);
     const len = this.patternLength(pattern, t.speed);
     // The whole pattern span must stay clear of every turn window (long patterns can straddle a segment).
-    const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.to + o.turnMargin >= s && w.from - o.turnMargin <= s + len);
+    // After a corner the margin is time-based: the outgoing leg is hidden behind the corner wall until
+    // the runner has turned, so the first obstacle must be at least `afterCorner` seconds of running away.
+    const afterCorner = o.afterCornerSeconds * t.speed;
+    const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.corner + afterCorner >= s && w.from - o.turnMargin <= s + len);
     const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
     if (canObstacle && chance(this.rng, t.obstacleChance)) { this.layPattern(pattern, s, t.speed); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }

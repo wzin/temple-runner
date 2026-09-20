@@ -49,6 +49,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/torchView.ts` | wall torches as four instanced meshes (handle, bowl, flame, glow), rebuilt per frame |
 | `src/view/trackView.ts` props | a totem with glowing eyes at every corner / fork far wall; walls per segment |
 | `src/view/particles.ts` | pooled additive point sprites: embers over fire obstacles, gold sparks on coin pickup |
+| `scripts/gen-texture.mjs` | fal.ai (Flux) texture generator: prompt → seamless color/normal/roughness set in `public/textures/<name>/`; key from `FAL_KEY` or `.api_keys` (gitignored) |
 | `src/view/textures.ts` | procedural PBR sets baked at startup as the fallback; `loadRealTextures()` swaps in `public/textures/<set>/{color,normal,roughness}.jpg` (CC0 from ambientCG, see `public/textures/CREDITS.md`) in place when present |
 | `src/ui/domInput.ts` | keyboard → `TickInput`; turn presses go straight to `game.pressTurn` with the real press time |
 | `src/ui/GameOver.ts`, `src/ui/leaderboard.ts` | arcade name entry (Enter saves, Space restarts afterwards), top-10 board from `/api/scores` |
@@ -70,7 +71,9 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
   spacing 25 → 16 m with difficulty, never within 10 m of a turn window.
 - Patterns (`PATTERNS`): single, logWithArc (≥100 m), twoLaneFire (≥200 m), gapThenBranch (≥400 m), laneFireRow (≥600 m).
 - Power-ups appear from 120 m, 8% per 12 m chunk, one live at a time. Boost and a 0.6 s grace after it make the runner invulnerable: collisions skipped, corners taken automatically, presses ignored.
-- Lookahead is time-based: `12 s × speed`, clamped 150–300 m (`game.lookahead`); the fog's near/far are fractions (0.18/0.85) of it, so the generated end is always hidden.
+- The generator never crosses itself: every candidate segment is tested against laid corridors (main path and both branches) padded 8 m sideways; the chooser ranks free candidates by how far the track can still go (search depth 5), then open space ahead, then the wanted shape. A fork whose speculative branch gets boxed in collapses into a plain corner towards the other branch. Stress tests simulate real runs with drop-behind and fork resolution.
+- Obstacles keep `1.2 s × speed` clear after every corner (the outgoing leg is hidden behind the corner wall until you turn).
+- Lookahead is time-based: `12 s × speed`, clamped 150–300 m (`game.lookahead`); the fog's near/far are fractions (0.12/0.62) of it, so the generated end is always hidden.
 - Difficulty ramps to 1500 m; the turn window is `0.4 s × speed` before the corner, so reaction time stays constant. Obstacle spacing is also time-based (1.7 s → 1.05 s of running), and patterns that chain a jump with a slide place the second obstacle beyond the landing point (`JUMP_AIRTIME × speed + 4 m`).
 - Resume from pause runs a 3-2-1 countdown; beating the stored high score flashes a banner once per run; during boost the runner turns ghostly with an aura and gaps show a translucent veil.
 - High score persists in `localStorage['temple-runner.highScore']`; Space/Enter restarts from the menu or game-over screen. The menu shows the top five from the API.

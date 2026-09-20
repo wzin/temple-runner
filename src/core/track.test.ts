@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from './rng';
-import { SEGMENT_LENGTH, TURN_EARLY, TURN_LATE, Track, rightOf, turnLeft, turnRight } from './track';
+import { SEGMENT_LENGTH, Segment, TURN_EARLY, TURN_LATE, Track, rightOf, turnLeft, turnRight } from './track';
 
 const close = (a: number, b: number) => Math.abs(a - b) < 1e-6;
 
@@ -19,10 +19,13 @@ describe('Track generation', () => {
     t.extendTo(2000);
     const kinds = t.segments.map((s) => s.kind);
     expect(kinds.slice(0, 3)).toEqual(['straight', 'straight', 'straight']);
+    // Collision avoidance may occasionally force a turn early; it must stay rare.
+    let turns = 0; let early = 0;
     for (let i = 0; i < kinds.length - 2; i++) {
-      if (kinds[i] === 'turn') { expect(kinds[i + 1]).toBe('straight'); expect(kinds[i + 2]).toBe('straight'); }
+      if (kinds[i] === 'turn') { turns++; if (kinds[i + 1] !== 'straight' || kinds[i + 2] !== 'straight') early++; }
     }
-    expect(kinds).toContain('turn');
+    expect(turns).toBeGreaterThan(5);
+    expect(early / turns).toBeLessThan(0.1);
   });
   it('segments are contiguous in s and space', () => {
     const t = new Track(mulberry32(5), { turnChance: 0.5 });
@@ -142,5 +145,83 @@ describe('fork branches are pre-generated', () => {
     }
     const more = t.extendTo(t.end() + 60);
     expect(more.length).toBeGreaterThan(0);
+  });
+});
+
+describe('the track never runs into itself', () => {
+  type R = { chain: string; idx: number; minX: number; maxX: number; minZ: number; maxZ: number };
+  /** Corridor rectangles (true width) of every laid segment piece, tagged with chain and position in it. */
+  function rects(t: Track): R[] {
+    const out: R[] = [];
+    const chains: [string, Segment[]][] = [['main', t.segments]];
+    if (t.branches) chains.push(['left', t.branches.left.segments], ['right', t.branches.right.segments]);
+    for (const [chain, segs] of chains) {
+      segs.forEach((seg, idx) => {
+        const pieces: [number, number][] = seg.kind === 'turn' ? [[seg.s0, seg.s0 + seg.runIn], [seg.s0 + seg.runIn, seg.s0 + seg.length]] : [[seg.s0, seg.s0 + seg.length]];
+        if (seg.fork && !seg.resolved) pieces.pop();
+        for (const [a, b] of pieces) {
+          const p = t.sampleSegment(seg, a + 1e-6); const q = t.sampleSegment(seg, b - 1e-6);
+          out.push({ chain, idx, minX: Math.min(p.x, q.x) - 3, maxX: Math.max(p.x, q.x) + 3, minZ: Math.min(p.z, q.z) - 3, maxZ: Math.max(p.z, q.z) + 3 });
+        }
+      });
+    }
+    return out;
+  }
+  const overlap = (p: R, q: R, shrink: number) =>
+    p.minX + shrink < q.maxX - shrink && q.minX + shrink < p.maxX - shrink && p.minZ + shrink < q.maxZ - shrink && q.minZ + shrink < p.maxZ - shrink;
+  /** Same segment, neighbours in one chain, or a branch's first segment against the fork (last main segment). */
+  const adjacent = (a: R, b: R, mainLen: number) => {
+    if (a.chain === b.chain) return Math.abs(a.idx - b.idx) <= 1;
+    const [m, o] = a.chain === 'main' ? [a, b] : b.chain === 'main' ? [b, a] : [null, null];
+    if (!m || !o) return false;
+    return m.idx === mainLen - 1 && o.idx === 0;
+  };
+  function check(t: Track, label: string) {
+    const rs = rects(t);
+    for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+      if (adjacent(rs[i], rs[j], t.segments.length)) continue;
+      expect(overlap(rs[i], rs[j], 0.5), `${label}: ${rs[i].chain}#${rs[i].idx} vs ${rs[j].chain}#${rs[j].idx}`).toBe(false);
+    }
+  }
+
+  it('frequent turns, one straight between them, many seeds: corridors never overlap', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const t = new Track(mulberry32(seed), { turnChance: 1, straightsAfterTurn: 1, forkChance: 0 });
+      t.extendTo(1500);
+      check(t, `seed ${seed}`);
+    }
+  });
+
+  it('game-like run over 3 km (300 m ahead, 40 m kept behind): kept corridors never overlap', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const t = new Track(mulberry32(seed), { turnChance: 0.5, forkChance: 0 });
+      for (let s = 0; s <= 3000; s += 20) {
+        t.extendTo(s + 300);
+        t.dropBehind(s - 40);
+        check(t, `seed ${seed} at s=${s}`);
+      }
+    }
+  });
+
+  it('the same run with forks resolved as they come', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const t = new Track(mulberry32(seed), { turnChance: 0.5, forkChance: 0.5, forkMinS: 100 });
+      const rng = mulberry32(seed + 1000);
+      for (let s = 0; s <= 2000; s += 20) {
+        t.extendTo(s + 300);
+        const fork = t.pendingFork();
+        if (fork && t.cornerOf(fork) < s + 30) t.resolveFork(fork, rng() < 0.5 ? 'left' : 'right');
+        t.dropBehind(s - 40);
+        check(t, `seed ${seed} at s=${s}`);
+      }
+    }
+  });
+
+  it('holds with forks and their pre-generated branches', () => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const t = new Track(mulberry32(seed), { turnChance: 0.6, forkChance: 0.6, forkMinS: 0 });
+      t.extendTo(900);
+      check(t, `seed ${seed}`);
+    }
   });
 });

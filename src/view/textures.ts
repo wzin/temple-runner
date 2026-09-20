@@ -225,7 +225,7 @@ export function textures(): TextureSet {
  */
 export function loadRealTextures(): void {
   const loader = new THREE.TextureLoader();
-  const sets: [keyof TextureSet, string][] = [['floor', 'floor'], ['wall', 'wall'], ['bark', 'bark'], ['ground', 'ground']];
+  const sets: [keyof TextureSet, string][] = [['floor', 'floor'], ['wall', 'wall'], ['bark', 'bark'], ['ground', 'ground'], ['leaves', 'leaves']];
   for (const [key, folder] of sets) {
     const maps = textures()[key];
     const swap = (target: THREE.CanvasTexture, file: string) => {
