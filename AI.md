@@ -81,12 +81,12 @@ airtime, 2.2 m apex), slide 0.7 s (height 0.9), stumble slows 0.6× for 0.5 s, f
 
 **Spawner** (`spawner.ts`): 12 m chunks; obstacle chance 0.45 → 0.7; spacing is time-based (1.7 s → 1.05 s of running);
 nothing within `1.2 s × speed` before or after a corner (`afterCornerSeconds`) and whole patterns stay clear of turn
-windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log (y 1.0–1.6, slide/jump), branch (y
-1.0–2.6, slide), gap (4 m = two slabs, fatal, jump). Patterns unlock with distance: logWithArc 100 m, twoLaneFire
+windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log (y 1.0–1.6, slide/jump; drawn as a dead tree that topples off a wall 62 → 34 m ahead and drops to chest height), branch (y
+1.0–2.6, slide; drawn as the stone gate), gap (4 m = two slabs, fatal, jump; twice the weight of the other singles). Patterns unlock with distance: logWithArc 100 m, twoLaneFire
 200 m, gapThenBranch 400 m (branch placed at `gap + 0.77 s × speed + 4 m`), laneFireRow 600 m. Coins in runs of 5–8
 (some arcs), `value` 1 or 5 (big medallion). Power-ups from 120 m, 8%/chunk, one live: magnet 10 s (pull
 `max(20, 1.8 × speed)` m/s), shield (one stumble), boost 5 s (×1.6, invulnerable, auto-turns) + 0.6 s grace.
-Proximity meter +25 per hit, −2/s, 100 = caught; boost resets it and hides the monkeys.
+Proximity meter +25 per hit, −2/s, 100 = caught; boost resets it and hides the cats. **Coin energy**: each coin value adds 2.5 to `game.energy` (40 coin-points fill it, not while boosting); at 100 the `energyFull` event fires and `pressBoost()` (E / Enter / Shift / B, tapping the HUD bar or the pad's ⚡) spends it on a normal 5 s boost.
 
 **Lookahead:** `game.lookahead = clamp(12 s × speed, 150, 300)` m; fog near/far are 6%/40% of it (biome fractions; thickened on request so the scattered world reads as one haze).
 
@@ -132,8 +132,10 @@ keep rendering a single colour (the "flat textures" bug of v0.5–0.6). `pbrMate
 HUD (score, coins, proximity bar, power-up indicator, NEW HIGH SCORE banner, coach hints), main menu (skin picker,
 hall of fame top 5, loading bar, key help), pause (ESC, big pause button), resume = 3-2-1 countdown, game over =
 arcade name entry (remembered nick as placeholder, Enter saves, then Space/Enter restarts) + top 10 with your rank.
-Keys: A/D and ←/→ = hold to drift, tap to turn; W/↑/Space jump; S/↓ slide. Touch (`domInput.ts`): arrow panel only
-during a run, raised `12dvh + safe-area` above browser bars; swipes on the canvas; text selection/callouts/scroll
+Keys: A/D and ←/→ = hold to drift, tap to turn; W/↑/Space jump; S/↓ slide; E/Enter/Shift/B boost. Touch (`domInput.ts`): **swipe anywhere**
+(recognised after 24 px of movement; touches starting within 28 px of the screen edges are ignored because that band belongs to browser
+back/forward and system gestures) plus a one-thumb pad: a diamond of four buttons with ⚡ in the centre in one bottom corner, side
+swappable (⇄) and switchable off in the pause menu (`temple-runner.pad` in localStorage); text selection/callouts/scroll
 blocked (fixed Siri/selection popups and hijacked swipes on iOS/Android). Hints: controls line for 4.5 s at start,
 "TAP ◄ ► / SWIPE TO TURN" before the first corner until the first turn.
 
@@ -186,6 +188,7 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
+0.9.1 three cats · 0.10.0 one-thumb pad + swipe anywhere, falling-tree log, coin energy boost, smaller cats, more gaps/details ·
 0.9.0 feedback round: arches out, root sprite out, textured Quaternius nature library replaces Kenney trees, three cats chase, golden idol at forks, 8 floor looks, thicker fog + mist patches, doubled props/coins/crests, bigger runner, aligned hall of fame.
 
 ## 11. Next candidates

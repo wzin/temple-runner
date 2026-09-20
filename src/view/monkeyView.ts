@@ -18,9 +18,9 @@ const SPREAD = 1.7;
 interface Beast { group: THREE.Group; mixer: THREE.AnimationMixer | null; run?: THREE.AnimationAction; attack?: THREE.AnimationAction; runDuration: number; attackUntil: number }
 interface Spec { file: string; height: number; run: string; attack: string; lane: number; tint?: number }
 const SPECS: Spec[] = [
-  { file: 'wolf', height: 1.35, run: 'Gallop', attack: 'Attack', lane: -1 },
-  { file: 'wolf', height: 1.5, run: 'Gallop', attack: 'Attack', lane: 0, tint: 0x1a1a1e },
-  { file: 'wolf', height: 1.35, run: 'Gallop', attack: 'Attack', lane: 1, tint: 0x6a5238 },
+  { file: 'wolf', height: 1.0, run: 'Gallop', attack: 'Attack', lane: -1 },
+  { file: 'wolf', height: 1.1, run: 'Gallop', attack: 'Attack', lane: 0, tint: 0x1a1a1e },
+  { file: 'wolf', height: 1.0, run: 'Gallop', attack: 'Attack', lane: 1, tint: 0x6a5238 },
 ];
 const beasts: Beast[] = [];
 let lastMs = 0;

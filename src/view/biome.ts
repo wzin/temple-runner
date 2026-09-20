@@ -30,7 +30,7 @@ export const BIOMES: Record<string, Biome> = {
       mountains: { color: '#4a3c62', height: 0.08, layers: 2 },
     },
     // near/far are fractions of the game's lookahead distance (see scene.ts updateFog).
-    fog: { color: 0x8a7898, near: 0.06, far: 0.4 },
+    fog: { color: 0x8a7898, near: 0.08, far: 0.46 },
     light: { sun: 0xffe2b0, sunIntensity: 2.6, ambient: 0x9aa4c4, ambientIntensity: 0.9 },
     floorTint: 0xcfcac2,
     wallTint: 0xe0dcd8,

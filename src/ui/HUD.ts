@@ -6,6 +6,8 @@ let scoreElement: HTMLElement | null = null;
 let coinsElement: HTMLElement | null = null;
 let proximityBar: HTMLElement | null = null;
 let powerUpIndicator: HTMLElement | null = null;
+let energyBar: HTMLElement | null = null;
+let energyLabel: HTMLElement | null = null;
 let pauseButton: HTMLButtonElement | null = null;
 let onPauseCallback: (() => void) | null = null;
 
@@ -15,6 +17,8 @@ export function initHUD(onPause: () => void): void {
   coinsElement = document.getElementById('coins');
   proximityBar = document.getElementById('proximity-bar');
   powerUpIndicator = document.getElementById('powerup-indicator');
+  energyBar = document.getElementById('energy-bar');
+  energyLabel = document.getElementById('energy-label');
   pauseButton = document.getElementById('pause-btn') as HTMLButtonElement;
   onPauseCallback = onPause;
 
@@ -50,6 +54,14 @@ export function updateHUD(): void {
     }
   }
 
+  if (energyBar) {
+    energyBar.style.width = `${gameState.energy}%`;
+    const full = gameState.energy >= 100;
+    energyBar.parentElement?.classList.toggle('full', full);
+    document.getElementById('pad-boost')?.classList.toggle('ready', full);
+    if (energyLabel) energyLabel.textContent = full ? (isTouch() ? 'TAP FOR BOOST' : 'BOOST READY · E') : 'BOOST';
+  }
+
   if (powerUpIndicator) {
     if (gameState.activePowerUp) {
       powerUpIndicator.classList.add('active');
@@ -65,6 +77,8 @@ export function updateHUD(): void {
     }
   }
 }
+
+const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
 
 let bannerTimer: ReturnType<typeof setTimeout> | null = null;
 

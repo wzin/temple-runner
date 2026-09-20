@@ -121,7 +121,8 @@ export class Spawner {
   private layPattern(pattern: PatternKind, s: number, speed: number): void {
     switch (pattern) {
       case 'single': {
-        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap'] as const);
+        // Gaps twice as likely as the others: holes in the road are the signature hazard.
+        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap'] as const);
         this.place(kind, s, null);
         return;
       }

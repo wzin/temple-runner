@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
 import { OBSTACLES, ObstacleKind } from '../core/spawner';
+import { TRACK_HALF_WIDTH } from '../core/track';
 import { flameMaterial } from './flameMaterial';
 import { pbrMaterial, remoteSet, textures } from './textures';
 import { GROUND_Y } from './groundView';
@@ -11,7 +12,9 @@ import { faceHeading } from './util';
  *  fire   – a bonfire: bed of glowing coals, four shader flame sheets (one facing the camera,
  *           three fanned behind it, one small hot core), a flickering ground glow and a point
  *           light that follows the nearest fire ahead of the runner
- *  log    – bark cylinder with tree-ring end caps (slide or jump)
+ *  log    – a dead tree standing on one wall top that topples across the path as the runner approaches
+ *           (62 → 34 m ahead), bounces off the far wall and drops to rest wedged at chest height: the
+ *           fall is visible from far away, so you know a slide is coming (jumping works too)
  *  branch – a low stone gate: two carved posts with pyramid caps, a relief lintel at chest
  *           height and a row of stone teeth on top (must slide)
  *  gap    – real break in the embankment; lava or a river far below marks the drop
@@ -25,7 +28,8 @@ const tmpV = new THREE.Vector3();
 let fireFront: THREE.InstancedMesh; let fireFanA: THREE.InstancedMesh; let fireFanB: THREE.InstancedMesh; let fireCore: THREE.InstancedMesh;
 let fireGlow: THREE.InstancedMesh; let coals: THREE.InstancedMesh;
 let fireLight: THREE.PointLight;
-let logs: THREE.InstancedMesh;
+let treeTrunks: THREE.InstancedMesh; let treeRoots: THREE.InstancedMesh; let treeStubs: THREE.InstancedMesh;
+const FALL_START = 62; const FALL_END = 34;   // metres ahead of the runner (inside the fog's clear zone)
 let gatePosts: THREE.InstancedMesh; let gateCaps: THREE.InstancedMesh; let gateLintels: THREE.InstancedMesh; let gateTeeth: THREE.InstancedMesh;
 let pits: THREE.InstancedMesh;
 let waterPits: THREE.InstancedMesh;
@@ -37,6 +41,20 @@ const GATE_POST_H = 2.7;
 const GATE_LINTEL_Y0 = OBSTACLES.branch.y0;        // underside: what you slide beneath
 const GATE_LINTEL_H = 0.8;
 const GATE_TEETH = 5;
+
+/** Concatenate a few small geometries into one (all non-indexed, position/normal/uv only). */
+function mergeSimple(geos: THREE.BufferGeometry[]): THREE.BufferGeometry {
+  const parts = geos.map((g) => g.index ? g.toNonIndexed() : g);
+  const count = parts.reduce((n, g) => n + g.attributes.position.count, 0);
+  const out = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal', 'uv'] as const) {
+    const size = name === 'uv' ? 2 : 3;
+    const arr = new Float32Array(count * size); let o = 0;
+    for (const g of parts) { const a = g.attributes[name] as THREE.BufferAttribute; arr.set(a.array as Float32Array, o); o += a.count * size; }
+    out.setAttribute(name, new THREE.BufferAttribute(arr, size));
+  }
+  return out;
+}
 
 function glowTexture(): THREE.CanvasTexture {
   const c = document.createElement('canvas'); c.width = c.height = 128;
@@ -64,13 +82,23 @@ export function initObstacleView(scene: THREE.Scene): void {
   fireLight = new THREE.PointLight(0xff7a20, 0, 26, 2);
   scene.add(fireLight);
 
-  // Log: a real trunk lying across the path, ends showing tree rings.
+  // Falling tree (the 'log' obstacle). Local frame: pivot (root) at the origin, trunk along +y; the per-obstacle
+  // matrix rotates it about the heading axis to topple it across the path.
   const logSpec = OBSTACLES.log; const logR = (logSpec.y1 - logSpec.y0) / 2;
-  const logGeo = new THREE.CylinderGeometry(logR, logR, GAP_WIDTH, 14).rotateZ(Math.PI / 2); // groups: side, cap, cap
+  const TREE_LEN = GAP_WIDTH + 0.9;
   const barkMat = pbrMaterial(tex.bark); for (const t of [tex.bark.map, tex.bark.normalMap, tex.bark.roughnessMap]) t.repeat.set(3, 1);
-  const logEnd = remoteSet('log-end', 0xc9a877);
-  const capMat = pbrMaterial(logEnd);
-  logs = add(new THREE.InstancedMesh(logGeo, [barkMat, capMat, capMat], MAX));
+  const capMat = pbrMaterial(remoteSet('log-end', 0xc9a877));
+  const trunkGeo = new THREE.CylinderGeometry(logR * 0.85, logR * 1.5, TREE_LEN, 12).translate(0, TREE_LEN / 2, 0); // groups: side, top cap (broken end), base
+  treeTrunks = add(new THREE.InstancedMesh(trunkGeo, [barkMat, capMat, barkMat], MAX));
+  const darkBark = pbrMaterial(tex.bark, { color: 0x6a5040 });
+  const rootGeo = mergeSimple([
+    new THREE.SphereGeometry(0.8, 10, 8).scale(1, 0.7, 1),
+    ...[0, 1, 2, 3, 4].map((k) => new THREE.ConeGeometry(0.2, 1.5, 6).rotateX(Math.PI / 2 + 0.5).rotateY(k * Math.PI * 2 / 5).translate(Math.cos(k * Math.PI * 2 / 5) * 0.55, -0.1, Math.sin(k * Math.PI * 2 / 5) * 0.55)),
+  ]);
+  treeRoots = add(new THREE.InstancedMesh(rootGeo, darkBark, MAX));
+  // Broken branch stubs along the upper trunk, pointing out at different angles.
+  const stubGeo = mergeSimple([0.5, 0.62, 0.76, 0.88].map((f, k) => new THREE.CylinderGeometry(0.07, 0.16, 2.0, 6).translate(0, 1.0, 0).rotateZ(-0.9 - k * 0.15).rotateY(k * 1.9).translate(0, TREE_LEN * f, 0)));
+  treeStubs = add(new THREE.InstancedMesh(stubGeo, barkMat, MAX));
 
   // Gate ("branch" in the core): posts, caps, lintel, teeth. Everything between y 1.0 and 2.6 is the barrier.
   const carved = remoteSet('wall-carved', 0x8a7a68);
@@ -130,8 +158,24 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
         }
         case 'log': {
           if (nLog >= MAX) break;
-          dummy.position.set(p.x, (spec.y0 + spec.y1) / 2, p.z); faceHeading(dummy, p.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-          logs.setMatrixAt(nLog++, dummy.matrix);
+          // Topple progress from distance: standing until FALL_START m ahead, at rest from FALL_END m.
+          const ahead = midS - playerS;
+          const k = THREE.MathUtils.clamp((FALL_START - ahead) / (FALL_START - FALL_END), 0, 1);
+          const side = (o.id & 1) ? 1 : -1;                       // which wall the tree stands on
+          const fall = Math.min(1, k / 0.72);                     // rotation phase
+          const angle = (Math.PI / 2) * fall * fall;              // gravity: slow start, fast finish
+          const dropK = THREE.MathUtils.clamp((k - 0.72) / 0.28, 0, 1);
+          const bounce = Math.sin(dropK * Math.PI) * 0.18 * (1 - dropK);
+          const restY = (spec.y0 + spec.y1) / 2;
+          const y = 2.0 - (2.0 - restY) * dropK + bounce;
+          dummy.position.set(p.x + right.x * side * (TRACK_HALF_WIDTH + 0.25), y, p.z + right.z * side * (TRACK_HALF_WIDTH + 0.25));
+          faceHeading(dummy, p.dir);
+          dummy.rotateZ(side * angle);
+          // Once wedged, roll a little so the broken end sits lower than the roots.
+          dummy.rotateX(dropK * 0.08);
+          dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+          treeTrunks.setMatrixAt(nLog, dummy.matrix); treeRoots.setMatrixAt(nLog, dummy.matrix); treeStubs.setMatrixAt(nLog, dummy.matrix);
+          nLog++;
           break;
         }
         case 'branch': {
@@ -180,7 +224,7 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
   }
   const flush = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; };
   flush(fireFront, nFire); flush(fireFanA, nFire); flush(fireFanB, nFire); flush(fireCore, nFire); flush(fireGlow, nFire); flush(coals, nFire);
-  flush(logs, nLog); flush(gatePosts, nGate * 2); flush(gateCaps, nGate * 2); flush(gateLintels, nGate); flush(gateTeeth, nGate * GATE_TEETH);
+  flush(treeTrunks, nLog); flush(treeRoots, nLog); flush(treeStubs, nLog); flush(gatePosts, nGate * 2); flush(gateCaps, nGate * 2); flush(gateLintels, nGate); flush(gateTeeth, nGate * GATE_TEETH);
   flush(pits, nPit); flush(waterPits, nWater); flush(gapVeils, veils);
 }
 

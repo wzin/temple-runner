@@ -24,7 +24,7 @@ import { initSky, updateSky } from './view/skyView';
 import { initModels, updateModels } from './view/modelView';
 import { activeBiome } from './view/biome';
 import { loadRealTextures, onAssetProgress, releaseAssets } from './view/textures';
-import { endFrame, initDomInput, onTurn, pollInput, setTouchControlsVisible, wasPausePressed } from './ui/domInput';
+import { endFrame, initDomInput, onTurn, pollInput, setTouchControlsVisible, wasBoostPressed, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD, showHighScoreBanner, hideHighScoreBanner } from './ui/HUD';
 import { initPauseMenu, showPauseMenu, hidePauseMenu } from './ui/PauseMenu';
@@ -123,6 +123,7 @@ function loop(now: number): void {
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
 
+  if (wasBoostPressed() && gameState.screen === 'playing') game.pressBoost();   // the 'powerup' event follows on the next tick
   if (wasPausePressed()) {
     if (gameState.screen === 'playing') pauseGame();
     else if (gameState.screen === 'paused') resumeGame();
@@ -164,6 +165,7 @@ function handleEvents(events: GameEvent[]): void {
     if (e.type === 'turn') turnedOnce = true;
     switch (e.type) {
       case 'coin': playSound('coin'); coinBurst(game); break;
+      case 'energyFull': playSound('powerup'); flashUntil = performance.now() + 2500; break;
       case 'jump': playSound('jump'); break;
       case 'slide': playSound('slide'); break;
       case 'land': playSound('land'); playerLanded(); cameraLand(); landingDust(game); break;
@@ -181,6 +183,7 @@ function handleEvents(events: GameEvent[]): void {
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
 
 /** Start-of-run controls reminder, then a corner coach mark until the first turn is taken. */
+let flashUntil = 0;
 function updateHint(now: number): void {
   const el = document.getElementById('hint');
   if (!el) return;
@@ -188,10 +191,12 @@ function updateHint(now: number): void {
   let text = '';
   const w = game.track.turnWindowAt(game.player.s);
   const corner = game.track.turnWindows().find((tw) => !tw.segment.turnDone && tw.corner > game.player.s && tw.corner - game.player.s < 30);
-  if (!turnedOnce && (w || corner)) {
-    text = touch ? 'TAP ◄ ► OR SWIPE TO TURN' : 'PRESS ← → TO TURN';
+  if (now < flashUntil) {
+    text = touch ? 'BOOST READY · TAP THE BAR OR ⚡' : 'BOOST READY · PRESS E';
+  } else if (!turnedOnce && (w || corner)) {
+    text = touch ? 'SWIPE ◄ ► TO TURN' : 'PRESS ← → TO TURN';
   } else if (now < hintUntil) {
-    text = touch ? 'SWIPE ◄ ► TURN · ▲ JUMP · ▼ SLIDE' : '← → TURN · ↑ JUMP · ↓ SLIDE';
+    text = touch ? 'SWIPE ANYWHERE: ◄ ► TURN · ▲ JUMP · ▼ SLIDE' : '← → TURN · ↑ JUMP · ↓ SLIDE';
   }
   if (text) { if (el.textContent !== text) el.textContent = text; el.classList.remove('hidden'); }
   else el.classList.add('hidden');
@@ -223,6 +228,7 @@ function syncState(): void {
   gameState.score = game.score;
   gameState.coins = game.coins;
   gameState.proximityBar = game.proximity;
+  gameState.energy = game.energy;
   gameState.activePowerUp = game.active?.kind ?? (game.shield ? 'shield' : null);
   gameState.powerUpTimer = game.active?.timer ?? 0;
 }

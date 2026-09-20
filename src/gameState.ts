@@ -9,6 +9,7 @@ export interface GameState {
   coins: number;
   highScore: number;
   proximityBar: number;
+  energy: number;
   activePowerUp: PowerUpType | null;
   powerUpTimer: number;
 }
@@ -19,6 +20,7 @@ export const gameState: GameState = {
   coins: 0,
   highScore: 0,
   proximityBar: 0,
+  energy: 0,
   activePowerUp: null,
   powerUpTimer: 0,
 };

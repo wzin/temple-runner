@@ -22,19 +22,14 @@
     <!-- Touch controls (shown on coarse-pointer devices) -->
 
     <div id="touch-controls" class="touch-controls hidden">
-
-      <button class="touch-btn" data-action="left" aria-label="Turn or move left">◄</button>
-
-      <div class="touch-mid">
-
-        <button class="touch-btn" data-action="jump" aria-label="Jump">▲</button>
-
-        <button class="touch-btn" data-action="slide" aria-label="Slide">▼</button>
-
+      <button id="pad-side" class="pad-side" aria-label="Move the pad to the other side">⇄</button>
+      <div class="pad">
+        <button class="touch-btn pad-up" data-action="jump" aria-label="Jump">▲</button>
+        <button class="touch-btn pad-left" data-action="left" aria-label="Turn or move left">◄</button>
+        <button class="touch-btn pad-right" data-action="right" aria-label="Turn or move right">►</button>
+        <button class="touch-btn pad-down" data-action="slide" aria-label="Slide">▼</button>
+        <button id="pad-boost" class="touch-btn pad-boost" aria-label="Boost">⚡</button>
       </div>
-
-      <button class="touch-btn" data-action="right" aria-label="Turn or move right">►</button>
-
     </div>
 
     <!-- Main Menu -->
@@ -74,6 +69,10 @@
       <div class="proximity-container">
         <div id="proximity-bar"></div>
       </div>
+      <div class="energy-container" id="energy-container" title="Coins charge the boost">
+        <div id="energy-bar"></div>
+        <span id="energy-label" class="energy-label">BOOST</span>
+      </div>
       <div class="powerup-indicator" id="powerup-indicator"></div>
       <div id="highscore-banner" class="banner hidden">NEW HIGH SCORE!</div>
       <div id="hint" class="hint hidden"></div>
@@ -87,6 +86,7 @@
     <div id="pause-menu" class="ui-screen hidden">
       <h2>PAUSED</h2>
       <button id="resume-btn" class="menu-btn">RESUME</button>
+      <button id="pad-toggle" class="menu-btn small touch-only">PAD: ON</button>
       <button id="restart-btn" class="menu-btn">RESTART</button>
       <button id="quit-btn" class="menu-btn">QUIT</button>
     </div>

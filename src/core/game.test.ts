@@ -254,3 +254,23 @@ describe('Game', () => {
     expect(events.some((e) => e.type === 'turn')).toBe(true);
   });
 });
+
+describe('coin energy', () => {
+  it('coins charge the meter and a full meter buys one boost', () => {
+    const g = new Game(5);
+    const sim = new Sim(g);
+    expect(g.pressBoost()).toBe(false);
+    // Lay a line of coins straight ahead in the runner's lane and run through them.
+    g.spawner.coins.length = 0; g.spawner.obstacles.length = 0;
+    for (let i = 0; i < 45; i++) g.spawner.coins.push({ id: 90000 + i, s: g.player.s + 5 + i * 1.5, x: 0, y: 0.6, collected: false, value: 1 });
+    const events = sim.run(() => g.player.s > 80, { autopilot: true, noObstacles: true });
+    expect(g.coins).toBeGreaterThanOrEqual(40);
+    expect(g.energy).toBe(100);
+    expect(events.some((e) => e.type === 'energyFull')).toBe(true);
+    expect(g.pressBoost()).toBe(true);
+    expect(g.boosting).toBe(true);
+    expect(g.energy).toBe(0);
+    expect(sim.tick().some((e) => e.type === 'powerup' && e.kind === 'boost')).toBe(true);
+    expect(g.pressBoost()).toBe(false);
+  });
+});

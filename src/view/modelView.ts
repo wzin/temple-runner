@@ -302,9 +302,9 @@ export function updateModels(game: Game): void {
       if (entry) place(entry, w.x, WALL_TOP, w.z, yaw + (r < 0.2 ? Math.PI / 2 : 0), 0.9 + hash(seg.id, 2230 + i) * 0.3);
     }
     // Pots, crates and skulls at the foot of the walls; small stones on the path itself.
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 10; i++) {
       const r = hash(seg.id, 2300 + i);
-      if (r > 0.5) continue;
+      if (r > 0.6) continue;
       const side = i % 2 === 0 ? -1 : 1;
       const s = seg.s0 + 2 + hash(seg.id, 2310 + i) * (seg.length - 4);
       if (nearGap(s, 1.5)) continue;
@@ -312,9 +312,9 @@ export function updateModels(game: Game): void {
       const entry = pick('prop', hash(seg.id, 2320 + i));
       if (entry) place(entry, w.x, 0, w.z, r * 20, 0.8 + hash(seg.id, 2330 + i) * 0.4);
     }
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       const r = hash(seg.id, 1400 + i);
-      if (r > 0.6) continue;
+      if (r > 0.65) continue;
       const s = seg.s0 + 2 + hash(seg.id, 1500 + i) * (seg.length - 4);
       const x = (hash(seg.id, 1600 + i) - 0.5) * 5;
       if (nearGap(s)) continue;
