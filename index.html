@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Totem Dash</title>
+  <link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Main Menu -->
+    <div id="main-menu" class="ui-screen">
+      <h1>TOTEM DASH</h1>
+      <p class="subtitle">An Endless Runner</p>
+      <button id="play-btn" class="menu-btn">PLAY</button>
+      <div class="controls-info">
+        <h3>Controls</h3>
+        <p><span class="key">A</span> / <span class="key">D</span> - Move Left/Right</p>
+        <p><span class="key">↑</span> - Jump</p>
+        <p><span class="key">↓</span> - Slide</p>
+        <p><span class="key">←</span> / <span class="key">→</span> - Turn at corners</p>
+        <p><span class="key">ESC</span> - Pause</p>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="hud" class="ui-screen hidden">
+      <div class="hud-top">
+        <div class="score-display">
+          <span id="score">0</span>
+          <span class="label">SCORE</span>
+        </div>
+        <div class="coin-display">
+          <span id="coins">0</span>
+          <span class="label">COINS</span>
+        </div>
+      </div>
+      <div class="proximity-container">
+        <div id="proximity-bar"></div>
+      </div>
+      <div class="powerup-indicator" id="powerup-indicator"></div>
+      <button id="pause-btn" class="icon-btn">⏸</button>
+    </div>
+
+    <!-- Pause Menu -->
+    <div id="pause-menu" class="ui-screen hidden">
+      <h2>PAUSED</h2>
+      <button id="resume-btn" class="menu-btn">RESUME</button>
+      <button id="restart-btn" class="menu-btn">RESTART</button>
+      <button id="quit-btn" class="menu-btn">QUIT</button>
+    </div>
+
+    <!-- Game Over -->
+    <div id="game-over" class="ui-screen hidden">
+      <h2>GAME OVER</h2>
+      <div class="final-score">
+        <p>Score: <span id="final-score">0</span></p>
+        <p>High Score: <span id="high-score">0</span></p>
+        <p>Coins: <span id="final-coins">0</span></p>
+      </div>
+      <button id="retry-btn" class="menu-btn">PLAY AGAIN</button>
+      <button id="menu-btn" class="menu-btn">MAIN MENU</button>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
