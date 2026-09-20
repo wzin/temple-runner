@@ -46,7 +46,8 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/floorView.ts` | one instanced mesh of 2 m floor slabs rebuilt per frame; slabs over gap obstacles are skipped, so gaps are real holes; fork stubs |
 | `src/view/groundView.ts`, `cliffView.ts` | the land lies 14 m below; the track runs on an instanced stone embankment (2 m blocks), trees grow on the low ground 7–21 m out |
 | `src/view/biome.ts`, `skyView.ts`, `treeView.ts` | biome config (sky, sun, fog, tints, trees); equirect sky dome with sun/clouds/mountains following the camera; instanced low-poly trees beside straights |
-| `src/view/trackView.ts` props | torches every 10 m on alternating walls (20% missing), a totem with glowing eyes at every corner |
+| `src/view/torchView.ts` | wall torches as four instanced meshes (handle, bowl, flame, glow), rebuilt per frame |
+| `src/view/trackView.ts` props | a totem with glowing eyes at every corner / fork far wall; walls per segment |
 | `src/view/particles.ts` | pooled additive point sprites: embers over fire obstacles, gold sparks on coin pickup |
 | `src/view/textures.ts` | procedural PBR sets baked at startup as the fallback; `loadRealTextures()` swaps in `public/textures/<set>/{color,normal,roughness}.jpg` (CC0 from ambientCG, see `public/textures/CREDITS.md`) in place when present |
 | `src/ui/domInput.ts` | keyboard → `TickInput`; turn presses go straight to `game.pressTurn` with the real press time |
@@ -69,9 +70,14 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
   spacing 25 → 16 m with difficulty, never within 10 m of a turn window.
 - Patterns (`PATTERNS`): single, logWithArc (≥100 m), twoLaneFire (≥200 m), gapThenBranch (≥400 m), laneFireRow (≥600 m).
 - Power-ups appear from 120 m, 8% per 12 m chunk, one live at a time. Boost and a 0.6 s grace after it make the runner invulnerable: collisions skipped, corners taken automatically, presses ignored.
+- Lookahead is time-based: `12 s × speed`, clamped 150–300 m (`game.lookahead`); the fog's near/far are fractions (0.18/0.85) of it, so the generated end is always hidden.
 - Difficulty ramps to 1500 m; the turn window is `0.4 s × speed` before the corner, so reaction time stays constant. Obstacle spacing is also time-based (1.7 s → 1.05 s of running), and patterns that chain a jump with a slide place the second obstacle beyond the landing point (`JUMP_AIRTIME × speed + 4 m`).
 - Resume from pause runs a 3-2-1 countdown; beating the stored high score flashes a banner once per run; during boost the runner turns ghostly with an aura and gaps show a translucent veil.
-- High score persists in `localStorage['temple-runner.highScore']`; Space/Enter restarts from the menu or game-over screen.
+- High score persists in `localStorage['temple-runner.highScore']`; Space/Enter restarts from the menu or game-over screen. The menu shows the top five from the API.
+- Version: `VERSION` file injected as `__APP_VERSION__` (bottom-right corner). Release with `scripts/release.sh X.Y.Z` (writes VERSION, tags `vX.Y.Z`, pushes; Komodo redeploys from main).
+- Touch: arrow panel on coarse-pointer devices (tap = turn, hold = drift, ▲ jump, ▼ slide) plus swipe gestures on the canvas.
+- Performance: no shadow maps, pixel ratio capped at 1.5, everything repeated is instanced (floor, cliffs, trees, torches, coins, obstacles, power-ups).
+- Turn presses survive a frame hitch: the buffer expires 150 ms after the press but never before one tick has seen it.
 - Proximity meter: +25 per hit, −2/s, 100 = caught. Score = floor(distance) + 10 × coins.
 - Track: 3 straights first, ≥ 2 straights after a turn, then 15% turn chance per 20 m segment.
   Lookahead 120 m, content dropped 40 m behind.

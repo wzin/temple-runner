@@ -1,7 +1,7 @@
 import { Game, GameEvent } from './core/game';
 import { gameState } from './gameState';
 import { initAudio, playSound } from './audio';
-import { initScene, scene, renderer } from './view/scene';
+import { initScene, scene, renderer, updateFog } from './view/scene';
 import { camera, cameraHit, cameraLand, cameraTurn, initCamera, snapCamera, updateCamera } from './view/camera';
 import { initTrackView, resetTrackView, updateTrackView } from './view/trackView';
 import { initPlayerView, playerLanded, updatePlayerView } from './view/playerView';
@@ -13,6 +13,7 @@ import { coinBurst, initParticles, updateParticles } from './view/particles';
 import { initFloorView, updateFloorView } from './view/floorView';
 import { initGround, updateGround } from './view/groundView';
 import { initCliffs, updateCliffs } from './view/cliffView';
+import { initTorches, updateTorches } from './view/torchView';
 import { initSky, updateSky } from './view/skyView';
 import { initTrees, updateTrees } from './view/treeView';
 import { activeBiome } from './view/biome';
@@ -43,6 +44,8 @@ function saveHighScore(value: number): void {
 }
 
 function init(): void {
+  const versionEl = document.getElementById('version');
+  if (versionEl) versionEl.textContent = `v${__APP_VERSION__}`;
   initScene();
   window.__scene = scene;
   initCamera();
@@ -55,6 +58,7 @@ function init(): void {
   initTrees(scene, activeBiome());
   initFloorView(scene);
   initTrackView(scene);
+  initTorches(scene);
   loadRealTextures();   // upgrades the procedural maps in place once the JPEGs arrive
   initPlayerView(scene);
   initCoinView(scene);
@@ -121,6 +125,7 @@ function loop(now: number): void {
     syncViews(now);
   }
 
+  updateFog(game.lookahead);
   updateSky(camera);
   updateGround(camera);
   renderer.render(scene, camera);
@@ -162,6 +167,7 @@ function syncViews(now: number): void {
   updateTrackView(game);
   updateFloorView(game);
   updateCliffs(game);
+  updateTorches(game, now);
   updateTrees(game);
   updatePlayerView(game, now);
   updateCoinView(game, now);

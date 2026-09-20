@@ -10,6 +10,7 @@ export interface Biome {
     cloudCover: number;    // 0..1
     mountains: { color: string; height: number; layers: number };
   };
+  /** Fog distances as fractions of the current lookahead, so the far end of the generated track is always hidden. */
   fog: { color: number; near: number; far: number };
   light: { sun: number; sunIntensity: number; ambient: number; ambientIntensity: number };
   floorTint: number;
@@ -28,13 +29,14 @@ export const BIOMES: Record<string, Biome> = {
       cloudCover: 0.45,
       mountains: { color: '#2b2140', height: 0.12, layers: 3 },
     },
-    fog: { color: 0x7a6688, near: 45, far: 165 },
+    // near/far are fractions of the game's lookahead distance (see scene.ts updateFog).
+    fog: { color: 0x7a6688, near: 0.18, far: 0.85 },
     light: { sun: 0xffe2b0, sunIntensity: 1.6, ambient: 0x8090b0, ambientIntensity: 0.7 },
     floorTint: 0xc4ccd8,
     wallTint: 0xb0a8b0,
     groundTint: 0x8c9c84,
     cliffTint: 0x8a8088,
-    tree: { trunk: 0x5a3c26, canopy: 0x2f7a3e, canopyAlt: 0x4f9a3a, density: 6 },
+    tree: { trunk: 0x5a3c26, canopy: 0x2f7a3e, canopyAlt: 0x4f9a3a, density: 4 },
   },
 };
 

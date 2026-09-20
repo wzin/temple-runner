@@ -250,3 +250,25 @@ body {
   background: rgba(233,69,96,0.85); color: #fff; font-weight: bold; letter-spacing: 0.2em; font-size: 1.1rem;
   text-shadow: 0 0 10px rgba(255,255,255,0.6); animation: bannerpulse 0.6s ease-in-out infinite alternate; }
 @keyframes bannerpulse { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.08); } }
+
+/* Build version, always visible in the corner */
+.version { position: absolute; right: 0.6rem; bottom: 0.4rem; font-size: 0.75rem; color: rgba(255,255,255,0.45); letter-spacing: 0.08em; pointer-events: none; z-index: 20; }
+
+/* Hall of fame on the main menu */
+.menu-board { margin-top: 0.8rem; }
+.menu-board h3 { color: #e94560; font-size: 0.85rem; letter-spacing: 0.25em; margin: 0 0 0.2rem; }
+.leaderboard.compact { width: 16rem; margin: 0 auto; }
+.leaderboard.compact li { font-size: 0.85rem; padding: 0.1rem 0.5rem; }
+
+/* Touch controls */
+.touch-controls { position: absolute; left: 0; right: 0; bottom: 1.2rem; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 1rem; pointer-events: none; z-index: 15; touch-action: none; }
+.touch-controls.hidden { display: none; }
+.touch-mid { display: flex; flex-direction: column; gap: 0.6rem; }
+.touch-btn { width: 4.6rem; height: 4.6rem; border-radius: 50%; border: 2px solid rgba(255,255,255,0.35); background: rgba(0,0,0,0.35); color: #fff; font-size: 1.8rem;
+  pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.touch-btn:active { background: rgba(233,69,96,0.6); border-color: #e94560; }
+@media (max-width: 700px) {
+  .hud-top .score-display span:first-child, .hud-top .coin-display span:first-child { font-size: 1.5rem; }
+  .leaderboard { width: 14rem; }
+  h1 { font-size: 2.2rem !important; }
+}

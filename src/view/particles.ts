@@ -79,8 +79,9 @@ export function updateParticles(game: Game, dt: number): void {
     if (rnd() < 0.7) {
       const s = o.s0 + rnd() * (o.s1 - o.s0);
       const x = o.x0 + rnd() * (o.x1 - o.x0);
-      const w = game.track.sample(s, x, 0.3 + rnd() * 0.5);
-      embers.emit(w.x, w.y, w.z, (rnd() - 0.5) * 0.6, 1.2 + rnd() * 1.5, (rnd() - 0.5) * 0.6, 0.5 + rnd() * 0.5, 1.0, 0.55 + rnd() * 0.3, 0.1);
+      for (const w of game.track.samplesAt(s, x, 0.3 + rnd() * 0.5)) {
+        embers.emit(w.x, w.y, w.z, (rnd() - 0.5) * 0.6, 1.2 + rnd() * 1.5, (rnd() - 0.5) * 0.6, 0.5 + rnd() * 0.5, 1.0, 0.55 + rnd() * 0.3, 0.1);
+      }
     }
   }
   embers.update(dt);

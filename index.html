@@ -10,12 +10,38 @@
   <div id="game-container">
     <canvas id="game-canvas"></canvas>
 
+    <div id="version" class="version"></div>
+
+
+    <!-- Touch controls (shown on coarse-pointer devices) -->
+
+    <div id="touch-controls" class="touch-controls hidden">
+
+      <button class="touch-btn" data-action="left" aria-label="Turn or move left">◄</button>
+
+      <div class="touch-mid">
+
+        <button class="touch-btn" data-action="jump" aria-label="Jump">▲</button>
+
+        <button class="touch-btn" data-action="slide" aria-label="Slide">▼</button>
+
+      </div>
+
+      <button class="touch-btn" data-action="right" aria-label="Turn or move right">►</button>
+
+    </div>
+
     <!-- Main Menu -->
     <div id="main-menu" class="ui-screen">
       <h1>TEMPLE RUNNER</h1>
       <p class="subtitle">An Endless Runner</p>
       <p class="subtitle" id="menu-highscore"></p>
       <button id="play-btn" class="menu-btn">PLAY</button>
+      <div class="menu-board">
+        <h3>Hall of Fame</h3>
+        <ol id="menu-leaderboard" class="leaderboard compact"></ol>
+        <p id="menu-board-status" class="board-status"></p>
+      </div>
       <div class="controls-info">
         <h3>Controls</h3>
         <p><span class="key">A</span> / <span class="key">D</span> or <span class="key">←</span> / <span class="key">→</span> - Hold to move, tap to turn at a corner</p>

@@ -26,12 +26,15 @@ export function updatePowerUpView(game: Game, timeMs: number): void {
     const mesh = meshes.get(p.kind)!;
     const i = counts.get(p.kind) ?? 0;
     if (i >= MAX) continue;
-    const w = game.track.sample(p.s, p.x, p.y + Math.sin(timeMs * 0.004 + p.id) * 0.15);
-    dummy.position.set(w.x, w.y, w.z);
-    dummy.rotation.set(timeMs * 0.001, timeMs * 0.0017 + p.id, 0);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
-    counts.set(p.kind, i + 1);
+    let k = i;
+    for (const w of game.track.samplesAt(p.s, p.x, p.y + Math.sin(timeMs * 0.004 + p.id) * 0.15)) {
+      if (k >= MAX) break;
+      dummy.position.set(w.x, w.y, w.z);
+      dummy.rotation.set(timeMs * 0.001, timeMs * 0.0017 + p.id, 0);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(k++, dummy.matrix);
+    }
+    counts.set(p.kind, k);
   }
   for (const [kind, mesh] of meshes) {
     mesh.count = counts.get(kind) ?? 0;

@@ -22,7 +22,11 @@ export type GameEvent =
   | { type: 'powerup'; kind: PowerUpKind }
   | { type: 'powerupEnd'; kind: PowerUpKind };
 
-export const LOOKAHEAD = 120;
+/** Content is laid this many seconds of running ahead (clamped); the fog is tuned to hide the far end. */
+export const LOOKAHEAD_SECONDS = 12;
+export const LOOKAHEAD_MIN = 150;
+export const LOOKAHEAD_MAX = 300;
+export const LOOKAHEAD = LOOKAHEAD_MIN; // kept for callers that want a static number
 export const KEEP_BEHIND = 40;
 export const COIN_RADIUS = 1.2;
 export const POWERUP_RADIUS = 1.4;
@@ -45,6 +49,12 @@ export class Game {
   lastTurn: { dir: TurnDir; age: number } | null = null;
   fallPose: { x: number; z: number; dir: Vec2; s: number } | null = null;
   private deadReported = false;
+
+  /** Metres of track kept generated ahead of the player at the current speed. */
+  get lookahead(): number {
+    const d = difficultyAt(this.player.s);
+    return Math.max(LOOKAHEAD_MIN, Math.min(LOOKAHEAD_MAX, d.speed * LOOKAHEAD_SECONDS));
+  }
 
   constructor(seed: number) { this.reset(seed); }
 
@@ -149,8 +159,10 @@ export class Game {
       if (c.collected) continue;
       const ds = c.s - p.s; const dx = c.x - p.x; const dy = c.y - (p.y + 0.6);
       const dist = Math.hypot(ds, dx, dy);
-      if (dist > MAGNET_RADIUS || dist < 1e-6) continue;
-      const step = Math.min(dist, MAGNET_PULL_SPEED * dt) / dist;
+      if (dist > MAGNET_RADIUS * (this.boosting ? 1.6 : 1) || dist < 1e-6) continue;
+      // Pull faster than the runner moves, or coins never catch up during a boost.
+      const pull = Math.max(MAGNET_PULL_SPEED, p.speed * 1.8);
+      const step = Math.min(dist, pull * dt) / dist;
       c.s -= ds * step; c.x -= dx * step; c.y -= dy * step;
     }
   }
@@ -197,7 +209,7 @@ export class Game {
   }
 
   private layAhead(): void {
-    const ahead = this.player.s + LOOKAHEAD;
+    const ahead = this.player.s + this.lookahead;
     this.track.extendTo(ahead);
     this.spawner.fill(ahead - 10);   // clamps itself to the laid track (forks stop generation)
     this.track.dropBehind(this.player.s - KEEP_BEHIND);

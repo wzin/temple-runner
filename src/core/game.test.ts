@@ -37,7 +37,7 @@ function gameWithEarlyTurn(): { g: Game; sim: Sim } {
 describe('Game', () => {
   it('keeps the track and content laid ahead of the player', () => {
     const g = new Game(1); const sim = new Sim(g);
-    sim.run(() => g.player.s > 300, { autopilot: true, forkChoice: 'left' });
+    sim.run(() => g.player.s > 300, { autopilot: true, forkChoice: 'left', noObstacles: true });
     expect(g.player.s).toBeGreaterThan(300);
     expect(g.track.end()).toBeGreaterThan(g.player.s + LOOKAHEAD - 1);
     const first = g.track.segments[0];
@@ -218,5 +218,15 @@ describe('Game', () => {
     sim.run(() => g.over, { noObstacles: true });
     expect(g.player.s).toBeGreaterThan(w.corner);
     expect(g.score).toBe(Math.floor(g.distance) + g.coins * 10);
+  });
+
+  it('magnet still collects coins while boosting', () => {
+    const g = new Game(8); const sim = new Sim(g);
+    g.spawner.obstacles.length = 0; g.spawner.coins.length = 0; g.spawner.powerUps.length = 0;
+    g.active = { kind: 'magnet', timer: 10 };
+    g.player.speedScale = 2.4; // ~36 m/s like a late boost
+    for (let i = 0; i < 6; i++) g.spawner.coins.push({ id: 700 + i, s: 20 + i * 3, x: 1.5, y: 0.6, collected: false });
+    sim.run(() => g.player.s > 60, { noObstacles: true });
+    expect(g.coins).toBe(6);
   });
 });

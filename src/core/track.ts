@@ -125,6 +125,23 @@ export class Track {
     return [...main, ...extra];
   }
 
+  /**
+   * Every world placement of a track coordinate: one on the main path, or one per
+   * speculative branch when `s` lies beyond a pending fork. Content (coins,
+   * obstacles) is drawn at all of them so both branches preview what is coming.
+   */
+  samplesAt(s: number, x = 0, y = 0): Sample[] {
+    const main = this.segmentAt(s);
+    if (main) return [this.sampleSegment(main, s, x, y)];
+    if (!this.branches) return [];
+    const out: Sample[] = [];
+    for (const dir of ['left', 'right'] as const) {
+      const seg = this.branches[dir].segments.find((sg) => s >= sg.s0 && s < sg.s0 + sg.length);
+      if (seg) out.push(this.sampleSegment(seg, s, x, y));
+    }
+    return out;
+  }
+
   /** Sample within a specific segment (works for speculative branch segments too). */
   sampleSegment(seg: Segment, s: number, x = 0, y = 0): Sample {
     const local = s - seg.s0;
@@ -215,6 +232,7 @@ export class Track {
       this.laid++;
       // Both continuations exist before the choice, so nothing pops in when the player turns.
       this.branches = { left: this.startBranch(seg, 'left'), right: this.startBranch(seg, 'right') };
+      // extendTo() grows the branches to the same lookahead as the main path.
       for (const d of ['left', 'right'] as const) {
         const b = this.branches[d];
         while (b.nextS <= seg.s0 + seg.length + BRANCH_AHEAD) this.appendTo(b, this.chooseKindFor(b, false), d);

@@ -60,41 +60,46 @@ export function updateObstacleView(game: Game, timeMs: number): void {
   const counts = new Map<ObstacleKind, number>();
   let rims = 0; let veils = 0;
   for (const o of game.spawner.obstacles) {
-    if (o.kind === 'gap' && game.invulnerable && veils < MAX_PER_KIND) {
-      const m = game.track.sample((o.s0 + o.s1) / 2, (o.x0 + o.x1) / 2);
-      dummy.position.set(m.x, 0.04, m.z);
-      faceHeading(dummy, m.dir);
-      dummy.scale.set(1, 1 + Math.sin(timeMs * 0.01) * 0.3, o.s1 - o.s0);
-      dummy.updateMatrix();
-      gapVeils.setMatrixAt(veils++, dummy.matrix);
-    }
-    if (o.kind === 'gap' && rims + 2 <= MAX_PER_KIND * 2) {
+    const spec = OBSTACLES[o.kind];
+    const mesh = meshes.get(o.kind)!;
+    const midX = (o.x0 + o.x1) / 2;
+    if (o.kind === 'gap') {
+      for (const m of game.track.samplesAt((o.s0 + o.s1) / 2, midX)) {
+        if (game.invulnerable && veils < MAX_PER_KIND) {
+          dummy.position.set(m.x, 0.04, m.z);
+          faceHeading(dummy, m.dir);
+          dummy.scale.set(1, 1 + Math.sin(timeMs * 0.01) * 0.3, o.s1 - o.s0);
+          dummy.updateMatrix();
+          gapVeils.setMatrixAt(veils++, dummy.matrix);
+        }
+      }
       for (const edge of [o.s0, o.s1]) {
-        const e = game.track.sample(edge, (o.x0 + o.x1) / 2);
-        dummy.position.set(e.x, 0.06, e.z);
-        faceHeading(dummy, e.dir);
-        dummy.scale.set(1, 1 + Math.sin(timeMs * 0.006) * 0.3, 1);
-        dummy.updateMatrix();
-        gapRims.setMatrixAt(rims++, dummy.matrix);
+        for (const e of game.track.samplesAt(edge, midX)) {
+          if (rims >= MAX_PER_KIND * 2) break;
+          dummy.position.set(e.x, 0.06, e.z);
+          faceHeading(dummy, e.dir);
+          dummy.scale.set(1, 1 + Math.sin(timeMs * 0.006) * 0.3, 1);
+          dummy.updateMatrix();
+          gapRims.setMatrixAt(rims++, dummy.matrix);
+        }
       }
     }
-    const mesh = meshes.get(o.kind)!;
-    const i = counts.get(o.kind) ?? 0;
-    if (i >= MAX_PER_KIND) continue;
-    const spec = OBSTACLES[o.kind];
-    const p = game.track.sample((o.s0 + o.s1) / 2, (o.x0 + o.x1) / 2);
-    const y = o.kind === 'gap' ? -0.55 - PIT_DEPTH / 2 : (spec.y0 + spec.y1) / 2;
-    dummy.position.set(p.x, y, p.z);
-    faceHeading(dummy, p.dir);
-    if (o.kind === 'fire') {
-      const flicker = 1 + Math.sin(timeMs * 0.02 + o.id) * 0.08;
-      dummy.scale.set(1, flicker, 1);
-    } else {
-      dummy.scale.set(1, 1, 1);
+    let i = counts.get(o.kind) ?? 0;
+    for (const p of game.track.samplesAt((o.s0 + o.s1) / 2, midX)) {
+      if (i >= MAX_PER_KIND) break;
+      const y = o.kind === 'gap' ? -0.55 - PIT_DEPTH / 2 : (spec.y0 + spec.y1) / 2;
+      dummy.position.set(p.x, y, p.z);
+      faceHeading(dummy, p.dir);
+      if (o.kind === 'fire') {
+        const flicker = 1 + Math.sin(timeMs * 0.02 + o.id) * 0.08;
+        dummy.scale.set(1, flicker, 1);
+      } else {
+        dummy.scale.set(1, 1, 1);
+      }
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i++, dummy.matrix);
     }
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i, dummy.matrix);
-    counts.set(o.kind, i + 1);
+    counts.set(o.kind, i);
   }
   for (const [kind, mesh] of meshes) {
     mesh.count = counts.get(kind) ?? 0;

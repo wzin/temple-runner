@@ -8,14 +8,15 @@ export let renderer: THREE.WebGLRenderer;
 export function initScene(): void {
   scene = new THREE.Scene();
   const biome = activeBiome();
-  scene.fog = new THREE.Fog(biome.fog.color, biome.fog.near, biome.fog.far);
+  scene.fog = new THREE.Fog(biome.fog.color, 40, 160);
 
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  // Cap the pixel ratio: 4x pixels on hi-dpi screens cost far more than they show. No shadow maps: the
+  // directional light's shadow camera would only ever cover the start area, and the pass is expensive.
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+  renderer.shadowMap.enabled = false;
 
   // Ambient light
   const ambientLight = new THREE.AmbientLight(biome.light.ambient, biome.light.ambientIntensity);
@@ -24,15 +25,6 @@ export function initScene(): void {
   // Main directional light
   const directionalLight = new THREE.DirectionalLight(biome.light.sun, biome.light.sunIntensity);
   directionalLight.position.copy(sunDirection(biome).multiplyScalar(40));
-  directionalLight.castShadow = true;
-  directionalLight.shadow.mapSize.width = 2048;
-  directionalLight.shadow.mapSize.height = 2048;
-  directionalLight.shadow.camera.near = 0.5;
-  directionalLight.shadow.camera.far = 100;
-  directionalLight.shadow.camera.left = -30;
-  directionalLight.shadow.camera.right = 30;
-  directionalLight.shadow.camera.top = 30;
-  directionalLight.shadow.camera.bottom = -30;
   scene.add(directionalLight);
 
   // Accent light for atmosphere
@@ -45,6 +37,14 @@ export function initScene(): void {
 
 function onWindowResize(): void {
   renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/** Scale the fog to the distance the game keeps generated ahead. */
+export function updateFog(lookahead: number): void {
+  const fog = scene.fog as THREE.Fog;
+  const biome = activeBiome();
+  fog.near = lookahead * biome.fog.near;
+  fog.far = lookahead * biome.fog.far;
 }
 
 export function getRenderer(): THREE.WebGLRenderer {

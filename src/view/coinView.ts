@@ -21,11 +21,13 @@ export function updateCoinView(game: Game, timeMs: number): void {
   const spin = timeMs * 0.003;
   for (const c of game.spawner.coins) {
     if (c.collected || i >= MAX_COINS) continue;
-    const p = game.track.sample(c.s, c.x, c.y);
-    dummy.position.set(p.x, p.y + 0.4, p.z);
-    dummy.rotation.set(0, spin + c.id, 0);
-    dummy.updateMatrix();
-    mesh.setMatrixAt(i++, dummy.matrix);
+    for (const p of game.track.samplesAt(c.s, c.x, c.y)) {
+      if (i >= MAX_COINS) break;
+      dummy.position.set(p.x, p.y + 0.4, p.z);
+      dummy.rotation.set(0, spin + c.id, 0);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i++, dummy.matrix);
+    }
   }
   mesh.count = i;
   mesh.instanceMatrix.needsUpdate = true;
