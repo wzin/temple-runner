@@ -9,6 +9,14 @@ let slidePressed = false;
 let pausePressed = false;
 let turnListener: TurnListener | null = null;
 
+let touchPanel: HTMLElement | null = null;
+
+/** Show the arrow panel only while a run is on (and only on touch devices). */
+export function setTouchControlsVisible(visible: boolean): void {
+  if (!touchPanel) return;
+  touchPanel.classList.toggle('hidden', !(visible && isTouchDevice()));
+}
+
 const isTouchDevice = (): boolean => (typeof window !== 'undefined') && (window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window);
 
 export function initDomInput(): void {
@@ -53,7 +61,7 @@ export function endFrame(): void {
 function initTouch(): void {
   const panel = document.getElementById('touch-controls');
   if (!panel) return;
-  if (isTouchDevice()) panel.classList.remove('hidden');
+  touchPanel = panel;
 
   const act = (action: string, down: boolean) => {
     switch (action) {

@@ -18,7 +18,7 @@ import { initSky, updateSky } from './view/skyView';
 import { initTrees, updateTrees } from './view/treeView';
 import { activeBiome } from './view/biome';
 import { loadRealTextures } from './view/textures';
-import { endFrame, initDomInput, onTurn, pollInput, wasPausePressed } from './ui/domInput';
+import { endFrame, initDomInput, onTurn, pollInput, setTouchControlsVisible, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD, showHighScoreBanner, hideHighScoreBanner } from './ui/HUD';
 import { initPauseMenu, showPauseMenu, hidePauseMenu } from './ui/PauseMenu';
@@ -103,7 +103,7 @@ function loop(now: number): void {
   if (wasPausePressed()) {
     if (gameState.screen === 'playing') pauseGame();
     else if (gameState.screen === 'paused') resumeGame();
-    else if (gameState.screen === 'countdown') { gameState.screen = 'paused'; hideCountdown(); showPauseMenu(); }
+    else if (gameState.screen === 'countdown') { gameState.screen = 'paused'; hideCountdown(); setTouchControlsVisible(false); showPauseMenu(); }
   }
 
   if (gameState.screen === 'countdown') {
@@ -187,6 +187,7 @@ function startGame(): void {
   beatHighScore = false;
   game.reset(Date.now() >>> 0);
   gameState.screen = 'playing';
+  setTouchControlsVisible(true);
   syncState();
   syncViews(performance.now());
   snapCamera(game);
@@ -195,6 +196,7 @@ function startGame(): void {
 
 function endRun(): void {
   gameState.screen = 'gameover';
+  setTouchControlsVisible(false);
   if (game.score > gameState.highScore) {
     gameState.highScore = game.score;
     saveHighScore(gameState.highScore);
@@ -206,6 +208,7 @@ function endRun(): void {
 function pauseGame(): void {
   if (gameState.screen !== 'playing') return;
   gameState.screen = 'paused';
+  setTouchControlsVisible(false);
   showPauseMenu();
   playSound('click');
 }
@@ -214,6 +217,7 @@ function pauseGame(): void {
 function resumeGame(): void {
   if (gameState.screen !== 'paused') return;
   hidePauseMenu();
+  setTouchControlsVisible(true);
   gameState.screen = 'countdown';
   countdownEnd = performance.now() + COUNTDOWN_MS;
   setCountdownNumber(3);
@@ -244,6 +248,7 @@ function quitToMenu(): void {
   hideHUD();
   showMainMenu(gameState.highScore);
   gameState.screen = 'menu';
+  setTouchControlsVisible(false);
 }
 
 document.addEventListener('DOMContentLoaded', init);

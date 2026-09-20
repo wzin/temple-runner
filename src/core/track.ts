@@ -75,6 +75,10 @@ export class Track {
   readonly segments: Segment[] = [];
   /** Pre-generated continuations of a pending fork, one per direction; rendered but not yet part of the path. */
   branches: Record<TurnDir, GenState> | null = null;
+  /** Last `dropBehind` position: the player runs about KEEP_BEHIND ahead of it (the track's only clue where they are). */
+  private behindS = -Infinity;
+  /** Branches that ran out of room; they stop growing instead of collapsing a fork the player is already approaching. */
+  private deadBranches = new Set<TurnDir>();
   private nextId = 0;
   private nextS = 0;
   private nextStart: Vec2 = { x: 0, z: 0 };
@@ -121,9 +125,9 @@ export class Track {
     if (this.branches) {
       for (const dir of ['left', 'right'] as const) {
         const b = this.branches[dir];
-        while (this.branches && b.nextS <= s) {
+        while (this.branches && !this.deadBranches.has(dir) && b.nextS <= s) {
           const seg = this.appendToFree(b, dir);
-          if (!seg) { this.collapseFork(dir === 'left' ? 'right' : 'left'); break; }
+          if (!seg) { this.branchBoxedIn(dir); break; }
           added.push(seg);
         }
         if (!this.branches) break;
@@ -150,6 +154,7 @@ export class Track {
       this.straightsSinceTurn = 0;
     }
     this.branches = null;
+    this.deadBranches.clear();
   }
 
   /** Windows on the main path; with `includeBranches` also those on speculative branches (for spawning). */
@@ -195,6 +200,7 @@ export class Track {
   }
 
   dropBehind(s: number): Segment[] {
+    this.behindS = s;
     const removed: Segment[] = [];
     while (this.segments.length && this.segments[0].s0 + this.segments[0].length < s) removed.push(this.segments.shift()!);
     return removed;
@@ -361,6 +367,20 @@ export class Track {
     const c = this.chooseFree(g.nextStart, g.nextDir, previous, this.prefs(wanted), true);
     if (!c) return null;
     return this.appendTo(g, c.kind, branch, c.turn);
+  }
+
+  /**
+   * A branch cannot continue. Far from the player the fork quietly becomes a plain corner towards the
+   * other branch; near the player (the window may already be open) the fork must not change, so the
+   * branch just stops growing. If the player then picks it, the main path continues from its end.
+   */
+  private branchBoxedIn(dir: TurnDir): void {
+    const fork = this.pendingFork();
+    if (!fork) return;
+    const playerS = this.behindS + 40;
+    const other: TurnDir = dir === 'left' ? 'right' : 'left';
+    if (this.cornerOf(fork) - playerS > 120 && !this.deadBranches.has(other)) this.collapseFork(other);
+    else this.deadBranches.add(dir);
   }
 
   /**

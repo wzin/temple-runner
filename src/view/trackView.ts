@@ -19,7 +19,8 @@ let root: THREE.Scene;
 
 // Props share geometry/material across segments.
 const totemGeo = new THREE.BoxGeometry(0.9, 3.4, 0.9);
-const totemMat = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.85 });
+let totemMat: THREE.MeshStandardMaterial;
+let glyphMat: THREE.MeshStandardMaterial;
 const totemEyeGeo = new THREE.BoxGeometry(0.2, 0.12, 0.08);
 const totemEyeMat = new THREE.MeshStandardMaterial({ color: 0xffd040, emissive: 0xffb000, emissiveIntensity: 1.5 });
 
@@ -44,7 +45,12 @@ function addTotem(group: THREE.Group, x: number, z: number, dir: { x: number; z:
 
 export function initTrackView(scene: THREE.Scene): void {
   root = scene;
-  wallMaterial = pbrMaterial(textures().wall, { color: activeBiome().wallTint });
+  const tex = textures();
+  wallMaterial = pbrMaterial(tex.wall, { color: activeBiome().wallTint });
+  // The totem is a 0.9 × 3.4 m pole: stack the carved face texture instead of stretching it.
+  for (const t of [tex.totem.map, tex.totem.normalMap, tex.totem.roughnessMap]) t.repeat.set(1, 3.5);
+  totemMat = pbrMaterial(tex.totem, { color: 0xffffff });
+  glyphMat = pbrMaterial(tex.glyph, { color: 0xffe0a0, emissive: 0x6a4a10, emissiveIntensity: 0.35, metalness: 0.6, roughness: 0.4 });
 }
 
 /** Box with UVs scaled so the texture repeats every TEXTURE_METRES on each face. */
@@ -139,7 +145,7 @@ function buildFork(group: THREE.Group, c: { x: number; z: number; dir: { x: numb
     arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dirSide.x, 0, dirSide.z));
     group.add(arrow);
   }
-  const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), accentMaterial);
+  const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), glyphMat);
   marker.position.set(c.x, 0.03, c.z);
   group.add(marker);
   // Totem on the far wall, looking back down the incoming corridor.
@@ -203,7 +209,7 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   addTotem(group, tot.x, tot.z, dirIn);
 
   // Corner marker and arrow pointing along the new heading.
-  const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), accentMaterial);
+  const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), glyphMat);
   marker.position.set(c.x, 0.03, c.z);
   group.add(marker);
   const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), accentMaterial);

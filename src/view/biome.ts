@@ -24,18 +24,18 @@ export const BIOMES: Record<string, Biome> = {
   inca: {
     name: 'Inca highlands',
     sky: {
-      zenith: '#1a2a5a', horizon: '#e8a86a', ground: '#2a1a2e',
+      zenith: '#1a2a5a', horizon: '#c99a8a', ground: '#7a6688',
       sun: { azimuth: -0.7, elevation: 0.32, color: '#fff1c0', size: 0.045 },
       cloudCover: 0.45,
-      mountains: { color: '#2b2140', height: 0.12, layers: 3 },
+      mountains: { color: '#4a3c62', height: 0.08, layers: 2 },
     },
     // near/far are fractions of the game's lookahead distance (see scene.ts updateFog).
-    fog: { color: 0x7a6688, near: 0.12, far: 0.62 },
-    light: { sun: 0xffe2b0, sunIntensity: 1.6, ambient: 0x8090b0, ambientIntensity: 0.7 },
-    floorTint: 0xc4ccd8,
-    wallTint: 0xb0a8b0,
-    groundTint: 0x8c9c84,
-    cliffTint: 0x8a8088,
+    fog: { color: 0x8a7898, near: 0.1, far: 0.5 },
+    light: { sun: 0xffe2b0, sunIntensity: 2.2, ambient: 0x9aa4c4, ambientIntensity: 1.0 },
+    floorTint: 0xe8e4dc,
+    wallTint: 0xe0dcd8,
+    groundTint: 0xb8c4a8,
+    cliffTint: 0xb8b4bc,
     tree: { trunk: 0x5a3c26, canopy: 0x2f7a3e, canopyAlt: 0x4f9a3a, density: 4 },
   },
 };

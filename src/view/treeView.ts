@@ -3,6 +3,7 @@ import type { Game } from '../core/game';
 import { TRACK_HALF_WIDTH } from '../core/track';
 import { Biome } from './biome';
 import { GROUND_Y } from './groundView';
+import { pbrMaterial, textures } from './textures';
 import { faceHeading } from './util';
 
 /** Low-poly trees beside straight segments, seeded per segment so they stay put. */
@@ -18,9 +19,12 @@ const hash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263)
 
 export function initTrees(scene: THREE.Scene, biome: Biome): void {
   density = biome.tree.density;
-  trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 2.2, 6), new THREE.MeshStandardMaterial({ color: biome.tree.trunk, roughness: 0.9 }), MAX);
-  canopies = new THREE.InstancedMesh(new THREE.ConeGeometry(1.6, 3.6, 7), new THREE.MeshStandardMaterial({ color: biome.tree.canopy, roughness: 0.8 }), MAX);
-  canopiesAlt = new THREE.InstancedMesh(new THREE.ConeGeometry(1.3, 3.0, 6), new THREE.MeshStandardMaterial({ color: biome.tree.canopyAlt, roughness: 0.8 }), MAX);
+  const tex = textures();
+  trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.28, 2.2, 6), pbrMaterial(tex.bark, { color: 0xffffff }), MAX);
+  // Canopies wear the (generated) leaf texture, tinted per variant.
+  canopies = new THREE.InstancedMesh(new THREE.ConeGeometry(1.6, 3.6, 8), pbrMaterial(tex.leaves, { color: 0xd8e8d0 }), MAX);
+  canopiesAlt = new THREE.InstancedMesh(new THREE.ConeGeometry(1.3, 3.0, 7), pbrMaterial(tex.leaves2, { color: 0xd0e0c0 }), MAX);
+  void biome;
   for (const m of [trunks, canopies, canopiesAlt]) { m.count = 0; m.frustumCulled = false; m.castShadow = false; scene.add(m); }
 }
 

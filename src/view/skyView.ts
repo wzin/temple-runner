@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 import { Biome } from './biome';
 
-/** Sky dome: equirectangular canvas with gradient, sun, clouds and mountains, following the camera. */
+/** Sky: equirectangular canvas with gradient, sun, clouds and mountains, used as the scene background. */
 
 const W = 1024; const H = 512;
-let dome: THREE.Mesh;
 
 function hash(x: number, y: number, seed: number): number {
   let h = (x * 374761393 + y * 668265263 + seed * 2246822519) | 0;
@@ -31,9 +30,13 @@ export function paintSky(b: Biome): THREE.CanvasTexture {
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d')!;
   const img = ctx.createImageData(W, H);
-  const zen = hex(b.sky.zenith); const hor = hex(b.sky.horizon); const gnd = hex(b.sky.ground); const sunC = hex(b.sky.sun.color); const mtn = hex(b.sky.mountains.color);
+  const zen = hex(b.sky.zenith); const hor = hex(b.sky.horizon); const sunC = hex(b.sky.sun.color); const mtn = hex(b.sky.mountains.color);
+  // Fogged geometry converges to the fog colour, so the sky around and below the horizon must be that
+  // colour too, otherwise distant corridors stay visible as flat silhouettes against a differently coloured sky.
+  const fogC = [(b.fog.color >> 16) & 255, (b.fog.color >> 8) & 255, b.fog.color & 255];
   const sunU = (b.sky.sun.azimuth / (Math.PI * 2) + 0.5) % 1; const sunV = 0.5 - b.sky.sun.elevation / Math.PI;
   for (let y = 0; y < H; y++) {
+    // Canvas row 0 is the top of the equirect background (flipY), i.e. the zenith.
     const v = y / H;                       // 0 = zenith, 0.5 = horizon, 1 = nadir
     for (let x = 0; x < W; x++) {
       const u = x / W;
@@ -41,6 +44,9 @@ export function paintSky(b: Biome): THREE.CanvasTexture {
       if (v < 0.5) {
         const t = Math.pow(v / 0.5, 1.6);
         c = mix(zen, hor, t);
+        // Blend into the fog colour over the last stretch above the horizon.
+        const toFog = Math.max(0, (v - 0.36) / 0.14);
+        c = mix(c, fogC, Math.min(1, toFog));
         // sun disc and halo (wrap in u)
         const du = Math.min(Math.abs(u - sunU), 1 - Math.abs(u - sunU)) * 2; const dv = (v - sunV) * 1.0;
         const d = Math.hypot(du, dv);
@@ -52,12 +58,17 @@ export function paintSky(b: Biome): THREE.CanvasTexture {
         const cloud = Math.max(0, Math.min(1, cl * 2.5)) * band;
         c = mix(c, [235, 220, 225], cloud * 0.85);
       } else {
-        c = mix(hor, gnd, Math.min(1, (v - 0.5) / 0.15));
+        c = fogC;   // below the horizon: whatever is there is fogged out
       }
-      // mountains: layered ridges around the horizon
+      // mountains: layered ridges above the horizon, fading into the fog towards their base
       for (let l = 0; l < b.sky.mountains.layers; l++) {
-        const ridge = 0.5 - b.sky.mountains.height * (0.45 + 0.55 * fbm(u * 6 + l * 3, l, 6, 90 + l, 3)) * (1 - l * 0.25);
-        if (v > ridge && v < 0.56) { c = mix(c, mtn.map((ch) => ch * (1 - l * 0.18)), 0.92); break; }
+        // Jagged ridge: coarse fbm for the massif, finer fbm for peaks; strength fades into the fog.
+        const ridge = 0.5 - b.sky.mountains.height * (0.25 + 0.75 * fbm(u * 3 + l * 2, l, 3, 90 + l, 4)) * (1 - l * 0.3);
+        if (v > ridge && v < 0.5) {
+          const fade = Math.min(1, (0.5 - v) / (0.5 - ridge + 1e-6));   // 1 at the peak, 0 at the horizon
+          c = mix(c, mtn.map((ch) => ch * (1 - l * 0.15)), 0.55 * Math.pow(fade, 0.5));
+          break;
+        }
       }
       const i = (y * W + x) * 4; img.data[i] = c[0]; img.data[i + 1] = c[1]; img.data[i + 2] = c[2]; img.data[i + 3] = 255;
     }
@@ -69,18 +80,16 @@ export function paintSky(b: Biome): THREE.CanvasTexture {
   return tex;
 }
 
+/**
+ * The sky is the scene background sampled as an equirectangular map: camera-relative,
+ * unaffected by fog, and with Three's own orientation (v = 1 at the zenith).
+ */
 export function initSky(scene: THREE.Scene, biome: Biome): void {
-  const tex = paintSky(biome);
-  const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide, fog: false, depthWrite: false });
-  dome = new THREE.Mesh(new THREE.SphereGeometry(300, 48, 24), mat);
-  dome.rotation.y = Math.PI; // align u=0.5 with -z (the starting heading)
-  dome.renderOrder = -10;
-  dome.frustumCulled = false;
-  scene.add(dome);
+  scene.background = paintSky(biome);
 }
 
-export function updateSky(camera: THREE.Camera): void {
-  dome.position.copy(camera.position);
+export function updateSky(_camera: THREE.Camera): void {
+  // nothing to move: a background map follows the camera by construction
 }
 
 /** World-space direction towards the sun, for the directional light. */

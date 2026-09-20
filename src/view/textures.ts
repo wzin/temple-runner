@@ -206,13 +206,14 @@ function ground(): Maps {
   });
 }
 
-export interface TextureSet { floor: Maps; wall: Maps; bark: Maps; leaves: Maps; ground: Maps }
+export interface TextureSet { floor: Maps; wall: Maps; bark: Maps; leaves: Maps; leaves2: Maps; ground: Maps; cliff: Maps; totem: Maps; glyph: Maps }
 
 let cached: TextureSet | null = null;
 export function textures(): TextureSet {
   if (!cached) {
     const t0 = performance.now();
-    cached = { floor: stoneFloor(), wall: wallBricks(), bark: woodBark(), leaves: leaves(), ground: ground() };
+    // Procedural fallbacks; real sets from /textures replace their images in place (loadRealTextures).
+    cached = { floor: stoneFloor(), wall: wallBricks(), bark: woodBark(), leaves: leaves(), leaves2: leaves(), ground: ground(), cliff: wallBricks(), totem: wallBricks(), glyph: stoneFloor() };
     console.info(`[textures] baked in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return cached;
@@ -225,7 +226,10 @@ export function textures(): TextureSet {
  */
 export function loadRealTextures(): void {
   const loader = new THREE.TextureLoader();
-  const sets: [keyof TextureSet, string][] = [['floor', 'floor'], ['wall', 'wall'], ['bark', 'bark'], ['ground', 'ground'], ['leaves', 'leaves']];
+  const sets: [keyof TextureSet, string][] = [
+    ['floor', 'floor-temple'], ['wall', 'wall-inca'], ['bark', 'bark-tropical'], ['ground', 'ground-jungle'],
+    ['leaves', 'leaves'], ['leaves2', 'leaves2'], ['cliff', 'cliff-rock'], ['totem', 'totem'], ['glyph', 'gold-glyph'],
+  ];
   for (const [key, folder] of sets) {
     const maps = textures()[key];
     const swap = (target: THREE.CanvasTexture, file: string) => {

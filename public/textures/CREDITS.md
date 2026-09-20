@@ -1,16 +1,20 @@
 # Texture credits
 
-All PBR sets in this folder come from [ambientCG](https://ambientcg.com) and are
-released under CC0 1.0 (public domain). Downscaled to 1024² JPEG.
+All sets here were generated with fal.ai (Flux dev) through `scripts/gen-texture.mjs`
+and post-processed into seamless PBR sets (`color.jpg`, `normal.jpg` derived from
+luminance, `roughness.jpg`). Prompts are in the git history of the generating commit.
 
-| Folder | ambientCG asset |
-|--------|-----------------|
-| floor  | PavingStones070 |
-| wall   | Bricks075A |
-| bark   | Bark012 |
-| ground | Grass004 |
+| Folder | Used on |
+|--------|---------|
+| wall-inca | track walls |
+| floor-temple | floor slabs |
+| cliff-rock | embankment blocks |
+| totem | corner totems |
+| gold-glyph | corner marker plate |
+| bark-tropical | tree trunks |
+| leaves, leaves2 | tree canopies (two variants), branch obstacles |
+| ground-jungle | the land below the embankment |
 
-Files per set: `color.jpg`, `normal.jpg` (OpenGL convention), `roughness.jpg`.
-If a set is missing the game falls back to its procedural texture (`src/view/textures.ts`).
-
-| leaves | generated with fal.ai (Flux dev) via `scripts/gen-texture.mjs`, post-processed to a seamless PBR set |
+Earlier CC0 sets from ambientCG (PavingStones070, Bricks075A, Bark012, Grass004) were
+used up to v0.4.1 and can be restored from git if wanted. If a set is missing at runtime
+the game falls back to its procedural texture (`src/view/textures.ts`).

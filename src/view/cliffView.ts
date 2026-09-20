@@ -26,7 +26,7 @@ export function initCliffs(scene: THREE.Scene): void {
   const sizes: [number, number][] = [[SLAB, height], [SLAB, height], [WIDTH, SLAB], [WIDTH, SLAB], [WIDTH, height], [WIDTH, height]];
   for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const idx = f * 4 + i; uv.setXY(idx, uv.getX(idx) * (sizes[f][0] / 2), uv.getY(idx) * (sizes[f][1] / 2)); }
   uv.needsUpdate = true;
-  blocks = new THREE.InstancedMesh(geo, pbrMaterial(textures().wall, { color: activeBiome().cliffTint }), MAX);
+  blocks = new THREE.InstancedMesh(geo, pbrMaterial(textures().cliff, { color: activeBiome().cliffTint }), MAX);
   blocks.count = 0;
   blocks.frustumCulled = false;
   scene.add(blocks);
