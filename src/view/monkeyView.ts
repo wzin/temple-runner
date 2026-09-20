@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
+import { pbrMaterial, remoteSet } from './textures';
 import { yawOf } from './util';
 
 const COUNT = 3;
@@ -7,16 +8,21 @@ const SPREAD = 1.6;
 const FAR = 9;    // metres behind the player at proximity 0 (just behind the camera, so hidden)
 const NEAR = 2.5; // metres behind at proximity 100
 const monkeys: THREE.Group[] = [];
+let furMaps: ReturnType<typeof remoteSet> | null = null;
+const furSet = () => (furMaps ??= remoteSet('fur', 0x6b4423));
 
 function makeMonkey(): THREE.Group {
   const g = new THREE.Group();
-  const fur = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.9 });
+  const fur = pbrMaterial(furSet(), { color: 0xffffff });
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 10), fur);
   body.position.y = 0.75; body.scale.y = 1.2; body.castShadow = true;
   g.add(body);
   const head = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 10), fur);
   head.position.y = 1.55; head.castShadow = true;
   g.add(head);
+  const face = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 10), new THREE.MeshStandardMaterial({ color: 0xc9a27a, roughness: 0.9 }));
+  face.position.set(0, 1.5, 0.22); face.scale.set(1, 0.8, 0.6);
+  g.add(face);
   const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff2020, emissive: 0xff0000, emissiveIntensity: 1 });
   for (const side of [-0.14, 0.14]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), eyeMat);

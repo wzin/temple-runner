@@ -243,6 +243,40 @@ export function loadRealTextures(): void {
   }
 }
 
+/** A PBR set that starts as flat colour placeholders and fills in from /textures/<folder>/ when the JPEGs load. */
+export function remoteSet(folder: string, fallback: number): Maps {
+  const tiny = (r: number, g: number, b: number, srgb: boolean) => {
+    const c = document.createElement('canvas'); c.width = c.height = 2;
+    const ctx = c.getContext('2d')!; ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(0, 0, 2, 2);
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; return t;
+  };
+  const maps: Maps = {
+    map: tiny((fallback >> 16) & 255, (fallback >> 8) & 255, fallback & 255, true),
+    normalMap: tiny(128, 128, 255, false),
+    roughnessMap: tiny(200, 200, 200, false),
+  };
+  const loader = new THREE.TextureLoader();
+  const swap = (target: THREE.CanvasTexture, file: string) => {
+    loader.load(`/textures/${folder}/${file}.jpg`, (tex) => { target.image = tex.image; target.needsUpdate = true; }, undefined, () => { /* keep flat */ });
+  };
+  swap(maps.map, 'color'); swap(maps.normalMap, 'normal'); swap(maps.roughnessMap, 'roughness');
+  return maps;
+}
+
+const spriteCache = new Map<string, THREE.Texture>();
+/** RGBA sprite from /sprites/<name>.png (transparent until loaded). */
+export function sprite(name: string): THREE.Texture {
+  let t = spriteCache.get(name);
+  if (t) return t;
+  const c = document.createElement('canvas'); c.width = c.height = 2; // fully transparent placeholder
+  t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  const target = t;
+  new THREE.TextureLoader().load(`/sprites/${name}.png`, (tex) => { target.image = tex.image; target.needsUpdate = true; }, undefined, () => { /* stays transparent */ });
+  spriteCache.set(name, t);
+  return t;
+}
+
 /** Standard material wired to a PBR map set. */
 export function pbrMaterial(maps: Maps, extra: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({

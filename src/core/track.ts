@@ -86,8 +86,9 @@ export class Track {
   private straightsSinceTurn = 0;
   private laid = 0;
   private readonly turnChance: () => number;
-  /** Metres before the corner where a turn press is accepted; the game scales it with speed. */
+  /** Metres before / after the corner where a turn press is accepted; the game scales both with speed. */
   turnEarly = TURN_EARLY;
+  turnLate = TURN_LATE;
   private readonly straightsAfterTurn: number;
   private readonly initialStraights: number;
   private readonly forkChance: number;
@@ -163,7 +164,7 @@ export class Track {
     if (!this.branches) return main;
     const extra = [...this.branches.left.segments, ...this.branches.right.segments].filter((s) => s.kind === 'turn').map((segment) => {
       const corner = this.cornerOf(segment);
-      return { segment, corner, from: corner - this.turnEarly, to: corner + TURN_LATE };
+      return { segment, corner, from: corner - this.turnEarly, to: corner + this.turnLate };
     });
     return [...main, ...extra];
   }
@@ -221,7 +222,7 @@ export class Track {
   turnWindows(): TurnWindow[] {
     return this.segments.filter((s) => s.kind === 'turn').map((segment) => {
       const corner = this.cornerOf(segment);
-      return { segment, corner, from: corner - this.turnEarly, to: corner + TURN_LATE };
+      return { segment, corner, from: corner - this.turnEarly, to: corner + this.turnLate };
     });
   }
 

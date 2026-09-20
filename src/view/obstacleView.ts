@@ -1,112 +1,130 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
 import { OBSTACLES, ObstacleKind } from '../core/spawner';
-import { pbrMaterial, textures } from './textures';
+import { flameMaterial } from './flameMaterial';
+import { pbrMaterial, remoteSet, sprite, textures } from './textures';
 import { faceHeading } from './util';
 
-const MAX_PER_KIND = 64;
-const PIT_DEPTH = 8;
-const meshes = new Map<ObstacleKind, THREE.InstancedMesh>();
-let gapRims: THREE.InstancedMesh;
-let gapVeils: THREE.InstancedMesh; // translucent bridges shown over gaps while the runner cannot fall
-const dummy = new THREE.Object3D();
-const GAP_WIDTH = 6.2;
+/**
+ * Obstacles as instanced meshes placed from track coordinates each frame.
+ *  fire   – two crossed flame billboards (generated sprite), additive, flickering
+ *  log    – bark cylinder with tree-ring end caps
+ *  branch – bark trunk higher up plus three leaf puffs
+ *  gap    – open pit seen from inside: stone walls, glowing lava floor
+ */
 
-const LOOKS: Record<ObstacleKind, { color: number; emissive?: number; emissiveIntensity?: number }> = {
-  fire: { color: 0xff6b1a, emissive: 0xff3300, emissiveIntensity: 0.6 },
-  log: { color: 0xa8723a },
-  branch: { color: 0x5aa04e },
-  // A gap glows violet from below so it reads as a hole in the dark floor, not as more floor.
-  gap: { color: 0x0a0614, emissive: 0x2a0f55, emissiveIntensity: 0.35 },
-};
+const MAX = 64;
+const PIT_DEPTH = 8;
+const GAP_WIDTH = 6.2;
+const dummy = new THREE.Object3D();
+
+let fireA: THREE.InstancedMesh; let fireB: THREE.InstancedMesh; let fireC: THREE.InstancedMesh;
+let logs: THREE.InstancedMesh;
+let branches: THREE.InstancedMesh; let puffs: THREE.InstancedMesh;
+let pits: THREE.InstancedMesh;
+let gapRims: THREE.InstancedMesh;
+let gapVeils: THREE.InstancedMesh;
 
 export function initObstacleView(scene: THREE.Scene): void {
-  for (const kind of Object.keys(OBSTACLES) as ObstacleKind[]) {
-    const spec = OBSTACLES[kind];
-    const width = spec.lane ? 2 : GAP_WIDTH;
-    // The floor slabs over a gap are not drawn (floorView); this is the dark pit below the hole.
-    const height = kind === 'gap' ? PIT_DEPTH : spec.y1 - spec.y0;
-    const geometry = kind === 'log'
-      ? new THREE.CylinderGeometry(height / 2, height / 2, width, 12).rotateZ(Math.PI / 2)
-      : new THREE.BoxGeometry(width, height, spec.depth);
-    const look = LOOKS[kind];
-    const tex = textures();
-    const maps = kind === 'log' ? tex.bark : kind === 'branch' ? tex.leaves : null;
-    const material = maps
-      ? pbrMaterial(maps)
-      : new THREE.MeshStandardMaterial({ color: look.color, emissive: look.emissive ?? 0x000000, emissiveIntensity: look.emissiveIntensity ?? 0, roughness: 0.7 });
-    const mesh = new THREE.InstancedMesh(geometry, material, MAX_PER_KIND);
-    mesh.count = 0;
-    mesh.castShadow = kind !== 'gap';
-    // The shared bounding sphere sits at the origin; culling would hide every instance once the camera moves away.
-    mesh.frustumCulled = false;
-    meshes.set(kind, mesh);
-    scene.add(mesh);
-  }
-  // Glowing rims on the near and far edge of every gap, so the hole is readable from a distance.
+  const tex = textures();
+  const add = (m: THREE.InstancedMesh) => { m.count = 0; m.frustumCulled = false; scene.add(m); return m; };
+
+  // Fire: 2.4 m wide, 1.8 m tall quads, crossed at 90°, additive so the sprite's black is invisible.
+  const fireMat = new THREE.MeshBasicMaterial({ map: sprite('fire'), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  fireA = add(new THREE.InstancedMesh(new THREE.PlaneGeometry(2.4, 1.8), fireMat, MAX));
+  fireB = add(new THREE.InstancedMesh(new THREE.PlaneGeometry(2.4, 1.8), fireMat, MAX));
+  fireC = add(new THREE.InstancedMesh(new THREE.PlaneGeometry(1.6, 2.2), flameMaterial({ scale: 0.8, speed: 1.1 }), MAX));
+
+  const logSpec = OBSTACLES.log; const logR = (logSpec.y1 - logSpec.y0) / 2;
+  const logGeo = new THREE.CylinderGeometry(logR, logR, GAP_WIDTH, 14).rotateZ(Math.PI / 2); // groups: side, cap, cap
+  const barkMat = pbrMaterial(tex.bark); for (const t of [tex.bark.map, tex.bark.normalMap, tex.bark.roughnessMap]) t.repeat.set(3, 1);
+  const logEnd = remoteSet('log-end', 0xc9a877);
+  const capMat = pbrMaterial(logEnd);
+  logs = add(new THREE.InstancedMesh(logGeo, [barkMat, capMat, capMat], MAX));
+  logs.castShadow = false;
+
+  const brSpec = OBSTACLES.branch;
+  const branchGeo = new THREE.CylinderGeometry(0.22, 0.28, GAP_WIDTH, 10).rotateZ(Math.PI / 2);
+  branches = add(new THREE.InstancedMesh(branchGeo, [barkMat, capMat, capMat], MAX));
+  puffs = add(new THREE.InstancedMesh(new THREE.SphereGeometry(0.9, 10, 8), pbrMaterial(tex.leaves, { color: 0xd0e0c0 }), MAX * 3));
+  void brSpec;
+
+  // Pit: BoxGeometry groups [+x, -x, +y, -y, +z, -z]; back faces only, so the camera looks into it.
+  const stone = pbrMaterial(tex.cliff, { color: 0x4a4a52, side: THREE.BackSide });
+  const lavaSet = remoteSet('lava', 0xff5a10);
+  const lava = pbrMaterial(lavaSet, { color: 0xffffff, emissive: 0xff6a20, emissiveIntensity: 1.2, side: THREE.BackSide });
+  const none = new THREE.MeshBasicMaterial({ visible: false });
+  pits = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, PIT_DEPTH, OBSTACLES.gap.depth), [stone, stone, none, lava, stone, stone], MAX));
+
   const rimMaterial = new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xffb000, emissiveIntensity: 1.4 });
-  gapRims = new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.16, 0.3), rimMaterial, MAX_PER_KIND * 2);
-  gapRims.count = 0;
-  gapRims.frustumCulled = false;
-  scene.add(gapRims);
+  gapRims = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.16, 0.3), rimMaterial, MAX * 2));
   const veilMaterial = new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
-  gapVeils = new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.06, 1), veilMaterial, MAX_PER_KIND);
-  gapVeils.count = 0;
-  gapVeils.frustumCulled = false;
-  scene.add(gapVeils);
+  gapVeils = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.06, 1), veilMaterial, MAX));
 }
 
 export function updateObstacleView(game: Game, timeMs: number): void {
-  const counts = new Map<ObstacleKind, number>();
-  let rims = 0; let veils = 0;
+  let nFire = 0; let nLog = 0; let nBranch = 0; let nPuff = 0; let nPit = 0; let rims = 0; let veils = 0;
+  const track = game.track;
   for (const o of game.spawner.obstacles) {
+    const midS = (o.s0 + o.s1) / 2; const midX = (o.x0 + o.x1) / 2;
     const spec = OBSTACLES[o.kind];
-    const mesh = meshes.get(o.kind)!;
-    const midX = (o.x0 + o.x1) / 2;
+    for (const p of track.samplesAt(midS, midX)) {
+      switch (o.kind) {
+        case 'fire': {
+          if (nFire >= MAX) break;
+          const flicker = 1 + Math.sin(timeMs * 0.02 + o.id) * 0.1;
+          const sway = Math.sin(timeMs * 0.011 + o.id * 2) * 0.06;
+          dummy.position.set(p.x, 0.9 * flicker, p.z); faceHeading(dummy, p.dir); dummy.rotation.z = sway;
+          dummy.scale.set(1, flicker, 1); dummy.updateMatrix(); fireA.setMatrixAt(nFire, dummy.matrix);
+          dummy.rotation.y += Math.PI / 2; dummy.updateMatrix(); fireB.setMatrixAt(nFire, dummy.matrix);
+          dummy.rotation.y -= Math.PI / 4; dummy.position.y = 1.3 * flicker; dummy.updateMatrix(); fireC.setMatrixAt(nFire, dummy.matrix);
+          nFire++;
+          break;
+        }
+        case 'log': {
+          if (nLog >= MAX) break;
+          dummy.position.set(p.x, (spec.y0 + spec.y1) / 2, p.z); faceHeading(dummy, p.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+          logs.setMatrixAt(nLog++, dummy.matrix);
+          break;
+        }
+        case 'branch': {
+          if (nBranch >= MAX) break;
+          const y = spec.y0 + 0.35;
+          dummy.position.set(p.x, y, p.z); faceHeading(dummy, p.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+          branches.setMatrixAt(nBranch++, dummy.matrix);
+          const right = { x: -p.dir.z, z: p.dir.x };
+          for (const k of [-1.9, 0, 1.9]) {
+            if (nPuff >= MAX * 3) break;
+            const bob = Math.sin(timeMs * 0.002 + o.id + k) * 0.05;
+            dummy.position.set(p.x + right.x * k, y + 0.9 + bob, p.z + right.z * k); dummy.rotation.set(0, o.id + k, 0); dummy.scale.setScalar(1 + (k === 0 ? 0.25 : 0)); dummy.updateMatrix();
+            puffs.setMatrixAt(nPuff++, dummy.matrix);
+          }
+          break;
+        }
+        case 'gap': {
+          if (nPit < MAX) {
+            dummy.position.set(p.x, -0.5 - PIT_DEPTH / 2, p.z); faceHeading(dummy, p.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+            pits.setMatrixAt(nPit++, dummy.matrix);
+          }
+          if (game.invulnerable && veils < MAX) {
+            dummy.position.set(p.x, 0.04, p.z); faceHeading(dummy, p.dir);
+            dummy.scale.set(1, 1 + Math.sin(timeMs * 0.01) * 0.3, o.s1 - o.s0); dummy.updateMatrix();
+            gapVeils.setMatrixAt(veils++, dummy.matrix);
+          }
+          break;
+        }
+      }
+    }
     if (o.kind === 'gap') {
-      for (const m of game.track.samplesAt((o.s0 + o.s1) / 2, midX)) {
-        if (game.invulnerable && veils < MAX_PER_KIND) {
-          dummy.position.set(m.x, 0.04, m.z);
-          faceHeading(dummy, m.dir);
-          dummy.scale.set(1, 1 + Math.sin(timeMs * 0.01) * 0.3, o.s1 - o.s0);
-          dummy.updateMatrix();
-          gapVeils.setMatrixAt(veils++, dummy.matrix);
-        }
-      }
-      for (const edge of [o.s0, o.s1]) {
-        for (const e of game.track.samplesAt(edge, midX)) {
-          if (rims >= MAX_PER_KIND * 2) break;
-          dummy.position.set(e.x, 0.06, e.z);
-          faceHeading(dummy, e.dir);
-          dummy.scale.set(1, 1 + Math.sin(timeMs * 0.006) * 0.3, 1);
-          dummy.updateMatrix();
-          gapRims.setMatrixAt(rims++, dummy.matrix);
-        }
+      for (const edge of [o.s0, o.s1]) for (const e of track.samplesAt(edge, midX)) {
+        if (rims >= MAX * 2) break;
+        dummy.position.set(e.x, 0.06, e.z); faceHeading(dummy, e.dir); dummy.scale.set(1, 1 + Math.sin(timeMs * 0.006) * 0.3, 1); dummy.updateMatrix();
+        gapRims.setMatrixAt(rims++, dummy.matrix);
       }
     }
-    let i = counts.get(o.kind) ?? 0;
-    for (const p of game.track.samplesAt((o.s0 + o.s1) / 2, midX)) {
-      if (i >= MAX_PER_KIND) break;
-      const y = o.kind === 'gap' ? -0.55 - PIT_DEPTH / 2 : (spec.y0 + spec.y1) / 2;
-      dummy.position.set(p.x, y, p.z);
-      faceHeading(dummy, p.dir);
-      if (o.kind === 'fire') {
-        const flicker = 1 + Math.sin(timeMs * 0.02 + o.id) * 0.08;
-        dummy.scale.set(1, flicker, 1);
-      } else {
-        dummy.scale.set(1, 1, 1);
-      }
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i++, dummy.matrix);
-    }
-    counts.set(o.kind, i);
   }
-  for (const [kind, mesh] of meshes) {
-    mesh.count = counts.get(kind) ?? 0;
-    mesh.instanceMatrix.needsUpdate = true;
-  }
-  gapRims.count = rims;
-  gapRims.instanceMatrix.needsUpdate = true;
-  gapVeils.count = veils;
-  gapVeils.instanceMatrix.needsUpdate = true;
+  const flush = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; };
+  flush(fireA, nFire); flush(fireB, nFire); flush(fireC, nFire); flush(logs, nLog); flush(branches, nBranch); flush(puffs, nPuff); flush(pits, nPit); flush(gapRims, rims); flush(gapVeils, veils);
 }
+
+export const OBSTACLE_KINDS: ObstacleKind[] = ['fire', 'log', 'branch', 'gap'];

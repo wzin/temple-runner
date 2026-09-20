@@ -84,6 +84,12 @@ function initTouch(): void {
   // Swipes on the canvas: left/right = turn press, up = jump, down = slide.
   const canvas = document.getElementById('game-canvas');
   if (!canvas) return;
+  // Stop iOS from turning touches into text selection, callouts or page scroll.
+  const block = (e: Event) => e.preventDefault();
+  canvas.addEventListener('touchstart', block, { passive: false });
+  canvas.addEventListener('touchmove', block, { passive: false });
+  canvas.addEventListener('contextmenu', block);
+  document.getElementById('hud')?.addEventListener('touchmove', block, { passive: false });
   let start: { x: number; y: number; id: number } | null = null;
   canvas.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse') return; start = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
   canvas.addEventListener('pointerup', (e) => {

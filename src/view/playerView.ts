@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
+import { pbrMaterial, remoteSet } from './textures';
 import { yawOf } from './util';
 
 /** Low-poly runner: torso, head, swinging arms and legs. Animation is driven by distance, not time. */
@@ -36,9 +37,12 @@ export function initPlayerView(scene: THREE.Scene): void {
   rig = new THREE.Group();
   group.add(rig);
 
-  const skin = new THREE.MeshStandardMaterial({ color: 0xe0b08a, roughness: 0.8, transparent: true });
-  const shirt = new THREE.MeshStandardMaterial({ color: 0x3fbf6f, roughness: 0.7, transparent: true });
-  const pants = new THREE.MeshStandardMaterial({ color: 0x5a3b2a, roughness: 0.9, transparent: true });
+  // Generated sets: woven Andean tunic, skin; pants reuse the tunic weave with a dark tint.
+  const tunic = remoteSet('tunic', 0x8a3a2a); const skinSet = remoteSet('skin', 0xe0b08a);
+  for (const t of [tunic.map, tunic.normalMap, tunic.roughnessMap]) t.repeat.set(2, 2);
+  const skin = pbrMaterial(skinSet, { color: 0xffffff, transparent: true });
+  const shirt = pbrMaterial(tunic, { color: 0xffffff, transparent: true });
+  const pants = pbrMaterial(tunic, { color: 0x6a5a4a, transparent: true });
   bodyMaterials.push(skin, shirt, pants);
 
   torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.62, 0.32), shirt);

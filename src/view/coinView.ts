@@ -1,15 +1,19 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
+import { remoteSet } from './textures';
 
 const MAX_COINS = 512;
 let mesh: THREE.InstancedMesh;
 const dummy = new THREE.Object3D();
 
 export function initCoinView(scene: THREE.Scene): void {
-  const geometry = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+  const geometry = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 24);
   geometry.rotateX(Math.PI / 2);
-  const material = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 0.5, metalness: 0.8, roughness: 0.2 });
-  mesh = new THREE.InstancedMesh(geometry, material, MAX_COINS);
+  // Groups: [side, top cap, bottom cap]. Caps carry the embossed sun-glyph coin face.
+  const face = remoteSet('coin', 0xffd700);
+  const rim = new THREE.MeshStandardMaterial({ color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 0.4, metalness: 0.9, roughness: 0.25 });
+  const cap = new THREE.MeshStandardMaterial({ map: face.map, normalMap: face.normalMap, color: 0xffe8a0, emissive: 0xaa7700, emissiveIntensity: 0.35, metalness: 0.85, roughness: 0.3 });
+  mesh = new THREE.InstancedMesh(geometry, [rim, cap, cap], MAX_COINS);
   mesh.count = 0;
   scene.add(mesh);
   // The shared bounding sphere sits at the origin; culling would hide every instance once the camera moves away.

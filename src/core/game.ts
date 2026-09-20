@@ -131,6 +131,7 @@ export class Game {
     const boost = this.boosting ? BOOST_SPEED_FACTOR : 1;
     this.player.speedScale = (d.speed / this.player.cfg.speed) * boost;
     this.track.turnEarly = d.reactionTime * d.speed * boost;
+    this.track.turnLate = Math.max(2, 0.15 * d.speed * boost);   // a late press still counts for ~150 ms past the corner
   }
 
   private activate(kind: PowerUpKind, events: GameEvent[]): void {

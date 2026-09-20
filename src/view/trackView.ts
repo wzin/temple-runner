@@ -12,7 +12,6 @@ const WALL_THICKNESS = 0.5;
 // Textures are created lazily because the canvas needs a DOM; materials are shared by all segments.
 let wallMaterial: THREE.MeshStandardMaterial;
 const TEXTURE_METRES = 2; // one texture tile covers 2 m of track
-const accentMaterial = new THREE.MeshStandardMaterial({ color: 0xe94560, emissive: 0xe94560, emissiveIntensity: 0.3 });
 
 const groups = new Map<number, THREE.Group>();
 let root: THREE.Scene;
@@ -139,11 +138,6 @@ function buildFork(group: THREE.Group, c: { x: number; z: number; dir: { x: numb
     near.position.add(at(dirSide.x * mid - dirIn.x * lateral, dirSide.z * mid - dirIn.z * lateral));
     faceHeading(near, dirSide);
     group.add(near);
-    // Arrow pointing into the stub.
-    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), accentMaterial);
-    arrow.position.set(c.x + dirSide.x * 1.5, 0.8, c.z + dirSide.z * 1.5);
-    arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dirSide.x, 0, dirSide.z));
-    group.add(arrow);
   }
   const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), glyphMat);
   marker.position.set(c.x, 0.03, c.z);
@@ -208,14 +202,10 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   const tot = at(dirIn.x * (TRACK_HALF_WIDTH + 1.0) + outer * rightIn.x * (TRACK_HALF_WIDTH - 0.9), dirIn.z * (TRACK_HALF_WIDTH + 1.0) + outer * rightIn.z * (TRACK_HALF_WIDTH - 0.9));
   addTotem(group, tot.x, tot.z, dirIn);
 
-  // Corner marker and arrow pointing along the new heading.
+  // Corner marker plate (the direction arrow is a decal, see decalView).
   const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), glyphMat);
   marker.position.set(c.x, 0.03, c.z);
   group.add(marker);
-  const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), accentMaterial);
-  arrow.position.set(c.x + seg.outDir.x * 1.5, 0.8, c.z + seg.outDir.z * 1.5);
-  arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(seg.outDir.x, 0, seg.outDir.z));
-  group.add(arrow);
 
   return group;
 }

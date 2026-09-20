@@ -14,6 +14,10 @@ import { initFloorView, updateFloorView } from './view/floorView';
 import { initGround, updateGround } from './view/groundView';
 import { initCliffs, updateCliffs } from './view/cliffView';
 import { initTorches, updateTorches } from './view/torchView';
+import { initDecals, updateDecals } from './view/decalView';
+import { initProps, updateProps } from './view/propView';
+import { initRuins, updateRuins } from './view/ruinsView';
+import { tickFlames } from './view/flameMaterial';
 import { initSky, updateSky } from './view/skyView';
 import { initTrees, updateTrees } from './view/treeView';
 import { activeBiome } from './view/biome';
@@ -30,6 +34,8 @@ const game = new Game(Date.now() >>> 0);
 let lastTime = 0;
 let beatHighScore = false;     // banner shown once per run
 let countdownEnd = 0;          // performance.now() when a resume countdown finishes
+let hintUntil = 0;             // performance.now() until which the start hint stays
+let turnedOnce = false;        // first successful turn hides the corner coach mark
 const COUNTDOWN_MS = 3000;
 
 // Exposed for automated play-testing (headless browser drives the run through these handles).
@@ -59,6 +65,9 @@ function init(): void {
   initFloorView(scene);
   initTrackView(scene);
   initTorches(scene);
+  initDecals(scene);
+  initProps(scene);
+  initRuins(scene);
   loadRealTextures();   // upgrades the procedural maps in place once the JPEGs arrive
   initPlayerView(scene);
   initCoinView(scene);
@@ -120,20 +129,24 @@ function loop(now: number): void {
     updateParticles(game, dt);
     updateCamera(game, dt);
     updateHUD();
+    updateHint(now);
     if (game.over) endRun();
   } else if (gameState.screen === 'menu') {
     syncViews(now);
   }
 
   updateFog(game.lookahead);
+  tickFlames(now / 1000);
   updateSky(camera);
   updateGround(camera);
+  updateRuins(camera);
   renderer.render(scene, camera);
   endFrame();
 }
 
 function handleEvents(events: GameEvent[]): void {
   for (const e of events) {
+    if (e.type === 'turn') turnedOnce = true;
     switch (e.type) {
       case 'coin': playSound('coin'); coinBurst(game); break;
       case 'jump': playSound('jump'); break;
@@ -148,6 +161,25 @@ function handleEvents(events: GameEvent[]): void {
       case 'powerupEnd': break;
     }
   }
+}
+
+const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
+
+/** Start-of-run controls reminder, then a corner coach mark until the first turn is taken. */
+function updateHint(now: number): void {
+  const el = document.getElementById('hint');
+  if (!el) return;
+  const touch = isTouch();
+  let text = '';
+  const w = game.track.turnWindowAt(game.player.s);
+  const corner = game.track.turnWindows().find((tw) => !tw.segment.turnDone && tw.corner > game.player.s && tw.corner - game.player.s < 30);
+  if (!turnedOnce && (w || corner)) {
+    text = touch ? 'TAP ◄ ► OR SWIPE TO TURN' : 'PRESS ← → TO TURN';
+  } else if (now < hintUntil) {
+    text = touch ? 'SWIPE ◄ ► TURN · ▲ JUMP · ▼ SLIDE' : '← → TURN · ↑ JUMP · ↓ SLIDE';
+  }
+  if (text) { if (el.textContent !== text) el.textContent = text; el.classList.remove('hidden'); }
+  else el.classList.add('hidden');
 }
 
 function syncState(): void {
@@ -168,11 +200,13 @@ function syncViews(now: number): void {
   updateFloorView(game);
   updateCliffs(game);
   updateTorches(game, now);
+  updateDecals(game, now);
+  updateProps(game, camera);
   updateTrees(game);
   updatePlayerView(game, now);
   updateCoinView(game, now);
   updateObstacleView(game, now);
-  updatePowerUpView(game, now);
+  updatePowerUpView(game, now, camera);
   updateMonkeyView(game, now);
 }
 
@@ -188,6 +222,8 @@ function startGame(): void {
   game.reset(Date.now() >>> 0);
   gameState.screen = 'playing';
   setTouchControlsVisible(true);
+  hintUntil = performance.now() + 4500;
+  turnedOnce = false;
   syncState();
   syncViews(performance.now());
   snapCamera(game);
@@ -197,6 +233,7 @@ function startGame(): void {
 function endRun(): void {
   gameState.screen = 'gameover';
   setTouchControlsVisible(false);
+  document.getElementById('hint')?.classList.add('hidden');
   if (game.score > gameState.highScore) {
     gameState.highScore = game.score;
     saveHighScore(gameState.highScore);
