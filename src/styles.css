@@ -236,3 +236,17 @@ body {
 .leaderboard li .lb-name { flex: 1; text-align: left; letter-spacing: 0.1em; text-transform: uppercase; }
 .leaderboard li .lb-score { font-weight: bold; }
 .leaderboard li.me { background: rgba(233,69,96,0.25); border-radius: 4px; color: #fff; }
+
+/* Countdown after resume */
+#countdown { background: rgba(0,0,0,0.35); pointer-events: none; }
+.countdown-number { font-size: 8rem; font-weight: bold; color: #fff; text-shadow: 0 0 30px rgba(233,69,96,0.9); animation: countpop 1s ease-out infinite; }
+@keyframes countpop { 0% { transform: scale(1.4); opacity: 0.2; } 30% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.9; } }
+
+/* Generic hide for overlays inside the HUD (screens have their own .ui-screen.hidden rule) */
+.banner.hidden { display: none !important; }
+
+/* New high score banner */
+.banner { position: absolute; top: 5.5rem; left: 50%; transform: translateX(-50%); padding: 0.4rem 1.2rem; border-radius: 8px;
+  background: rgba(233,69,96,0.85); color: #fff; font-weight: bold; letter-spacing: 0.2em; font-size: 1.1rem;
+  text-shadow: 0 0 10px rgba(255,255,255,0.6); animation: bannerpulse 0.6s ease-in-out infinite alternate; }
+@keyframes bannerpulse { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.08); } }

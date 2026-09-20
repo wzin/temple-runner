@@ -28,7 +28,9 @@ export const PATTERNS: Record<PatternKind, { minS: number; length: number }> = {
   laneFireRow:   { minS: 600, length: 9 },
 };
 
-export interface SpawnTuning { obstacleChance: number; obstacleSpacing: number }
+export interface SpawnTuning { obstacleChance: number; obstacleSpacing: number; speed: number }
+/** Airtime of a jump (from player physics: 2·v/g with v = 11.5, g = 30). Pattern gaps that follow a jump scale with it. */
+export const JUMP_AIRTIME = 0.77;
 export interface SpawnerOptions {
   chunk: number;
   firstObstacleAt: number;
@@ -40,7 +42,7 @@ export interface SpawnerOptions {
 }
 const DEFAULTS: SpawnerOptions = {
   chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.55, powerUpChance: 0.08, firstPowerUpAt: 120,
-  tuning: () => ({ obstacleChance: 0.45, obstacleSpacing: 25 }),
+  tuning: () => ({ obstacleChance: 0.45, obstacleSpacing: 25, speed: 15 }),
 };
 
 export class Spawner {
@@ -71,10 +73,11 @@ export class Spawner {
     const o = this.opts;
     const t = o.tuning(s);
     const pattern = this.choosePattern(s);
-    const len = PATTERNS[pattern].length;
-    const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing
-      && !this.track.nearTurnWindow(s, o.turnMargin) && !this.track.nearTurnWindow(s + len, o.turnMargin);
-    if (canObstacle && chance(this.rng, t.obstacleChance)) { this.layPattern(pattern, s); return; }
+    const len = this.patternLength(pattern, t.speed);
+    // The whole pattern span must stay clear of every turn window (long patterns can straddle a segment).
+    const clearOfTurns = !this.track.turnWindows().some((w) => w.to + o.turnMargin >= s && w.from - o.turnMargin <= s + len);
+    const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
+    if (canObstacle && chance(this.rng, t.obstacleChance)) { this.layPattern(pattern, s, t.speed); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }
     if (chance(this.rng, o.coinChance)) this.layCoinRun(s);
   }
@@ -95,7 +98,19 @@ export class Spawner {
     return ob;
   }
 
-  private layPattern(pattern: PatternKind, s: number): void {
+  /** Metres a jump covers at this speed, plus a landing margin before the next action. */
+  private jumpReach(speed: number): number { return JUMP_AIRTIME * speed + 4; }
+
+  private patternLength(pattern: PatternKind, speed: number): number {
+    if (pattern === 'gapThenBranch') return OBSTACLES.gap.depth + this.jumpReach(speed) + OBSTACLES.branch.depth;
+    if (pattern === 'laneFireRow') return 2 * this.fireStep(speed) + OBSTACLES.fire.depth;
+    return PATTERNS[pattern].length;
+  }
+
+  /** Fires in a row are spaced so a jump clears at most one: a bit more than one jump reach. */
+  private fireStep(speed: number): number { return this.jumpReach(speed) + 2; }
+
+  private layPattern(pattern: PatternKind, s: number, speed: number): void {
     switch (pattern) {
       case 'single': {
         const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap'] as const);
@@ -108,8 +123,9 @@ export class Spawner {
         return;
       }
       case 'gapThenBranch': {
+        // The branch sits where the runner lands after jumping the gap, with room to start a slide.
         this.place('gap', s, null);
-        this.place('branch', s + OBSTACLES.gap.depth + 7, null);
+        this.place('branch', s + OBSTACLES.gap.depth + this.jumpReach(speed), null);
         return;
       }
       case 'logWithArc': {
@@ -125,7 +141,7 @@ export class Spawner {
       case 'laneFireRow': {
         const order = [...LANES];
         for (let i = order.length - 1; i > 0; i--) { const j = int(this.rng, 0, i); [order[i], order[j]] = [order[j], order[i]]; }
-        order.forEach((lane, i) => this.place('fire', s + i * 4, lane));
+        order.forEach((lane, i) => this.place('fire', s + i * this.fireStep(speed), lane));
         return;
       }
     }

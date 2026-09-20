@@ -8,6 +8,7 @@ const MAX_PER_KIND = 64;
 const PIT_DEPTH = 8;
 const meshes = new Map<ObstacleKind, THREE.InstancedMesh>();
 let gapRims: THREE.InstancedMesh;
+let gapVeils: THREE.InstancedMesh; // translucent bridges shown over gaps while the runner cannot fall
 const dummy = new THREE.Object3D();
 const GAP_WIDTH = 6.2;
 
@@ -48,12 +49,25 @@ export function initObstacleView(scene: THREE.Scene): void {
   gapRims.count = 0;
   gapRims.frustumCulled = false;
   scene.add(gapRims);
+  const veilMaterial = new THREE.MeshBasicMaterial({ color: 0xffb060, transparent: true, opacity: 0.35, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });
+  gapVeils = new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH, 0.06, 1), veilMaterial, MAX_PER_KIND);
+  gapVeils.count = 0;
+  gapVeils.frustumCulled = false;
+  scene.add(gapVeils);
 }
 
 export function updateObstacleView(game: Game, timeMs: number): void {
   const counts = new Map<ObstacleKind, number>();
-  let rims = 0;
+  let rims = 0; let veils = 0;
   for (const o of game.spawner.obstacles) {
+    if (o.kind === 'gap' && game.invulnerable && veils < MAX_PER_KIND) {
+      const m = game.track.sample((o.s0 + o.s1) / 2, (o.x0 + o.x1) / 2);
+      dummy.position.set(m.x, 0.04, m.z);
+      faceHeading(dummy, m.dir);
+      dummy.scale.set(1, 1 + Math.sin(timeMs * 0.01) * 0.3, o.s1 - o.s0);
+      dummy.updateMatrix();
+      gapVeils.setMatrixAt(veils++, dummy.matrix);
+    }
     if (o.kind === 'gap' && rims + 2 <= MAX_PER_KIND * 2) {
       for (const edge of [o.s0, o.s1]) {
         const e = game.track.sample(edge, (o.x0 + o.x1) / 2);
@@ -88,4 +102,6 @@ export function updateObstacleView(game: Game, timeMs: number): void {
   }
   gapRims.count = rims;
   gapRims.instanceMatrix.needsUpdate = true;
+  gapVeils.count = veils;
+  gapVeils.instanceMatrix.needsUpdate = true;
 }

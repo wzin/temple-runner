@@ -14,6 +14,7 @@ export interface Biome {
   light: { sun: number; sunIntensity: number; ambient: number; ambientIntensity: number };
   floorTint: number;
   wallTint: number;
+  groundTint: number;
   tree: { trunk: number; canopy: number; canopyAlt: number; density: number };
 }
 
@@ -30,6 +31,7 @@ export const BIOMES: Record<string, Biome> = {
     light: { sun: 0xffe2b0, sunIntensity: 1.6, ambient: 0x8090b0, ambientIntensity: 0.7 },
     floorTint: 0xc4ccd8,
     wallTint: 0xb0a8b0,
+    groundTint: 0x9aa890,
     tree: { trunk: 0x5a3c26, canopy: 0x2f7a3e, canopyAlt: 0x4f9a3a, density: 6 },
   },
 };

@@ -192,13 +192,27 @@ export function skyGradient(): THREE.CanvasTexture {
   return tex;
 }
 
-export interface TextureSet { floor: Maps; wall: Maps; bark: Maps; leaves: Maps }
+/** Grass and earth for the ground plane beside the track. */
+function ground(): Maps {
+  return bake({
+    height: (u, v) => fbm(u * 6, v * 6, 6, 71) * 0.6 + fbm(u * 40, v * 40, 40, 72, 2) * 0.4,
+    color: (u, v, h) => {
+      const patch = fbm(u * 3, v * 3, 3, 73);
+      const grass = mix([46, 92, 44], [88, 128, 58], h);
+      return mix(grass, [86, 68, 46], Math.max(0, patch - 0.55) * 2);
+    },
+    roughness: () => 0.95,
+    normalStrength: 2.5,
+  });
+}
+
+export interface TextureSet { floor: Maps; wall: Maps; bark: Maps; leaves: Maps; ground: Maps }
 
 let cached: TextureSet | null = null;
 export function textures(): TextureSet {
   if (!cached) {
     const t0 = performance.now();
-    cached = { floor: stoneFloor(), wall: wallBricks(), bark: woodBark(), leaves: leaves() };
+    cached = { floor: stoneFloor(), wall: wallBricks(), bark: woodBark(), leaves: leaves(), ground: ground() };
     console.info(`[textures] baked in ${(performance.now() - t0).toFixed(0)} ms`);
   }
   return cached;

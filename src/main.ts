@@ -11,12 +11,13 @@ import { initPowerUpView, updatePowerUpView } from './view/powerUpView';
 import { initMonkeyView, updateMonkeyView } from './view/monkeyView';
 import { coinBurst, initParticles, updateParticles } from './view/particles';
 import { initFloorView, updateFloorView } from './view/floorView';
+import { initGround, updateGround } from './view/groundView';
 import { initSky, updateSky } from './view/skyView';
 import { initTrees, updateTrees } from './view/treeView';
 import { activeBiome } from './view/biome';
 import { endFrame, initDomInput, onTurn, pollInput, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
-import { initHUD, updateHUD, showHUD, hideHUD } from './ui/HUD';
+import { initHUD, updateHUD, showHUD, hideHUD, showHighScoreBanner, hideHighScoreBanner } from './ui/HUD';
 import { initPauseMenu, showPauseMenu, hidePauseMenu } from './ui/PauseMenu';
 import { initGameOver, isEnteringName, showGameOver, hideGameOver } from './ui/GameOver';
 
@@ -24,6 +25,9 @@ const HIGH_SCORE_KEY = 'temple-runner.highScore';
 
 const game = new Game(Date.now() >>> 0);
 let lastTime = 0;
+let beatHighScore = false;     // banner shown once per run
+let countdownEnd = 0;          // performance.now() when a resume countdown finishes
+const COUNTDOWN_MS = 3000;
 
 // Exposed for automated play-testing (headless browser drives the run through these handles).
 declare global { interface Window { __game: Game; __scene: typeof scene } }
@@ -44,6 +48,7 @@ function init(): void {
   initAudio();
 
   initSky(scene, activeBiome());
+  initGround(scene);
   initTrees(scene, activeBiome());
   initFloorView(scene);
   initTrackView(scene);
@@ -90,6 +95,13 @@ function loop(now: number): void {
   if (wasPausePressed()) {
     if (gameState.screen === 'playing') pauseGame();
     else if (gameState.screen === 'paused') resumeGame();
+    else if (gameState.screen === 'countdown') { gameState.screen = 'paused'; hideCountdown(); showPauseMenu(); }
+  }
+
+  if (gameState.screen === 'countdown') {
+    const left = countdownEnd - now;
+    if (left <= 0) { hideCountdown(); gameState.screen = 'playing'; lastTime = now; }
+    else setCountdownNumber(Math.ceil(left / 1000));
   }
 
   if (gameState.screen === 'playing') {
@@ -106,6 +118,7 @@ function loop(now: number): void {
   }
 
   updateSky(camera);
+  updateGround(camera);
   renderer.render(scene, camera);
   endFrame();
 }
@@ -129,6 +142,11 @@ function handleEvents(events: GameEvent[]): void {
 }
 
 function syncState(): void {
+  if (!beatHighScore && gameState.highScore > 0 && game.score > gameState.highScore) {
+    beatHighScore = true;
+    showHighScoreBanner();
+    playSound('powerup');
+  }
   gameState.score = game.score;
   gameState.coins = game.coins;
   gameState.proximityBar = game.proximity;
@@ -154,6 +172,8 @@ function startGame(): void {
   showHUD();
 
   resetTrackView();
+  hideHighScoreBanner();
+  beatHighScore = false;
   game.reset(Date.now() >>> 0);
   gameState.screen = 'playing';
   syncState();
@@ -179,21 +199,36 @@ function pauseGame(): void {
   playSound('click');
 }
 
+/** Resume goes through a 3-2-1 countdown so the player can re-read the situation. */
 function resumeGame(): void {
   if (gameState.screen !== 'paused') return;
-  gameState.screen = 'playing';
   hidePauseMenu();
-  lastTime = performance.now();
+  gameState.screen = 'countdown';
+  countdownEnd = performance.now() + COUNTDOWN_MS;
+  setCountdownNumber(3);
+  document.getElementById('countdown')?.classList.remove('hidden');
+  playSound('click');
+}
+
+function setCountdownNumber(n: number): void {
+  const el = document.getElementById('countdown-number');
+  if (el && el.textContent !== String(n)) el.textContent = String(n);
+}
+
+function hideCountdown(): void {
+  document.getElementById('countdown')?.classList.add('hidden');
 }
 
 function restartGame(): void {
   hidePauseMenu();
+  hideCountdown();
   hideGameOver();
   startGame();
 }
 
 function quitToMenu(): void {
   hidePauseMenu();
+  hideCountdown();
   hideGameOver();
   hideHUD();
   showMainMenu(gameState.highScore);

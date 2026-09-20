@@ -44,8 +44,9 @@ describe('Spawner', () => {
         if (group.length === 2 && group.every((o) => o.kind === 'fire')) { fires2++; expect(group[0].s0).toBeGreaterThanOrEqual(200); expect(group[0].x0).not.toBe(group[1].x0); }
       }
       const fires = sp.obstacles.filter((o) => o.kind === 'fire').sort((a, b) => a.s0 - b.s0);
+      const step = 0.77 * 15 + 6; // fireStep at the default tuning speed of 15
       for (let i = 0; i + 2 < fires.length; i++) {
-        if (Math.abs(fires[i + 1].s0 - fires[i].s0 - 4) < 1e-6 && Math.abs(fires[i + 2].s0 - fires[i + 1].s0 - 4) < 1e-6) { rows++; expect(fires[i].s0).toBeGreaterThanOrEqual(600); }
+        if (Math.abs(fires[i + 1].s0 - fires[i].s0 - step) < 1e-6 && Math.abs(fires[i + 2].s0 - fires[i + 1].s0 - step) < 1e-6) { rows++; expect(fires[i].s0).toBeGreaterThanOrEqual(600); }
       }
     }
     expect(fires2).toBeGreaterThan(0); expect(rows).toBeGreaterThan(0);
@@ -77,5 +78,23 @@ describe('Spawner', () => {
     for (const o of sp.obstacles) expect(o.s1).toBeGreaterThanOrEqual(500);
     for (const c of sp.coins) expect(c.s).toBeGreaterThanOrEqual(500);
     sp.reset(); expect(sp.coins).toHaveLength(0); expect(sp.obstacles).toHaveLength(0);
+  });
+
+  it('a branch after a gap is placed beyond the landing point at any speed', () => {
+    for (const speed of [15, 20, 24]) {
+      const rng = mulberry32(77); const track = new Track(rng, { turnChance: 0, forkChance: 0 }); track.extendTo(3000);
+      const sp = new Spawner(rng, track, { tuning: () => ({ obstacleChance: 1, obstacleSpacing: 30, speed }) });
+      sp.fill(2900);
+      const gaps = sp.obstacles.filter((o) => o.kind === 'gap');
+      let pairs = 0;
+      for (const g of gaps) {
+        const branch = sp.obstacles.find((o) => o.kind === 'branch' && o.s0 > g.s1 && o.s0 < g.s1 + 40);
+        if (!branch) continue;
+        pairs++;
+        // Jumping from just before the gap, the runner lands at gap start + airtime*speed; the branch must be later.
+        expect(branch.s0).toBeGreaterThanOrEqual(g.s0 + 0.77 * speed + 2);
+      }
+      expect(pairs).toBeGreaterThan(0);
+    }
   });
 });

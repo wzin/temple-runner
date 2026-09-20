@@ -1,5 +1,5 @@
 /** UI-facing snapshot the HUD and menus read. main.ts fills it from the core Game each frame. */
-export type GameScreen = 'menu' | 'playing' | 'paused' | 'gameover';
+export type GameScreen = 'menu' | 'playing' | 'paused' | 'countdown' | 'gameover';
 import type { PowerUpKind } from './core/powerups';
 export type PowerUpType = PowerUpKind;
 

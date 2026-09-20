@@ -66,6 +66,21 @@ export function updateHUD(): void {
   }
 }
 
+let bannerTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Flash the NEW HIGH SCORE banner for a few seconds. */
+export function showHighScoreBanner(): void {
+  const el = document.getElementById('highscore-banner');
+  if (!el) return;
+  el.classList.remove('hidden');
+  if (bannerTimer) clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => el.classList.add('hidden'), 3500);
+}
+
+export function hideHighScoreBanner(): void {
+  document.getElementById('highscore-banner')?.classList.add('hidden');
+}
+
 export function showHUD(): void {
   if (hudElement) {
     hudElement.classList.remove('hidden');

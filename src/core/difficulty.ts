@@ -20,7 +20,8 @@ export function difficultyAt(s: number): Difficulty {
     speed: lerp(BASE_SPEED, MAX_SPEED, t),
     turnChance: lerp(0.15, 0.3, t),
     obstacleChance: lerp(0.45, 0.7, t),
-    obstacleSpacing: lerp(25, 16, t),
+    // Spacing is a reaction budget in seconds converted to metres, so chained obstacles stay doable at speed.
+    obstacleSpacing: lerp(BASE_SPEED, MAX_SPEED, t) * lerp(1.7, 1.05, t),
     reactionTime: 0.4,
   };
 }

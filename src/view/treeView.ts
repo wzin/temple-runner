@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Game } from '../core/game';
 import { TRACK_HALF_WIDTH } from '../core/track';
 import { Biome } from './biome';
+import { GROUND_Y } from './groundView';
 import { faceHeading } from './util';
 
 /** Low-poly trees beside straight segments, seeded per segment so they stay put. */
@@ -34,9 +35,9 @@ export function updateTrees(game: Game): void {
       const lateral = side * (TRACK_HALF_WIDTH + 2.5 + r2 * 8);
       const scale = 0.8 + r3 * 0.9;
       const w = game.track.sample(s, lateral);
-      dummy.position.set(w.x, 1.1 * scale, w.z); dummy.scale.setScalar(scale); faceHeading(dummy, w.dir); dummy.rotation.y += r2 * 6;
+      dummy.position.set(w.x, GROUND_Y + 1.1 * scale, w.z); dummy.scale.setScalar(scale); faceHeading(dummy, w.dir); dummy.rotation.y += r2 * 6;
       dummy.updateMatrix(); trunks.setMatrixAt(n++, dummy.matrix);
-      dummy.position.y = (2.2 + 1.5) * scale; dummy.updateMatrix();
+      dummy.position.y = GROUND_Y + (2.2 + 1.5) * scale; dummy.updateMatrix();
       if (r3 > 0.5) canopies.setMatrixAt(a++, dummy.matrix); else canopiesAlt.setMatrixAt(b++, dummy.matrix);
     }
   }

@@ -66,7 +66,8 @@ export function showGameOver(result: { score: number; coins: number; distance: n
   if (boardList) boardList.innerHTML = '';
   if (boardStatus) boardStatus.textContent = '';
   if (nickInput) {
-    try { nickInput.value = localStorage.getItem(NICK_KEY) ?? ''; } catch { nickInput.value = ''; }
+    nickInput.value = '';
+    try { nickInput.placeholder = localStorage.getItem(NICK_KEY) || 'AAA'; } catch { nickInput.placeholder = 'AAA'; }
     nickInput.disabled = false;
     setTimeout(() => nickInput?.focus(), 50);
   }
@@ -76,7 +77,8 @@ export function showGameOver(result: { score: number; coins: number; distance: n
 
 async function submit(): Promise<void> {
   if (!pending || submitted || !nickInput) return;
-  const name = nickInput.value.trim();
+  // Empty input accepts the remembered name shown as the placeholder.
+  const name = (nickInput.value.trim() || (nickInput.placeholder !== 'AAA' ? nickInput.placeholder : '')).trim();
   if (!NAME_PATTERN.test(name)) {
     if (boardStatus) boardStatus.textContent = 'Name: 1-12 letters, digits, space, _ . -';
     nickInput.focus();

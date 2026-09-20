@@ -44,6 +44,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/playerView.ts` | low-poly rigged runner (arms/legs swing by distance, tuck on jump, lean on slide), shield aura, warm point light |
 | `coinView.ts`, `obstacleView.ts`, `powerUpView.ts`, `monkeyView.ts` | instanced meshes placed from track coordinates each frame; monkeys sit `9 → 2.5 m` behind the player as proximity rises |
 | `src/view/floorView.ts` | one instanced mesh of 2 m floor slabs rebuilt per frame; slabs over gap obstacles are skipped, so gaps are real holes; fork stubs |
+| `src/view/groundView.ts` | textured ground plane at y = −0.6 following the camera (trees stand on it) |
 | `src/view/biome.ts`, `skyView.ts`, `treeView.ts` | biome config (sky, sun, fog, tints, trees); equirect sky dome with sun/clouds/mountains following the camera; instanced low-poly trees beside straights |
 | `src/view/trackView.ts` props | torches every 10 m on alternating walls (20% missing), a totem with glowing eyes at every corner |
 | `src/view/particles.ts` | pooled additive point sprites: embers over fire obstacles, gold sparks on coin pickup |
@@ -68,7 +69,8 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
   spacing 25 → 16 m with difficulty, never within 10 m of a turn window.
 - Patterns (`PATTERNS`): single, logWithArc (≥100 m), twoLaneFire (≥200 m), gapThenBranch (≥400 m), laneFireRow (≥600 m).
 - Power-ups appear from 120 m, 8% per 12 m chunk, one live at a time. Boost and a 0.6 s grace after it make the runner invulnerable: collisions skipped, corners taken automatically, presses ignored.
-- Difficulty ramps to 1500 m; the turn window is `0.4 s × speed` before the corner, so reaction time stays constant.
+- Difficulty ramps to 1500 m; the turn window is `0.4 s × speed` before the corner, so reaction time stays constant. Obstacle spacing is also time-based (1.7 s → 1.05 s of running), and patterns that chain a jump with a slide place the second obstacle beyond the landing point (`JUMP_AIRTIME × speed + 4 m`).
+- Resume from pause runs a 3-2-1 countdown; beating the stored high score flashes a banner once per run; during boost the runner turns ghostly with an aura and gaps show a translucent veil.
 - High score persists in `localStorage['temple-runner.highScore']`; Space/Enter restarts from the menu or game-over screen.
 - Proximity meter: +25 per hit, −2/s, 100 = caught. Score = floor(distance) + 10 × coins.
 - Track: 3 straights first, ≥ 2 straights after a turn, then 15% turn chance per 20 m segment.

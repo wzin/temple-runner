@@ -11,7 +11,9 @@ let head: THREE.Mesh;
 let armL: THREE.Group; let armR: THREE.Group;
 let legL: THREE.Group; let legR: THREE.Group;
 let shieldMesh: THREE.Mesh;
+let boostAura: THREE.Mesh;
 let lamp: THREE.PointLight;
+const bodyMaterials: THREE.MeshStandardMaterial[] = [];
 let squash = 0; // 0..1, decays after landing
 
 const STRIDE = 7.5; // metres per full run cycle (~2 cycles/s at base speed)
@@ -34,9 +36,10 @@ export function initPlayerView(scene: THREE.Scene): void {
   rig = new THREE.Group();
   group.add(rig);
 
-  const skin = new THREE.MeshStandardMaterial({ color: 0xe0b08a, roughness: 0.8 });
-  const shirt = new THREE.MeshStandardMaterial({ color: 0x3fbf6f, roughness: 0.7 });
-  const pants = new THREE.MeshStandardMaterial({ color: 0x5a3b2a, roughness: 0.9 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xe0b08a, roughness: 0.8, transparent: true });
+  const shirt = new THREE.MeshStandardMaterial({ color: 0x3fbf6f, roughness: 0.7, transparent: true });
+  const pants = new THREE.MeshStandardMaterial({ color: 0x5a3b2a, roughness: 0.9, transparent: true });
+  bodyMaterials.push(skin, shirt, pants);
 
   torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.62, 0.32), shirt);
   torso.position.y = 1.1; torso.castShadow = true;
@@ -61,6 +64,11 @@ export function initPlayerView(scene: THREE.Scene): void {
   shieldMesh.position.y = 1.0;
   shieldMesh.visible = false;
   group.add(shieldMesh);
+
+  boostAura = new THREE.Mesh(new THREE.SphereGeometry(1.3, 16, 12), new THREE.MeshBasicMaterial({ color: 0xff9a3c, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending }));
+  boostAura.position.y = 1.0;
+  boostAura.visible = false;
+  group.add(boostAura);
 
   // Warm lamp travelling with the runner so the PBR relief reads up close.
   lamp = new THREE.PointLight(0xffc48a, 18, 14, 2);
@@ -114,5 +122,11 @@ export function updatePlayerView(game: Game, timeMs: number): void {
 
   shieldMesh.visible = game.shield;
   shieldMesh.rotation.y = timeMs * 0.001;
+  // Invulnerable (boost or its grace): ghostly runner with a pulsing aura.
+  const ghost = game.invulnerable;
+  const opacity = ghost ? 0.45 + Math.sin(timeMs * 0.02) * 0.1 : 1;
+  for (const m of bodyMaterials) m.opacity = opacity;
+  boostAura.visible = ghost;
+  boostAura.scale.setScalar(1 + Math.sin(timeMs * 0.012) * 0.08);
   lamp.intensity = 16 + Math.sin(timeMs * 0.02) * 2;
 }
