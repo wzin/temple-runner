@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
 import { OBSTACLES, ObstacleKind } from '../core/spawner';
+import { textures } from './textures';
 import { faceHeading } from './util';
 
 const MAX_PER_KIND = 64;
@@ -28,7 +29,9 @@ export function initObstacleView(scene: THREE.Scene): void {
       ? new THREE.CylinderGeometry(height / 2, height / 2, width, 12).rotateZ(Math.PI / 2)
       : new THREE.BoxGeometry(width, height, spec.depth);
     const look = LOOKS[kind];
-    const material = new THREE.MeshStandardMaterial({ color: look.color, emissive: look.emissive ?? 0x000000, emissiveIntensity: look.emissiveIntensity ?? 0, roughness: 0.7 });
+    const tex = textures();
+    const map = kind === 'log' ? tex.bark : kind === 'branch' ? tex.leaves : null;
+    const material = new THREE.MeshStandardMaterial({ map, color: map ? 0xffffff : look.color, emissive: look.emissive ?? 0x000000, emissiveIntensity: look.emissiveIntensity ?? 0, roughness: 0.7 });
     const mesh = new THREE.InstancedMesh(geometry, material, MAX_PER_KIND);
     mesh.count = 0;
     mesh.castShadow = kind !== 'gap';

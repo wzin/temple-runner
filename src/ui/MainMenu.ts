@@ -21,10 +21,12 @@ function handlePlay(): void {
   }
 }
 
-export function showMainMenu(): void {
+export function showMainMenu(highScore = 0): void {
   if (menuElement) {
     menuElement.classList.remove('hidden');
   }
+  const hs = document.getElementById('menu-highscore');
+  if (hs) hs.textContent = highScore > 0 ? `Best: ${highScore}` : '';
 }
 
 export function hideMainMenu(): void {

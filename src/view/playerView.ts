@@ -5,6 +5,10 @@ import { yawOf } from './util';
 let group: THREE.Group;
 let body: THREE.Mesh;
 let head: THREE.Mesh;
+let shieldMesh: THREE.Mesh;
+let squash = 0; // 0..1, decays after landing
+
+export function playerLanded(): void { squash = 1; }
 
 export function initPlayerView(scene: THREE.Scene): void {
   group = new THREE.Group();
@@ -24,6 +28,10 @@ export function initPlayerView(scene: THREE.Scene): void {
     eye.position.set(side, 1.65, 0.25);
     group.add(eye);
   }
+  shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1.1, 16, 12), new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 0.6, transparent: true, opacity: 0.25 }));
+  shieldMesh.position.y = 1.0;
+  shieldMesh.visible = false;
+  group.add(shieldMesh);
   scene.add(group);
 }
 
@@ -39,13 +47,19 @@ export function updatePlayerView(game: Game, timeMs: number): void {
     return;
   }
 
-  const s = game.track.sample(p.s, p.x, p.y);
+  const lift = game.boosting ? 1.2 : 0;
+  const s = game.track.sample(p.s, p.x, p.y + lift);
   group.position.set(s.x, s.y, s.z);
-  group.rotation.set(0, yawOf(s.dir), p.stumbleTimer > 0 ? Math.sin(timeMs * 0.03) * 0.25 : 0);
+  const lean = 0.06 + (p.speed / p.cfg.speed - 1) * 0.12;   // faster → leans further forward
+  group.rotation.set(-lean, yawOf(s.dir), p.stumbleTimer > 0 ? Math.sin(timeMs * 0.03) * 0.25 : 0);
 
+  squash *= Math.exp(-0.012 * 16.7); // ~0.15 s
   const sliding = p.state === 'sliding';
-  body.scale.y = sliding ? 0.5 : 1;
-  const bob = p.state === 'running' ? Math.sin(timeMs * 0.015) * 0.05 : 0;
-  body.position.y = (sliding ? 0.4 : 0.8) + bob;
-  head.position.y = (sliding ? 0.9 : 1.6) + bob;
+  const sy = (sliding ? 0.5 : 1) * (1 - 0.25 * squash);
+  body.scale.set(1 + 0.2 * squash, sy, 1 + 0.2 * squash);
+  const bob = p.state === 'running' ? Math.sin(timeMs * 0.015 * (p.speed / p.cfg.speed)) * 0.05 : 0;
+  body.position.y = (sliding ? 0.4 : 0.8) * (1 - 0.25 * squash) + bob;
+  head.position.y = (sliding ? 0.9 : 1.6) * (1 - 0.25 * squash) + bob;
+  shieldMesh.visible = game.shield;
+  shieldMesh.rotation.y = timeMs * 0.001;
 }

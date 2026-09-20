@@ -35,11 +35,14 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/core/player.ts` | state machine `running/jumping/sliding/falling/dead`, physics constants |
 | `src/core/spawner.ts` | coins and obstacles laid by `s`; `OBSTACLES` type table |
 | `src/core/collision.ts` | swept obstacle check, coin pickup |
-| `src/core/game.ts` | wires the above; `tick(dt, input, nowMs)` returns `GameEvent[]` |
+| `src/core/difficulty.ts` | `difficultyAt(s)`: speed 15→24, turn/obstacle density, spacing; linear to 1500 m |
+| `src/core/powerups.ts` | magnet (10 s, pulls coins within 8 m), shield (absorbs one stumble), boost (5 s, ×1.6 speed, ignores obstacles, auto-turns) |
+| `src/core/game.ts` | wires the above; `tick(dt, input, nowMs)` returns `GameEvent[]` (coin, hit, shielded, turn, fall, dead, jump, slide, land, powerup, powerupEnd) |
 | `src/view/scene.ts` | renderer, lights |
 | `src/view/camera.ts` | follow camera from `track.sample`; frozen pose while falling |
 | `src/view/trackView.ts` | one `Group` per segment, added/disposed with the track |
-| `src/view/playerView.ts`, `coinView.ts`, `obstacleView.ts` | meshes placed from track coordinates each frame |
+| `src/view/playerView.ts`, `coinView.ts`, `obstacleView.ts`, `powerUpView.ts`, `monkeyView.ts` | meshes placed from track coordinates each frame; monkeys sit `9 → 2.5 m` behind the player as proximity rises |
+| `src/view/textures.ts` | seamless procedural canvas textures (stone floor, bricks, bark, leaves), one tile = 2 m |
 | `src/ui/domInput.ts` | keyboard → `TickInput`; turn presses go straight to `game.pressTurn` with the real press time |
 | `src/ui/*` (HUD, menus), `src/gameState.ts`, `src/audio.ts`, `src/styles.css` | UI shell kept from the prototype; `main.ts` copies score/coins/proximity into `gameState` |
 | `src/main.ts` | RAF loop, screens, events → sounds |
@@ -53,8 +56,12 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
   Wrong direction → fall. No press by the corner → run straight off the edge.
 - Jump: 11.5 m/s up, gravity 30 → 0.77 s airtime, 2.2 m apex. Slide: 0.7 s, height 0.9.
 - Obstacles (`OBSTACLES` in `spawner.ts`): fire (lane, y 0–0.8, jump), log (y 1.0–1.6,
-  slide or jump), branch (y 1.0–2.6, slide), gap (fatal, jump). First at s ≥ 60,
-  spacing ≥ 25 m, never within 10 m of a turn window.
+  slide or jump), branch (y 1.0–2.6, slide), gap (fatal, jump; drawn as a violet pit with yellow rims). First at s ≥ 60,
+  spacing 25 → 16 m with difficulty, never within 10 m of a turn window.
+- Patterns (`PATTERNS`): single, logWithArc (≥100 m), twoLaneFire (≥200 m), gapThenBranch (≥400 m), laneFireRow (≥600 m).
+- Power-ups appear from 120 m, 8% per 12 m chunk, one live at a time.
+- Difficulty ramps to 1500 m; the turn window is `0.4 s × speed` before the corner, so reaction time stays constant.
+- High score persists in `localStorage['temple-runner.highScore']`; Space/Enter restarts from the menu or game-over screen.
 - Proximity meter: +25 per hit, −2/s, 100 = caught. Score = floor(distance) + 10 × coins.
 - Track: 3 straights first, ≥ 2 straights after a turn, then 15% turn chance per 20 m segment.
   Lookahead 120 m, content dropped 40 m behind.
@@ -68,6 +75,6 @@ mail.ziniewicz.eu, network `traefik_proxy`); Traefik route lives in
 
 ## Roadmap
 
-2. Feel and items: speed ramp, camera tuning, power-ups, monkeys, stumble animation.
-3. Look: textures, props, character model, skybox, particles.
+2. Done (2026-09-20): speed ramp, camera swing/dip/shake, landing squash, power-ups, monkeys, patterns, persistence, basic procedural textures.
+3. Look: real textures (AI-generated or CC0 PBR), props, character model, skybox, particles.
 4. Mobile controls. 5. Persistence, stats, audio assets.

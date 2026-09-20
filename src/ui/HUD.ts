@@ -57,9 +57,9 @@ export function updateHUD(): void {
       const names: Record<string, string> = {
         magnet: 'MAGNET',
         shield: 'SHIELD',
-        speed: 'SPEED BOOST',
+        boost: 'BOOST',
       };
-      powerUpIndicator.textContent = `${names[gameState.activePowerUp]} (${timeLeft}s)`;
+      powerUpIndicator.textContent = timeLeft > 0 ? `${names[gameState.activePowerUp]} (${timeLeft}s)` : names[gameState.activePowerUp];
     } else {
       powerUpIndicator.classList.remove('active');
     }

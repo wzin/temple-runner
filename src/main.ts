@@ -2,23 +2,34 @@ import { Game, GameEvent } from './core/game';
 import { gameState } from './gameState';
 import { initAudio, playSound } from './audio';
 import { initScene, scene, renderer } from './view/scene';
-import { camera, initCamera, snapCamera, updateCamera } from './view/camera';
+import { camera, cameraHit, cameraLand, cameraTurn, initCamera, snapCamera, updateCamera } from './view/camera';
 import { initTrackView, resetTrackView, updateTrackView } from './view/trackView';
-import { initPlayerView, updatePlayerView } from './view/playerView';
+import { initPlayerView, playerLanded, updatePlayerView } from './view/playerView';
 import { initCoinView, updateCoinView } from './view/coinView';
 import { initObstacleView, updateObstacleView } from './view/obstacleView';
+import { initPowerUpView, updatePowerUpView } from './view/powerUpView';
+import { initMonkeyView, updateMonkeyView } from './view/monkeyView';
 import { endFrame, initDomInput, onTurn, pollInput, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD } from './ui/HUD';
 import { initPauseMenu, showPauseMenu, hidePauseMenu } from './ui/PauseMenu';
 import { initGameOver, showGameOver, hideGameOver } from './ui/GameOver';
 
+const HIGH_SCORE_KEY = 'temple-runner.highScore';
+
 const game = new Game(Date.now() >>> 0);
 let lastTime = 0;
 
-// Exposed for automated play-testing (headless browser drives the run through this handle).
+// Exposed for automated play-testing (headless browser drives the run through these handles).
 declare global { interface Window { __game: Game; __scene: typeof scene } }
 window.__game = game;
+
+function loadHighScore(): number {
+  try { return Number(localStorage.getItem(HIGH_SCORE_KEY)) || 0; } catch { return 0; }
+}
+function saveHighScore(value: number): void {
+  try { localStorage.setItem(HIGH_SCORE_KEY, String(value)); } catch { /* private mode etc. */ }
+}
 
 function init(): void {
   initScene();
@@ -31,9 +42,18 @@ function init(): void {
   initPlayerView(scene);
   initCoinView(scene);
   initObstacleView(scene);
+  initPowerUpView(scene);
+  initMonkeyView(scene);
 
   onTurn((dir, nowMs) => {
     if (gameState.screen === 'playing') game.pressTurn(dir, nowMs);
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if ((e.code === 'Space' || e.code === 'Enter') && (gameState.screen === 'gameover' || gameState.screen === 'menu')) {
+      e.preventDefault();
+      startGame();
+    }
   });
 
   initMainMenu(startGame);
@@ -41,9 +61,10 @@ function init(): void {
   initPauseMenu(resumeGame, restartGame, quitToMenu);
   initGameOver(restartGame, quitToMenu);
 
+  gameState.highScore = loadHighScore();
   syncViews(0);
   snapCamera(game);
-  showMainMenu();
+  showMainMenu(gameState.highScore);
   hideHUD();
   hidePauseMenu();
   hideGameOver();
@@ -84,10 +105,14 @@ function handleEvents(events: GameEvent[]): void {
       case 'coin': playSound('coin'); break;
       case 'jump': playSound('jump'); break;
       case 'slide': playSound('slide'); break;
-      case 'hit': playSound('stumble'); break;
-      case 'fall': playSound('stumble'); break;
+      case 'land': playSound('land'); playerLanded(); cameraLand(); break;
+      case 'hit': playSound('stumble'); cameraHit(); break;
+      case 'shielded': playSound('powerup'); cameraHit(); break;
+      case 'fall': playSound('stumble'); cameraHit(); break;
       case 'dead': playSound('gameOver'); break;
-      case 'turn': break;
+      case 'turn': cameraTurn(e.dir); break;
+      case 'powerup': playSound('powerup'); break;
+      case 'powerupEnd': break;
     }
   }
 }
@@ -96,6 +121,8 @@ function syncState(): void {
   gameState.score = game.score;
   gameState.coins = game.coins;
   gameState.proximityBar = game.proximity;
+  gameState.activePowerUp = game.active?.kind ?? (game.shield ? 'shield' : null);
+  gameState.powerUpTimer = game.active?.timer ?? 0;
 }
 
 function syncViews(now: number): void {
@@ -103,6 +130,8 @@ function syncViews(now: number): void {
   updatePlayerView(game, now);
   updateCoinView(game, now);
   updateObstacleView(game, now);
+  updatePowerUpView(game, now);
+  updateMonkeyView(game, now);
 }
 
 function startGame(): void {
@@ -122,7 +151,10 @@ function startGame(): void {
 
 function endRun(): void {
   gameState.screen = 'gameover';
-  if (game.score > gameState.highScore) gameState.highScore = game.score;
+  if (game.score > gameState.highScore) {
+    gameState.highScore = game.score;
+    saveHighScore(gameState.highScore);
+  }
   hideHUD();
   showGameOver();
 }
@@ -151,7 +183,7 @@ function quitToMenu(): void {
   hidePauseMenu();
   hideGameOver();
   hideHUD();
-  showMainMenu();
+  showMainMenu(gameState.highScore);
   gameState.screen = 'menu';
 }
 

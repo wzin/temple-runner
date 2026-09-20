@@ -1,4 +1,4 @@
-type SoundName = 'jump' | 'slide' | 'coin' | 'stumble' | 'gameOver' | 'click' | 'powerup';
+type SoundName = 'jump' | 'slide' | 'coin' | 'stumble' | 'gameOver' | 'click' | 'powerup' | 'land';
 
 interface Sound {
   frequency: number;
@@ -23,6 +23,7 @@ const SOUNDS: Record<SoundName, Sound | Sound[]> = {
     { frequency: 200, duration: 0.4, type: 'square', volume: 0.2 },
   ],
   click: { frequency: 600, duration: 0.05, type: 'square', volume: 0.15 },
+  land: { frequency: 90, duration: 0.08, type: 'triangle', volume: 0.25, attack: 0.005, decay: 0.06 },
   powerup: [
     { frequency: 400, duration: 0.1, type: 'sine', volume: 0.2 },
     { frequency: 600, duration: 0.1, type: 'sine', volume: 0.2 },
