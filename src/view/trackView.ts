@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
 import { SEGMENT_LENGTH, Segment, TRACK_HALF_WIDTH, Track } from '../core/track';
-import { textures } from './textures';
+import { pbrMaterial, textures } from './textures';
 import { disposeGroup, faceHeading } from './util';
 
 const WALL_HEIGHT = 2;
@@ -21,8 +21,8 @@ let root: THREE.Scene;
 export function initTrackView(scene: THREE.Scene): void {
   root = scene;
   const t = textures();
-  floorMaterial = new THREE.MeshStandardMaterial({ map: t.floor, color: 0xb0b8c8, roughness: 0.9 });
-  wallMaterial = new THREE.MeshStandardMaterial({ map: t.wall, color: 0x9a9aa8, roughness: 0.8 });
+  floorMaterial = pbrMaterial(t.floor, { color: 0xc4ccd8 });
+  wallMaterial = pbrMaterial(t.wall, { color: 0xb0b0bc });
 }
 
 /** Box with UVs scaled so the texture repeats every TEXTURE_METRES on each face. */

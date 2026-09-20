@@ -1,8 +1,9 @@
 import * as THREE from 'three';
 
 /**
- * Seamless procedural textures built once on a canvas. "Super basic" by design:
- * enough to read as stone, brick, bark and leaves, with no asset pipeline.
+ * Seamless procedural PBR textures built once on canvases: colour, normal and
+ * roughness maps derived from one tileable height field per material, so light
+ * catches slab edges, mortar lines and bark ridges. No asset pipeline needed.
  */
 
 const SIZE = 512;
@@ -34,82 +35,179 @@ function fbm(x: number, y: number, period: number, seed: number, octaves = 4): n
   return sum / norm;
 }
 
-type Paint = (u: number, v: number) => [number, number, number];
+type RGB = [number, number, number];
+const mix = (a: RGB, b: RGB, t: number): RGB => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
-function paint(fn: Paint): THREE.CanvasTexture {
+export interface Maps { map: THREE.CanvasTexture; normalMap: THREE.CanvasTexture; roughnessMap: THREE.CanvasTexture }
+
+interface Recipe {
+  /** Height in [0,1] at texture coords (u,v). */
+  height: (u: number, v: number) => number;
+  /** Base colour given (u,v) and the height there. */
+  color: (u: number, v: number, h: number) => RGB;
+  /** Roughness 0..1 given (u,v) and height. */
+  roughness: (u: number, v: number, h: number) => number;
+  /** How strongly height differences tilt the normal. */
+  normalStrength: number;
+}
+
+function canvasTexture(fill: (data: Uint8ClampedArray) => void, srgb: boolean): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = SIZE; canvas.height = SIZE;
   const ctx = canvas.getContext('2d')!;
   const img = ctx.createImageData(SIZE, SIZE);
-  for (let y = 0; y < SIZE; y++) {
-    for (let x = 0; x < SIZE; x++) {
-      const [r, g, b] = fn(x / SIZE, y / SIZE);
-      const i = (y * SIZE + x) * 4;
-      img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = 255;
-    }
-  }
+  fill(img.data);
   ctx.putImageData(img, 0, 0);
   const tex = new THREE.CanvasTexture(canvas);
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   tex.anisotropy = 4;
   return tex;
 }
 
-const mix = (a: number[], b: number[], t: number) => a.map((v, i) => v + (b[i] - v) * t) as [number, number, number];
+function bake(recipe: Recipe): Maps {
+  const H = new Float32Array(SIZE * SIZE);
+  for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) H[y * SIZE + x] = recipe.height(x / SIZE, y / SIZE);
+  const at = (x: number, y: number) => H[((y + SIZE) % SIZE) * SIZE + ((x + SIZE) % SIZE)];
 
-/** Two-by-two stone slabs with dark grout and grime. One texture tile = 2 m. */
-export function stoneFloor(): THREE.CanvasTexture {
+  const map = canvasTexture((d) => {
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
+      const [r, g, b] = recipe.color(x / SIZE, y / SIZE, at(x, y));
+      const i = (y * SIZE + x) * 4; d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255;
+    }
+  }, true);
+
+  const normalMap = canvasTexture((d) => {
+    const k = recipe.normalStrength;
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
+      const dx = (at(x + 1, y) - at(x - 1, y)) * k;
+      const dy = (at(x, y + 1) - at(x, y - 1)) * k;
+      const len = Math.hypot(dx, dy, 1);
+      const i = (y * SIZE + x) * 4;
+      d[i] = (-dx / len * 0.5 + 0.5) * 255; d[i + 1] = (-dy / len * 0.5 + 0.5) * 255; d[i + 2] = (1 / len * 0.5 + 0.5) * 255; d[i + 3] = 255;
+    }
+  }, false);
+
+  const roughnessMap = canvasTexture((d) => {
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++) {
+      const r = clamp01(recipe.roughness(x / SIZE, y / SIZE, at(x, y))) * 255;
+      const i = (y * SIZE + x) * 4; d[i] = r; d[i + 1] = r; d[i + 2] = r; d[i + 3] = 255;
+    }
+  }, false);
+
+  return { map, normalMap, roughnessMap };
+}
+
+/** Two-by-two stone slabs, bevelled edges, recessed grout, grime. One tile = 2 m. */
+function stoneFloor(): Maps {
   const tiles = 2;
-  return paint((u, v) => {
-    const gx = (u * tiles) % 1; const gy = (v * tiles) % 1;
-    const grout = Math.min(gx, 1 - gx, gy, 1 - gy) < 0.035 ? 1 : 0;
-    const grime = fbm(u * 8, v * 8, 8, 11);
-    const slab = mix([92, 96, 108], [60, 64, 78], grime);
-    const perTile = hash(Math.floor(u * tiles), Math.floor(v * tiles), 3) * 18 - 9;
-    const c = slab.map((ch) => ch + perTile) as [number, number, number];
-    return grout ? [28, 30, 38] : c;
+  const edge = (u: number, v: number) => { const gx = (u * tiles) % 1; const gy = (v * tiles) % 1; return Math.min(gx, 1 - gx, gy, 1 - gy); };
+  return bake({
+    height: (u, v) => {
+      const e = edge(u, v);
+      const bevel = clamp01((e - 0.03) / 0.05);           // 0 in the grout, 1 on the slab face
+      const perTile = hash(Math.floor(u * tiles), Math.floor(v * tiles), 3) * 0.08;
+      return bevel * (0.85 + perTile) + fbm(u * 16, v * 16, 16, 11) * 0.12;
+    },
+    color: (u, v, h) => {
+      const grime = fbm(u * 8, v * 8, 8, 12);
+      const slab = mix([118, 122, 134], [70, 74, 90], grime);
+      const perTile = hash(Math.floor(u * tiles), Math.floor(v * tiles), 3) * 22 - 11;
+      const c = slab.map((ch) => ch + perTile) as RGB;
+      return h < 0.3 ? [30, 32, 40] : c;
+    },
+    roughness: (u, v, h) => (h < 0.3 ? 0.98 : 0.72 + fbm(u * 12, v * 12, 12, 13) * 0.2),
+    normalStrength: 6,
   });
 }
 
-/** Running-bond bricks with a mossy tint near the bottom rows. */
-export function wallBricks(): THREE.CanvasTexture {
+/** Running-bond bricks with recessed mortar and moss creeping up from the base. */
+function wallBricks(): Maps {
   const rows = 8; const cols = 4;
-  return paint((u, v) => {
+  const cell = (u: number, v: number) => {
     const row = Math.floor(v * rows);
     const offset = row % 2 ? 0.5 : 0;
     const gx = ((u + offset / cols) * cols) % 1; const gy = (v * rows) % 1;
-    const mortar = gx < 0.06 || gy < 0.1;
-    const n = fbm(u * 6, v * 6, 6, 21);
-    const brick = mix([74, 62, 70], [48, 40, 52], n);
-    const moss = fbm(u * 4, v * 4, 4, 33) * (1 - v) * 0.9;
-    const c = mix(brick, [52, 92, 60], Math.max(0, moss - 0.35));
-    return mortar ? [30, 28, 36] : c;
+    return { gx, gy, row, col: Math.floor((u + offset / cols) * cols) };
+  };
+  return bake({
+    height: (u, v) => {
+      const { gx, gy, row, col } = cell(u, v);
+      const mortar = gx < 0.06 || gy < 0.1;
+      const face = clamp01(Math.min(gx - 0.06, gy - 0.1) / 0.04);
+      const wobble = hash(col, row, 5) * 0.1;
+      return mortar ? 0.1 : 0.7 + face * 0.15 + wobble + fbm(u * 20, v * 20, 20, 21) * 0.1;
+    },
+    color: (u, v, h) => {
+      const n = fbm(u * 6, v * 6, 6, 22);
+      const brick = mix([96, 76, 82], [58, 46, 60], n);
+      const moss = fbm(u * 4, v * 4, 4, 33) * (1 - v) * 0.9;
+      const c = mix(brick, [60, 110, 66], Math.max(0, moss - 0.35));
+      return h < 0.3 ? [34, 32, 40] : c;
+    },
+    roughness: (u, v, h) => (h < 0.3 ? 0.97 : 0.8 + fbm(u * 9, v * 9, 9, 23) * 0.15),
+    normalStrength: 5,
   });
 }
 
-/** Vertical bark grain for logs. */
-export function woodBark(): THREE.CanvasTexture {
-  return paint((u, v) => {
-    const grain = fbm(u * 24, v * 3, 24, 41);
-    const rings = 0.5 + 0.5 * Math.sin(u * Math.PI * 40 + grain * 6);
-    return mix([96, 62, 34], [140, 96, 52], rings * 0.6 + grain * 0.4);
+/** Bark: ridged vertical grain. */
+function woodBark(): Maps {
+  return bake({
+    height: (u, v) => {
+      const grain = fbm(u * 24, v * 3, 24, 41);
+      return 0.5 + 0.35 * Math.sin(u * Math.PI * 40 + grain * 6) + grain * 0.15;
+    },
+    color: (_u, _v, h) => mix([84, 52, 28], [150, 104, 58], h),
+    roughness: () => 0.9,
+    normalStrength: 4,
   });
 }
 
-/** Blotchy leaf canopy for branches. */
-export function leaves(): THREE.CanvasTexture {
-  return paint((u, v) => {
-    const n = fbm(u * 10, v * 10, 10, 51);
-    const spots = fbm(u * 30, v * 30, 30, 61) > 0.62 ? 0.25 : 0;
-    return mix([40, 92, 46], [110, 160, 70], n + spots);
+/** Leaves: blotchy canopy with small bright spots. */
+function leaves(): Maps {
+  return bake({
+    height: (u, v) => fbm(u * 10, v * 10, 10, 51),
+    color: (u, v, h) => {
+      const spots = fbm(u * 30, v * 30, 30, 61) > 0.62 ? 0.25 : 0;
+      return mix([40, 92, 46], [118, 170, 74], h + spots);
+    },
+    roughness: () => 0.85,
+    normalStrength: 3,
   });
 }
 
-export interface TextureSet { floor: THREE.CanvasTexture; wall: THREE.CanvasTexture; bark: THREE.CanvasTexture; leaves: THREE.CanvasTexture }
+/** Vertical sky gradient used as the scene background. */
+export function skyGradient(): THREE.CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = 4; canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+  const grad = ctx.createLinearGradient(0, 0, 0, 256);
+  grad.addColorStop(0, '#0b0a1e');
+  grad.addColorStop(0.55, '#1c1a3a');
+  grad.addColorStop(1, '#3a2340');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+export interface TextureSet { floor: Maps; wall: Maps; bark: Maps; leaves: Maps }
 
 let cached: TextureSet | null = null;
 export function textures(): TextureSet {
-  if (!cached) cached = { floor: stoneFloor(), wall: wallBricks(), bark: woodBark(), leaves: leaves() };
+  if (!cached) {
+    const t0 = performance.now();
+    cached = { floor: stoneFloor(), wall: wallBricks(), bark: woodBark(), leaves: leaves() };
+    console.info(`[textures] baked in ${(performance.now() - t0).toFixed(0)} ms`);
+  }
   return cached;
+}
+
+/** Standard material wired to a PBR map set. */
+export function pbrMaterial(maps: Maps, extra: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    map: maps.map, normalMap: maps.normalMap, roughnessMap: maps.roughnessMap,
+    normalScale: new THREE.Vector2(1, 1), roughness: 1, metalness: 0.02, ...extra,
+  });
 }

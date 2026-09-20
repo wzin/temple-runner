@@ -28,6 +28,8 @@ export const COIN_RADIUS = 1.2;
 export const POWERUP_RADIUS = 1.4;
 export const PROXIMITY_PER_HIT = 25;
 export const PROXIMITY_DECAY = 2; // per second
+/** Seconds after a boost ends during which the runner is still invulnerable and turns are automatic. */
+export const BOOST_GRACE = 0.6;
 
 export interface ActivePowerUp { kind: PowerUpKind; timer: number }
 
@@ -37,6 +39,7 @@ export class Game {
   coins = 0; distance = 0; score = 0; proximity = 0; over = false;
   active: ActivePowerUp | null = null;
   shield = false;
+  private boostGrace = 0;
   /** Set when a turn was just taken; the camera uses it for its swing. */
   lastTurn: { dir: TurnDir; age: number } | null = null;
   fallPose: { x: number; z: number; dir: Vec2; s: number } | null = null;
@@ -51,12 +54,14 @@ export class Game {
     this.spawner = new Spawner(rng, this.track, { tuning: (s) => difficultyAt(s) });
     this.buffer.clear();
     this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false;
-    this.active = null; this.shield = false; this.lastTurn = null; this.fallPose = null; this.deadReported = false;
+    this.active = null; this.shield = false; this.boostGrace = 0; this.lastTurn = null; this.fallPose = null; this.deadReported = false;
     this.applyDifficulty();
     this.layAhead();
   }
 
   get boosting(): boolean { return this.active?.kind === 'boost'; }
+  /** Boost or its landing grace: no collisions, turns are taken automatically, presses are ignored. */
+  get invulnerable(): boolean { return this.boosting || this.boostGrace > 0; }
   get magnet(): boolean { return this.active?.kind === 'magnet'; }
 
   pressTurn(dir: TurnDir, nowMs: number): void { if (!this.over && !this.player.down) this.buffer.press(dir, nowMs); }
@@ -81,6 +86,7 @@ export class Game {
 
     this.distance = p.s;
     this.tickPowerUp(dt, events);
+    if (this.boostGrace > 0) this.boostGrace -= dt;
     this.handleTurns(nowMs, events);
     if (p.down) return events;
 
@@ -88,7 +94,7 @@ export class Game {
     for (const c of pickCoins(this.spawner.coins, p.s, p.x, p.y, COIN_RADIUS)) { void c; this.coins++; events.push({ type: 'coin' }); }
     for (const pu of pickPowerUps(this.spawner.powerUps, p.s, p.x, p.y, POWERUP_RADIUS)) this.activate(pu.kind, events);
 
-    if (!this.boosting) {
+    if (!this.invulnerable) {
       for (const o of sweepObstacles(this.spawner.obstacles, p.prevS, p.s, p.lateral, p.vertical)) {
         if (OBSTACLES[o.kind].fatal) { events.push({ type: 'hit', kind: o.kind }); this.startFall('gap', events); break; }
         if (this.shield) { this.shield = false; events.push({ type: 'shielded', kind: o.kind }); events.push({ type: 'powerupEnd', kind: 'shield' }); continue; }
@@ -126,7 +132,11 @@ export class Game {
   private tickPowerUp(dt: number, events: GameEvent[]): void {
     if (!this.active) return;
     this.active.timer -= dt;
-    if (this.active.timer <= 0) { events.push({ type: 'powerupEnd', kind: this.active.kind }); this.active = null; }
+    if (this.active.timer <= 0) {
+      if (this.active.kind === 'boost') this.boostGrace = BOOST_GRACE;
+      events.push({ type: 'powerupEnd', kind: this.active.kind });
+      this.active = null;
+    }
   }
 
   private pullCoins(dt: number): void {
@@ -146,6 +156,12 @@ export class Game {
     const w = this.track.turnWindowAt(p.s);
     const pressed = this.buffer.peek(nowMs);
     if (!w) return;
+    if (this.invulnerable) {
+      // Flying: any press is harmless, the corner is taken automatically.
+      this.buffer.consume();
+      if (p.s > w.corner) { w.segment.turnDone = true; events.push({ type: 'turn', dir: w.segment.turn! }); this.lastTurn = { dir: w.segment.turn!, age: 0 }; }
+      return;
+    }
     if (pressed) {
       this.buffer.consume();
       w.segment.turnDone = true;
@@ -155,7 +171,6 @@ export class Game {
     }
     if (p.s > w.corner) {
       w.segment.turnDone = true;
-      if (this.boosting) { events.push({ type: 'turn', dir: w.segment.turn! }); this.lastTurn = { dir: w.segment.turn!, age: 0 }; return; }
       // Past the corner with no input: keep running straight off the edge.
       this.startFall('missedTurn', events);
     }

@@ -143,4 +143,28 @@ describe('Game', () => {
     const ev = sim.run(() => g.player.state === 'running');
     expect(ev.filter((e) => e.type === 'land')).toHaveLength(1);
   });
+
+  it('boost ending on the corner tick and wrong presses during boost do not kill', () => {
+    // Wrong press while boosting is ignored.
+    let { g, sim } = gameWithEarlyTurn(); let w = g.track.turnWindows()[0];
+    g.spawner.obstacles.length = 0;
+    sim.run(() => g.player.s >= w.from - 30);
+    g.spawner.powerUps.push({ id: 950, kind: 'boost', s: g.player.s + 1, x: g.player.x, y: 1, taken: false });
+    sim.run(() => g.boosting);
+    sim.run(() => g.player.s >= w.from + 0.5);
+    sim.press(w.segment.turn === 'left' ? 'right' : 'left');
+    let events = sim.run(() => g.player.s > w.corner + 1);
+    expect(events.some((e) => e.type === 'fall')).toBe(false);
+    expect(events.some((e) => e.type === 'turn')).toBe(true);
+
+    // Boost timer runs out exactly as the corner is crossed: grace keeps the auto-turn.
+    ({ g, sim } = gameWithEarlyTurn()); w = g.track.turnWindows()[0];
+    g.spawner.obstacles.length = 0;
+    sim.run(() => g.player.s >= w.corner - 3);
+    g.active = { kind: 'boost', timer: 0.02 };
+    events = sim.run(() => g.player.s > w.corner + 1);
+    expect(events.some((e) => e.type === 'powerupEnd' && e.kind === 'boost')).toBe(true);
+    expect(events.some((e) => e.type === 'fall')).toBe(false);
+    expect(g.player.state).toBe('running');
+  });
 });

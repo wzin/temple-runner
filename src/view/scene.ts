@@ -1,12 +1,13 @@
 import * as THREE from 'three';
+import { skyGradient } from './textures';
 
 export let scene: THREE.Scene;
 export let renderer: THREE.WebGLRenderer;
 
 export function initScene(): void {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a1a2e);
-  scene.fog = new THREE.Fog(0x1a1a2e, 50, 150);
+  scene.background = skyGradient();
+  scene.fog = new THREE.Fog(0x1c1a3a, 60, 170);
 
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
