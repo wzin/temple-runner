@@ -18,6 +18,8 @@ export const DEFAULT_PLAYER: PlayerConfig = {
 export class Player {
   readonly cfg: PlayerConfig;
   s = 0; prevS = 0; x = 0; y = 0; vy = 0;
+  /** Multiplier on cfg.speed set by the game each tick (difficulty ramp, boost). */
+  speedScale = 1;
   state: PlayerState = 'running';
   stumbleTimer = 0; slideTimer = 0; fallTimer = 0;
 
@@ -30,7 +32,8 @@ export class Player {
   get vertical(): [number, number] { return [this.y, this.y + this.height]; }
   get speed(): number {
     if (this.state === 'falling' || this.state === 'dead') return 0;
-    return this.stumbleTimer > 0 ? this.cfg.speed * this.cfg.stumbleSlow : this.cfg.speed;
+    const base = this.cfg.speed * this.speedScale;
+    return this.stumbleTimer > 0 ? base * this.cfg.stumbleSlow : base;
   }
 
   tick(dt: number, input: TickInput): void {
@@ -68,5 +71,5 @@ export class Player {
     if (this.state === 'falling' || this.state === 'dead') return;
     this.state = 'falling'; this.fallTimer = this.cfg.fallDuration; this.vy = Math.min(this.vy, 0);
   }
-  reset(): void { this.s = 0; this.prevS = 0; this.x = 0; this.y = 0; this.vy = 0; this.state = 'running'; this.stumbleTimer = 0; this.slideTimer = 0; this.fallTimer = 0; }
+  reset(): void { this.speedScale = 1; this.s = 0; this.prevS = 0; this.x = 0; this.y = 0; this.vy = 0; this.state = 'running'; this.stumbleTimer = 0; this.slideTimer = 0; this.fallTimer = 0; }
 }

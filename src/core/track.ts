@@ -28,7 +28,7 @@ export function rightOf(d: Vec2): Vec2 { return { x: -d.z, z: d.x }; }
 export function turnLeft(d: Vec2): Vec2 { return { x: d.z, z: -d.x }; }
 export function turnRight(d: Vec2): Vec2 { return { x: -d.z, z: d.x }; }
 
-export interface TrackOptions { turnChance?: number; straightsAfterTurn?: number; initialStraights?: number }
+export interface TrackOptions { turnChance?: number | (() => number); straightsAfterTurn?: number; initialStraights?: number }
 
 export class Track {
   readonly segments: Segment[] = [];
@@ -38,12 +38,15 @@ export class Track {
   private nextDir: Vec2 = { x: 0, z: -1 };
   private straightsSinceTurn = 0;
   private laid = 0;
-  private readonly turnChance: number;
+  private readonly turnChance: () => number;
+  /** Metres before the corner where a turn press is accepted; the game scales it with speed. */
+  turnEarly = TURN_EARLY;
   private readonly straightsAfterTurn: number;
   private readonly initialStraights: number;
 
   constructor(private readonly rng: Rng, opts: TrackOptions = {}) {
-    this.turnChance = opts.turnChance ?? 0.15;
+    const tc = opts.turnChance ?? 0.15;
+    this.turnChance = typeof tc === 'function' ? tc : () => tc;
     this.straightsAfterTurn = opts.straightsAfterTurn ?? 2;
     this.initialStraights = opts.initialStraights ?? 3;
   }
@@ -86,7 +89,7 @@ export class Track {
   turnWindows(): TurnWindow[] {
     return this.segments.filter((s) => s.kind === 'turn').map((segment) => {
       const corner = this.cornerOf(segment);
-      return { segment, corner, from: corner - TURN_EARLY, to: corner + TURN_LATE };
+      return { segment, corner, from: corner - this.turnEarly, to: corner + TURN_LATE };
     });
   }
 
@@ -105,7 +108,7 @@ export class Track {
   private chooseKind(): 'straight' | 'turn' {
     if (this.laid < this.initialStraights) return 'straight';
     if (this.straightsSinceTurn < this.straightsAfterTurn) return 'straight';
-    return chance(this.rng, this.turnChance) ? 'turn' : 'straight';
+    return chance(this.rng, this.turnChance()) ? 'turn' : 'straight';
   }
 
   private append(kind: 'straight' | 'turn'): Segment {

@@ -1,0 +1,26 @@
+/** Difficulty as a function of distance: linear ramp up to RAMP_DISTANCE, flat after. */
+export interface Difficulty {
+  speed: number;
+  turnChance: number;
+  obstacleChance: number;
+  obstacleSpacing: number;
+  /** Seconds of reaction time the turn window gives before the corner. */
+  reactionTime: number;
+}
+
+export const RAMP_DISTANCE = 1500;
+export const BASE_SPEED = 15;
+export const MAX_SPEED = 24;
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
+export function difficultyAt(s: number): Difficulty {
+  const t = Math.max(0, Math.min(1, s / RAMP_DISTANCE));
+  return {
+    speed: lerp(BASE_SPEED, MAX_SPEED, t),
+    turnChance: lerp(0.15, 0.3, t),
+    obstacleChance: lerp(0.45, 0.7, t),
+    obstacleSpacing: lerp(25, 16, t),
+    reactionTime: 0.4,
+  };
+}
