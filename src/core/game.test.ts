@@ -12,7 +12,7 @@ class Sim {
   run(pred: () => boolean, opts: { autopilot?: boolean; forkChoice?: 'left' | 'right'; noObstacles?: boolean; maxTicks?: number } = {}): GameEvent[] {
     const events: GameEvent[] = []; let n = 0;
     while (!pred() && !this.g.over) {
-      if (opts.noObstacles) this.g.spawner.obstacles.length = 0;
+      if (opts.noObstacles) { this.g.spawner.obstacles.length = 0; this.g.spawner.powerUps.length = 0; }   // a stray boost pickup would mask what a test measures
       if (opts.autopilot) {
         const w = this.g.track.turnWindowAt(this.g.player.s);
         // Forced turns are taken; unresolved forks are left to the test unless it asks for a default choice.
@@ -264,12 +264,14 @@ describe('coin energy', () => {
     g.spawner.coins.length = 0; g.spawner.obstacles.length = 0;
     // Coins alone are not enough: a full meter also needs at least 45 s of running.
     for (let i = 0; i < 300; i++) g.spawner.coins.push({ id: 90000 + i, s: g.player.s + 5 + i * 1.5, x: 0, y: 0.6, collected: false, value: 1 });
-    sim.run(() => g.player.s > 300, { autopilot: true, noObstacles: true });
+    sim.run(() => g.player.s > 300, { autopilot: true, forkChoice: 'left', noObstacles: true });
+    expect(g.over).toBe(false);
     expect(g.coins).toBeGreaterThanOrEqual(150);
     expect(g.energy).toBeLessThan(100);
     expect(g.pressBoost()).toBe(false);
     for (let i = 0; i < 400; i++) g.spawner.coins.push({ id: 91000 + i, s: g.player.s + 5 + i * 2.5, x: 0, y: 0.6, collected: false, value: 1 });
-    const events = sim.run(() => g.player.s > 1200, { autopilot: true, noObstacles: true });
+    const events = sim.run(() => g.player.s > 1200, { autopilot: true, forkChoice: 'left', noObstacles: true });
+    expect(g.over).toBe(false);
     expect(g.energy).toBe(100);
     expect(events.some((e) => e.type === 'energyFull')).toBe(true);
     expect(g.pressBoost()).toBe(true);
