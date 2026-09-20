@@ -9,6 +9,7 @@ import { initCoinView, updateCoinView } from './view/coinView';
 import { initObstacleView, updateObstacleView } from './view/obstacleView';
 import { initPowerUpView, updatePowerUpView } from './view/powerUpView';
 import { initMonkeyView, updateMonkeyView } from './view/monkeyView';
+import { coinBurst, initParticles, updateParticles } from './view/particles';
 import { endFrame, initDomInput, onTurn, pollInput, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD } from './ui/HUD';
@@ -44,6 +45,7 @@ function init(): void {
   initObstacleView(scene);
   initPowerUpView(scene);
   initMonkeyView(scene);
+  initParticles(scene);
 
   onTurn((dir, nowMs) => {
     if (gameState.screen === 'playing') game.pressTurn(dir, nowMs);
@@ -88,6 +90,7 @@ function loop(now: number): void {
     handleEvents(events);
     syncState();
     syncViews(now);
+    updateParticles(game, dt);
     updateCamera(game, dt);
     updateHUD();
     if (game.over) endRun();
@@ -102,7 +105,7 @@ function loop(now: number): void {
 function handleEvents(events: GameEvent[]): void {
   for (const e of events) {
     switch (e.type) {
-      case 'coin': playSound('coin'); break;
+      case 'coin': playSound('coin'); coinBurst(game); break;
       case 'jump': playSound('jump'); break;
       case 'slide': playSound('slide'); break;
       case 'land': playSound('land'); playerLanded(); cameraLand(); break;

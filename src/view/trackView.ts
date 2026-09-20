@@ -18,6 +18,61 @@ const stripeGeometry = new THREE.BoxGeometry(TRACK_HALF_WIDTH * 2, 0.02, 0.4);
 const groups = new Map<number, THREE.Group>();
 let root: THREE.Scene;
 
+// Props share geometry/material across segments.
+const torchHandleGeo = new THREE.CylinderGeometry(0.06, 0.08, 0.7, 6);
+const torchHandleMat = new THREE.MeshStandardMaterial({ color: 0x4a3222, roughness: 0.9 });
+const torchBowlGeo = new THREE.CylinderGeometry(0.16, 0.1, 0.18, 8);
+const torchBowlMat = new THREE.MeshStandardMaterial({ color: 0x6b6b70, metalness: 0.6, roughness: 0.4 });
+const flameGeo = new THREE.ConeGeometry(0.14, 0.45, 7);
+const flameMat = new THREE.MeshStandardMaterial({ color: 0xffa030, emissive: 0xff6a00, emissiveIntensity: 1.8 });
+const glowGeo = new THREE.SphereGeometry(0.42, 10, 8);
+const glowMat = new THREE.MeshBasicMaterial({ color: 0xff8a2a, transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending });
+const totemGeo = new THREE.BoxGeometry(0.9, 3.4, 0.9);
+const totemMat = new THREE.MeshStandardMaterial({ color: 0x8a6a4a, roughness: 0.85 });
+const totemEyeGeo = new THREE.BoxGeometry(0.2, 0.12, 0.08);
+const totemEyeMat = new THREE.MeshStandardMaterial({ color: 0xffd040, emissive: 0xffb000, emissiveIntensity: 1.5 });
+
+const TORCH_SPACING = 10;
+const hash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+
+function addTorch(group: THREE.Group, track: Track, s: number, side: -1 | 1): void {
+  const w = track.sample(s, side * (TRACK_HALF_WIDTH - 0.05));
+  const torch = new THREE.Group();
+  torch.position.set(w.x, 1.5, w.z);
+  faceHeading(torch, w.dir);
+  const handle = new THREE.Mesh(torchHandleGeo, torchHandleMat);
+  handle.rotation.z = side * 0.35; handle.position.x = -side * 0.1;
+  torch.add(handle);
+  const bowl = new THREE.Mesh(torchBowlGeo, torchBowlMat);
+  bowl.position.set(-side * 0.22, 0.4, 0);
+  torch.add(bowl);
+  const flame = new THREE.Mesh(flameGeo, flameMat);
+  flame.position.set(-side * 0.22, 0.72, 0);
+  torch.add(flame);
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  glow.position.copy(flame.position);
+  torch.add(glow);
+  group.add(torch);
+}
+
+function addTotem(group: THREE.Group, x: number, z: number, dir: { x: number; z: number }): void {
+  const totem = new THREE.Group();
+  totem.position.set(x, 1.7, z);
+  faceHeading(totem, dir);
+  const body = new THREE.Mesh(totemGeo, totemMat);
+  body.castShadow = true;
+  totem.add(body);
+  for (const [ey, scale] of [[1.1, 1], [0.2, 0.8], [-0.7, 0.6]] as const) {
+    for (const side of [-0.2, 0.2]) {
+      const eye = new THREE.Mesh(totemEyeGeo, totemEyeMat);
+      eye.position.set(side * scale, ey, -0.47);
+      eye.scale.setScalar(scale);
+      totem.add(eye);
+    }
+  }
+  group.add(totem);
+}
+
 export function initTrackView(scene: THREE.Scene): void {
   root = scene;
   const t = textures();
@@ -106,6 +161,11 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
       faceHeading(stripe, p.dir);
       group.add(stripe);
     }
+    // Torches alternate sides every TORCH_SPACING; a few are missing for variety.
+    for (let s = s0 + 5; s < s1; s += TORCH_SPACING) {
+      if (hash(seg.id, Math.round(s)) < 0.2) continue;
+      addTorch(group, track, s, Math.round(s / TORCH_SPACING) % 2 === 0 ? -1 : 1);
+    }
     return group;
   }
 
@@ -153,6 +213,11 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   post.position.y = WALL_HEIGHT / 2;
   faceHeading(post, dirIn);
   group.add(post);
+
+  // Totem watching the corner from the far outer side, facing the incoming runner.
+  const tot = at(dirIn.x * (TRACK_HALF_WIDTH + 1.0) + outer * rightIn.x * (TRACK_HALF_WIDTH - 0.9), dirIn.z * (TRACK_HALF_WIDTH + 1.0) + outer * rightIn.z * (TRACK_HALF_WIDTH - 0.9));
+  addTotem(group, tot.x, tot.z, dirIn);
+  addTorch(group, track, s0 + 4, outer as -1 | 1);
 
   // Corner marker and arrow pointing along the new heading.
   const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), accentMaterial);

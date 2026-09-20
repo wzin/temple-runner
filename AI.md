@@ -41,7 +41,10 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/scene.ts` | renderer, lights |
 | `src/view/camera.ts` | follow camera from `track.sample`; frozen pose while falling |
 | `src/view/trackView.ts` | one `Group` per segment, added/disposed with the track |
-| `src/view/playerView.ts`, `coinView.ts`, `obstacleView.ts`, `powerUpView.ts`, `monkeyView.ts` | meshes placed from track coordinates each frame; monkeys sit `9 → 2.5 m` behind the player as proximity rises |
+| `src/view/playerView.ts` | low-poly rigged runner (arms/legs swing by distance, tuck on jump, lean on slide), shield aura, warm point light |
+| `coinView.ts`, `obstacleView.ts`, `powerUpView.ts`, `monkeyView.ts` | instanced meshes placed from track coordinates each frame; monkeys sit `9 → 2.5 m` behind the player as proximity rises |
+| `src/view/trackView.ts` props | torches every 10 m on alternating walls (20% missing), a totem with glowing eyes at every corner |
+| `src/view/particles.ts` | pooled additive point sprites: embers over fire obstacles, gold sparks on coin pickup |
 | `src/view/textures.ts` | seamless procedural PBR sets (colour + normal + roughness) for stone floor, bricks, bark, leaves, baked on canvases at startup (~0.4 s); one tile = 2 m; sky gradient background |
 | `src/ui/domInput.ts` | keyboard → `TickInput`; turn presses go straight to `game.pressTurn` with the real press time |
 | `src/ui/*` (HUD, menus), `src/gameState.ts`, `src/audio.ts`, `src/styles.css` | UI shell kept from the prototype; `main.ts` copies score/coins/proximity into `gameState` |
@@ -76,5 +79,5 @@ mail.ziniewicz.eu, network `traefik_proxy`); Traefik route lives in
 ## Roadmap
 
 2. Done (2026-09-20): speed ramp, camera swing/dip/shake, landing squash, power-ups, monkeys, patterns, persistence, basic procedural textures.
-3. Look: real textures (AI-generated or CC0 PBR), props, character model, skybox, particles.
+3. Done (2026-09-20): procedural PBR textures, sky gradient, torches, totems, rigged runner, particles. Next: AI/CC0 textures, character detail, ambient sound.
 4. Mobile controls. 5. Persistence, stats, audio assets.
