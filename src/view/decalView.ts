@@ -17,7 +17,6 @@ let portals: THREE.InstancedMesh;
 let jaguars: THREE.InstancedMesh;
 let cornices: THREE.InstancedMesh;
 let trims: THREE.InstancedMesh;
-let vines: THREE.InstancedMesh;
 let banners: THREE.InstancedMesh;
 let mosaic: THREE.Mesh;
 const segHash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
@@ -38,9 +37,8 @@ export function initDecals(scene: THREE.Scene): void {
   const trim = remoteSet('gold-trim', 0xc9a24a); for (const t of [trim.map, trim.normalMap, trim.roughnessMap]) t.repeat.set(1, 1);
   trims = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 0.22), pbrMaterial(trim, { color: 0xffe0a0, emissive: 0x6a4a10, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -1 }), MAX);
   const leafy = (name: string, w: number, h: number, alpha = 0.4) => new THREE.InstancedMesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: sprite(name), transparent: true, alphaTest: alpha, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }), MAX);
-  vines = leafy('vines', 3.2, 2.6, 0.35);
   banners = leafy('banner', 1.2, 1.7, 0.4);
-  for (const m of [reliefs, arrows, portals, jaguars, cornices, trims, vines, banners]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
+  for (const m of [reliefs, arrows, portals, jaguars, cornices, trims, banners]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
   // Start medallion: a 6 x 6 mosaic plate on the first slabs.
   mosaic = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 5.6), pbrMaterial(remoteSet('mosaic', 0x907060), { polygonOffset: true, polygonOffsetFactor: -1 }));
   mosaic.rotation.x = -Math.PI / 2;
@@ -52,7 +50,7 @@ export function updateDecals(game: Game, timeMs: number): void {
   const track = game.track;
   const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
   const holed = (s: number) => gaps.some((g) => s + 1 > g.s0 + 1e-6 && s - 1 < g.s1 - 1e-6);
-  let nR = 0; let nA = 0; let nP = 0; let nJ = 0; let nC = 0; let nT = 0; let nV = 0; let nB = 0;
+  let nR = 0; let nA = 0; let nP = 0; let nJ = 0; let nC = 0; let nT = 0; let nB = 0;
   mosaic.visible = track.segments.length > 0 && track.segments[0].s0 === 0;
   const cornice = (x: number, z: number, dir: { x: number; z: number }) => {
     if (nC >= 320) return;
@@ -73,17 +71,11 @@ export function updateDecals(game: Game, timeMs: number): void {
           reliefs.setMatrixAt(nR++, dummy.matrix);
           dummy.position.y = 1.9; dummy.updateMatrix(); trims.setMatrixAt(nT++, dummy.matrix);
         }
-        // Hanging vines and the odd banner, seeded per segment and side.
+        // The odd banner, seeded per segment and side. (Hanging-vine decals were dropped: they read as a tree pasted on the wall.)
         const yawIn = Math.atan2(-side * right.x, -side * right.z);
         for (let k = 0; k < 2; k++) {
           const r = segHash(seg.id, 700 + side * 10 + k);
-          const vs = seg.s0 + 3 + segHash(seg.id, 800 + side * 10 + k) * 14;
-          if (holed(vs)) continue;
-          if (r < 0.55 && nV < MAX) {
-            const v = track.sampleSegment(seg, vs, side * (TRACK_HALF_WIDTH - 0.06));
-            dummy.position.set(v.x, 1.35, v.z); dummy.rotation.set(0, yawIn, 0); dummy.scale.set(0.8 + r, 0.8 + r, 1); dummy.updateMatrix();
-            vines.setMatrixAt(nV++, dummy.matrix);
-          } else if (r > 0.9 && nB < MAX) {
+          if (r > 0.9 && nB < MAX && !holed(seg.s0 + 10)) {
             const v = track.sampleSegment(seg, seg.s0 + 10, side * (TRACK_HALF_WIDTH - 0.06));
             dummy.position.set(v.x, 1.15, v.z); dummy.rotation.set(0, yawIn, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
             banners.setMatrixAt(nB++, dummy.matrix);
@@ -133,7 +125,6 @@ export function updateDecals(game: Game, timeMs: number): void {
   jaguars.count = nJ; jaguars.instanceMatrix.needsUpdate = true;
   cornices.count = nC; cornices.instanceMatrix.needsUpdate = true;
   trims.count = nT; trims.instanceMatrix.needsUpdate = true;
-  vines.count = nV; vines.instanceMatrix.needsUpdate = true;
   banners.count = nB; banners.instanceMatrix.needsUpdate = true;
 }
 

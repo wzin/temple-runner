@@ -15,11 +15,12 @@ Docker; nothing is installed on the host except what `scripts/*.mjs` need (node 
 ```
 src/core/        pure TS game model, no Three.js, unit-tested       (track, player, spawner, collision, game, difficulty, powerups, input, rng)
 src/view/        Three.js rendering of the model (no game logic)     (scene, camera, floorView, trackView, decalView, propView, modelView, obstacleView, coinView, powerUpView, playerView, monkeyView, torchView, particles, flameMaterial, skyView, groundView, cliffView, ruinsView, cloudView(mist only), textures, biome, util)
+scripts/trim-glb.mjs  gltf-transform: keep named pieces / animation clips, embed external textures, prune
 src/ui/          DOM overlay: HUD, menus, game over + leaderboard, DOM/touch input
 src/main.ts      RAF loop, screens, events → sound/particles/camera, skin picker, hints, countdown
 server/index.mjs leaderboard API (Node 22 node:sqlite)
 scripts/         gen-texture.mjs (fal.ai), optimize-assets.mjs (WebP), rebuild-normals.mjs, release.sh
-public/          textures/<set>/{color,normal,roughness,ao}.webp, sprites/*.webp, art/*.webp|jpg, models/kenney/*.glb, favicon.png
+public/          textures/<set>/{color,normal,roughness,ao}.webp, sprites/*.webp, art/*.webp|jpg, models/{kenney/*.glb, ruins/ruins.glb, chars/*.glb}, favicon.png
 docs/superpowers/ specs and plans (2026-09-20 track-space core, stage2 polish, stage3 forks/gaps/biome)
 ```
 
@@ -39,6 +40,9 @@ node scripts/gen-texture.mjs <name> "<prompt>" [--kind pbr|sprite|image|panorama
 node scripts/optimize-assets.mjs                        # everything under public/ → WebP (run after every generation)
 node scripts/rebuild-normals.mjs                        # normal maps from colour (high-pass luminance, contrast stretch)
 scripts/release.sh X.Y.Z                                # writes VERSION, commits, tags vX.Y.Z, pushes main + tag
+node scripts/trim-glb.mjs in.glb out.glb --keep-nodes A,B   # (in the dev container) library GLB → only these pieces
+node scripts/trim-glb.mjs in.glb out.glb --keep-anims Idle,Run # character → only these clips; --keep-nodes NONE = clips only
+node scripts/trim-glb.mjs in.glb out.glb                    # plain rewrite: embeds external textures (Kenney colormap.png)
 ```
 
 Headless play-testing: Playwright scripts live in the session scratchpad (not in the repo); they drive the game
@@ -96,19 +100,22 @@ Everything repeated is instanced and rebuilt from the live segments each frame (
 | `trackView.ts` | per-segment groups: bend walls (L-shaped outer wall, inner post), T walls for forks, totems, glyph plates. Straight walls are NOT here (see floorView) |
 | `cliffView.ts` | stone embankment blocks from the ground (y −14) to the floor, skipped under gaps |
 | `decalView.ts` | per 2 m block: relief band, gold trim; cornice blocks on wall tops; vines/banners; portal arch or jaguar face on bend walls; arrow glyph decals on corner plates; start mosaic — all skip gap spans |
-| `modelView.ts` | Kenney GLB models flattened to instanced parts: 7 trees, 2 palms, 4 rocks, plants/grass/flowers on the low ground; statue_head/obelisk at bends; small stones on the path; rubble at gap edges (on the path and 14 m below). Teal foliage re-tinted to jungle greens |
+| `modelView.ts` | GLB models flattened to instanced parts (`register`), base at y 0, centred. Kenney kits: forest (trees, palms, rocks, plants), statues, path stones, gap rubble, graveyard pillars/urns/altars, castle towers. Quaternius Modular Ruins library (`ruins/ruins.glb`, pieces picked by node name): gateway arches over the path on the wall tops (22% of straights after 40 m), columns at segment joints and bends, ruin clusters + shrines on the low ground 10–25 m out, pots/crates/skulls at the wall feet. `window.__models` = per-model counts for the harness |
 | `propView.ts` | remaining billboards: ferns, bushes, skulls, roots on the cliff; textured columns and pillars |
-| `obstacleView.ts` | fire = sprite quads + shader flame; log/branch = bark cylinders with tree-ring caps, branch has leaf puffs; gaps show a lava or river pool on the ground below (40% water) and a veil while invulnerable |
+| `obstacleView.ts` | fire = bonfire: coal bed (lava set, emissive), four shader flame sheets (one camera-facing + two fanned + hot core), flickering ground glow, one point light following the nearest fire ahead; log = bark cylinder with tree-ring caps; **branch = low stone gate** (carved posts with pyramid caps, relief lintel 1.0–1.8 m, five stone teeth to 2.6 m — must slide); gaps show a lava or river pool below (40% water) and a veil while invulnerable |
 | `coinView.ts` | coin discs with embossed faces; big medallions |
 | `powerUpView.ts` | artefacts (iron horseshoe, gold sun disc, condor feather) + camera-facing icon sprites |
-| `playerView.ts` | rigged low-poly runner, `SKINS` (runner, runner-f, guardian): portrait on the front head hemisphere, hair behind, tunic front/back panels, weave limbs; landing squash, lean, tumble; shield aura, boost ghosting; warm point light (dim) |
+| `playerView.ts` | animated GLB character (Quaternius, CC0) with an AnimationMixer: Run speed-matched (`STRIDE` 7.5 m/cycle), Roll = slide (compressed to 0.7 s), HitRecieve = stumble, Death = fall, Idle when standing. No jump clip in the pack → `Man_Jump` from the Animated Men pack retargeted by bone name (quaternion tracks only). `SKINS` = files adventurer / adventurer-f / hooded (ids runner / runner-f / guardian kept for saved prefs); only the chosen file is downloaded (~1.2–1.5 MB). Normalised to 1.75 m, feet at 0. Shield aura, boost ghosting, dim lamp kept |
 | `monkeyView.ts` | three fur-textured monkeys with face wraps, `9 → 2.5 m` behind as proximity rises, hidden while invulnerable |
-| `torchView.ts` | instanced torches: bronze bowls, shader flames (`flameMaterial.ts`, instancing-aware, `tickFlames(t)`), soot decals |
+| `torchView.ts` | instanced torches: bronze bowls, shader flames, soot decals |
+| `flameMaterial.ts` | procedural fire shader for instanced quads (instancing-aware, `tickFlames(t)`): domain-warped 5-octave fbm, three overlapping tongues, cavities, rising sparks; opts scale/speed/width/glow. Used by torches and bonfires |
 | `particles.ts` | pooled additive points: embers over fire, coin sparks, hit sparks, power-up bursts, landing dust |
 | `skyView.ts` | painted equirect sky as `scene.background` (horizon and below = fog colour so fogged geometry vanishes); replaced by `public/art/sky.webp` panorama when it loads |
 | `ruinsView.ts`, `cloudView.ts` | skyline ruins and far temples (fog-tinted billboards); ground mist wisps. Cloud/canopy sheets were removed (read as hanging textures) |
 | `camera.ts` | 11 m behind, 6.5 m up, swing on turn, dip on landing, shake on hit; follows `fallPose` when falling |
 | `scene.ts` | ACES tone mapping (exposure 1.05), pixel ratio ≤ 1.5, no shadow maps, sun/ambient/fog from `biome.ts` (`updateFog(lookahead)`) |
+
+**3D models.** Sources that work non-interactively: Kenney zips (`curl kenney.nl/assets/<kit>` and grep the `media/pages/assets/.../*.zip` link; `Models/GLB format/*.glb`, some kits reference `Textures/colormap.png` externally → rewrite with `trim-glb.mjs` to embed) and Poly Pizza (`curl -A Mozilla poly.pizza/m/<id>` and grep `static.poly.pizza/<uuid>.glb`; bundles list `/m/<id>` + `alt` names). Quaternius packs on Poly Pizza are CC0 GLBs; the Modular Ruins pack is one GLB with 95 named pieces (trimmed to 36). Characters: "CharacterArmature" rigs, 24 clips, no Jump; the Animated Men "Man" has Man_Jump on mostly the same bone names. Sizes: ruins 2.1 MB, each character ~1.3 MB, Kenney pieces ~1 MB total.
 
 **Textures** (`textures.ts`): procedural PBR fallbacks baked at startup (~0.4 s) for floor/wall/bark/leaves/ground/cliff/
 totem/glyph; `loadRealTextures()` swaps the generated sets in place. `remoteSet(folder, colour, priority)` gives a flat
@@ -135,7 +142,11 @@ blocked (fixed Siri/selection popups and hijacked swipes on iOS/Android). Hints:
 Node 22 `node:sqlite`, DB at `/data/scores.db` (volume `scores_data`; dev uses `scores_dev`). `GET /api/health`,
 `GET /api/scores?limit=`, `POST /api/scores {name, score, coins, distance}`: name `^[A-Za-z0-9 _.-]{1,12}$`, integers,
 **score must equal distance + 10·coins** (the game keeps them consistent even on the final tick), 3 s per-IP cooldown.
-Caddy proxies `/api/*` to `api:3002`; Vite dev proxies to `api-dev` via `API_URL`.
+Caddy proxies `/api/*` to `api:3002`; Vite dev proxies to `api-dev` via `API_URL`. Client (`ui/leaderboard.ts`): 8 s timeout,
+3 attempts with back-off (3.2 s after a 429), and an **offline queue** in localStorage: a score that still fails is kept and
+flushed when the menu or game-over board next opens (a tester saw "Failed to fetch" once — a dropped connection, likely a
+redeploy or proxy restart; Caddy access logs on the web container are the place to look). API healthcheck uses 127.0.0.1
+(busybox wget resolves localhost to ::1 and the server binds IPv4). The API logs every accepted score.
 
 ## 7. Assets pipeline (fal.ai)
 
@@ -172,11 +183,13 @@ VERSION; production said `vdev` until VERSION was copied into the image (0.4.1).
 leaderboard, forks, real gaps, biome, mobile · 0.4.x lookahead/fog, both-branch previews, version label, textures
 (CC0 then generated), self-avoiding generator, embankment · 0.5.x generated Inca texture set, shader flames,
 mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + progressive loading, dispose fix,
-fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death.
+fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
+0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
+kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck.
 
 ## 11. Next candidates
 
-Character model (Kenney/Quaternius rigged GLB with animation) instead of the box rig; second biome (night jungle
+Monkeys as real animated models (no CC0 monkey found; Quaternius Animated Animal Pack has wolf/fox/stag — a "temple beast" pack?); menu preview of the chosen character (idle clip); second biome (night jungle
 or ice temple); KTX2 compression; seam-free tiling via inpainting; HUD/menu frames in Inca style; ambient sound;
 big-coin/gem variants; water gaps as broken plank bridges (`bridge-plank`, `stone-steps` sets are generated but
 unused); `idol` sprite unused.

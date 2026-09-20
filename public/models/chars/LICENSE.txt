@@ -1,0 +1,6 @@
+Characters by Quaternius (https://quaternius.com), CC0 1.0 Universal (public domain), via Poly Pizza:
+  adventurer.glb    "Adventurer" (Ultimate Modular Men Pack)     https://poly.pizza/m/5EGWBMpuXq
+  adventurer-f.glb  "Adventurer" (Ultimate Modular Women Pack)   https://poly.pizza/m/ZwF0K7WBmu
+  hooded.glb        "Hooded Adventurer" (Ultimate Modular Women) https://poly.pizza/m/y9KWOVG21R
+  jump-clip.glb     Man_Jump animation from "Man" (Animated Men Pack), meshes removed  https://poly.pizza/m/HMnuH5geEG
+Each file is trimmed to the animations the game plays (scripts/trim-glb.mjs).

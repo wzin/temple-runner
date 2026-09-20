@@ -1,5 +1,5 @@
 import { playSound } from '../audio';
-import { fetchTop } from './leaderboard';
+import { fetchTop, flushQueue } from './leaderboard';
 
 let menuElement: HTMLElement | null = null;
 let playButton: HTMLButtonElement | null = null;
@@ -37,6 +37,7 @@ async function refreshMenuBoard(): Promise<void> {
   const status = document.getElementById('menu-board-status');
   if (!list) return;
   try {
+    await flushQueue().catch(() => 0); // scores that could not be sent after an earlier run
     const rows = await fetchTop(5);
     list.innerHTML = '';
     for (const r of rows) {

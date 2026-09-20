@@ -69,6 +69,7 @@ const server = createServer(async (req, res) => {
       lastPost.set(ip, now);
       const { lastInsertRowid } = insert.run(name, score, coins, distance);
       const rank = rankOf.get(score, score, Number(lastInsertRowid)).n + 1;
+      console.log(`score #${lastInsertRowid} ${name} ${score} (rank ${rank}) from ${ip}`);
       return json(res, 201, { id: Number(lastInsertRowid), rank, top: top.all(10) });
     }
     return json(res, 404, { error: 'not found' });

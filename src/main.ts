@@ -237,7 +237,7 @@ function syncViews(now: number): void {
   updateModels(game);
   updatePlayerView(game, now);
   updateCoinView(game, now);
-  updateObstacleView(game, now);
+  updateObstacleView(game, now, camera);
   updatePowerUpView(game, now, camera);
   updateMonkeyView(game, now);
 }

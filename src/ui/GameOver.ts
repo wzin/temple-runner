@@ -1,6 +1,6 @@
 import { gameState } from '../gameState';
 import { playSound } from '../audio';
-import { NAME_PATTERN, ScoreRow, fetchTop, submitScore } from './leaderboard';
+import { NAME_PATTERN, ScoreRow, dequeueScore, fetchTop, flushQueue, queueScore, submitScore } from './leaderboard';
 
 /** Game-over screen with arcade-style name entry and the top-10 board. */
 
@@ -72,7 +72,8 @@ export function showGameOver(result: { score: number; coins: number; distance: n
     setTimeout(() => nickInput?.focus(), 50);
   }
   if (submitButton) submitButton.disabled = false;
-  void fetchTop(10).then((rows) => { if (!submitted) renderBoard(rows, null); }).catch(() => { if (boardStatus) boardStatus.textContent = 'Leaderboard offline'; });
+  // Scores that failed to send earlier go first, then the board.
+  void flushQueue().catch(() => 0).then(() => fetchTop(10)).then((rows) => { if (!submitted) renderBoard(rows, null); }).catch(() => { if (boardStatus) boardStatus.textContent = 'Leaderboard offline'; });
 }
 
 async function submit(): Promise<void> {
@@ -90,12 +91,16 @@ async function submit(): Promise<void> {
   try { localStorage.setItem(NICK_KEY, name); } catch { /* ignore */ }
   if (boardStatus) boardStatus.textContent = 'Saving…';
   try {
-    const res = await submitScore({ name, ...pending });
+    const entry = { name, ...pending };
+    const res = await submitScore(entry);
+    dequeueScore(entry);
     renderBoard(res.top, res.id);
     if (boardStatus) boardStatus.textContent = `You are #${res.rank}`;
     playSound('powerup');
   } catch (err) {
-    if (boardStatus) boardStatus.textContent = `Could not save: ${(err as Error).message}`;
+    // Never lose the run: keep it on this device and send it the next time the leaderboard opens.
+    queueScore({ name, ...pending });
+    if (boardStatus) boardStatus.textContent = `Could not save (${(err as Error).message}) — kept on this device, will retry automatically. Press Enter to try again now.`;
     submitted = false;
     nickInput.disabled = false;
     if (submitButton) submitButton.disabled = false;

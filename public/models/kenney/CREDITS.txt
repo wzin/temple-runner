@@ -1,0 +1,8 @@
+Models from Kenney (https://kenney.nl), CC0 1.0 Universal. Kits used:
+  Nature Kit (trees, palms, rocks, plants, statues, small stones) — see LICENSE.txt
+  Castle Kit (tower-square-*, rocks-large)
+  Graveyard Kit (pillar-*, column-large, altar-stone, urn-*, fire-basket, stone-wall-damaged, rocks-tall, debris)
+  Mini Dungeon (chest, pot, stones)
+  Pirate Kit (palm-*, rocks-a)
+  Platformer Kit (flowers-tall, mushrooms)
+GLBs from kits that reference an external colormap were rewritten with the texture embedded (scripts/trim-glb.mjs).
