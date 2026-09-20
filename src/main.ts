@@ -1,148 +1,133 @@
-import { initScene, scene, renderer } from './scene';
-import { initCamera, camera, updateCamera, setCameraPosition } from './camera';
-import { initPlayer, getPlayer, updatePlayer, resetPlayer } from './player';
-import { initInput, clearFrameInput, wasJustPressed } from './input';
-import { gameState, resetGame, updatePowerUps as updateGamePowerUps, updateStumble, updateFall } from './gameState';
-import { initPathGenerator, updatePathGenerator, resetPathGenerator } from './path/PathGenerator';
-import { initObstacleManager, updateObstacles, resetObstacles } from './obstacles/ObstacleManager';
-import { initCoins, updateCoins, resetCoins } from './collectibles/Coin';
-import { initPowerUps, updatePowerUps, resetPowerUps } from './powerups/PowerUp';
-import { initMonkeys, updateMonkeys, resetMonkeys } from './monkey';
-import { updateScore } from './score';
+import { Game, GameEvent } from './core/game';
+import { gameState } from './gameState';
 import { initAudio, playSound } from './audio';
+import { initScene, scene, renderer } from './view/scene';
+import { camera, initCamera, snapCamera, updateCamera } from './view/camera';
+import { initTrackView, resetTrackView, updateTrackView } from './view/trackView';
+import { initPlayerView, updatePlayerView } from './view/playerView';
+import { initCoinView, updateCoinView } from './view/coinView';
+import { initObstacleView, updateObstacleView } from './view/obstacleView';
+import { endFrame, initDomInput, onTurn, pollInput, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD } from './ui/HUD';
 import { initPauseMenu, showPauseMenu, hidePauseMenu } from './ui/PauseMenu';
 import { initGameOver, showGameOver, hideGameOver } from './ui/GameOver';
 
+const game = new Game(Date.now() >>> 0);
 let lastTime = 0;
 
+// Exposed for automated play-testing (headless browser drives the run through this handle).
+declare global { interface Window { __game: Game } }
+window.__game = game;
+
 function init(): void {
-  // Initialize core systems
   initScene();
   initCamera();
-  initInput();
+  initDomInput();
   initAudio();
 
-  // Initialize game objects
-  initPlayer();
-  initPathGenerator();
-  initObstacleManager();
-  initCoins();
-  initPowerUps();
-  initMonkeys();
+  initTrackView(scene);
+  initPlayerView(scene);
+  initCoinView(scene);
+  initObstacleView(scene);
 
-  // Initialize UI
+  onTurn((dir, nowMs) => {
+    if (gameState.screen === 'playing') game.pressTurn(dir, nowMs);
+  });
+
   initMainMenu(startGame);
   initHUD(pauseGame);
   initPauseMenu(resumeGame, restartGame, quitToMenu);
   initGameOver(restartGame, quitToMenu);
 
-  // Set initial camera position
-  const player = getPlayer();
-  setCameraPosition(player.position, player.direction);
-
-  // Show main menu
+  syncViews(0);
+  snapCamera(game);
   showMainMenu();
   hideHUD();
   hidePauseMenu();
   hideGameOver();
 
-  // Start game loop
   lastTime = performance.now();
-  gameLoop(lastTime);
+  requestAnimationFrame(loop);
 }
 
-function gameLoop(currentTime: number): void {
-  requestAnimationFrame(gameLoop);
+function loop(now: number): void {
+  requestAnimationFrame(loop);
+  const dt = Math.min((now - lastTime) / 1000, 0.1);
+  lastTime = now;
 
-  const delta = Math.min((currentTime - lastTime) / 1000, 0.1);
-  lastTime = currentTime;
-
-  // Handle pause toggle
-  if (wasJustPressed('pause') && gameState.screen === 'playing') {
-    pauseGame();
-  } else if (wasJustPressed('pause') && gameState.screen === 'paused') {
-    resumeGame();
+  if (wasPausePressed()) {
+    if (gameState.screen === 'playing') pauseGame();
+    else if (gameState.screen === 'paused') resumeGame();
   }
 
-  // Update game state
   if (gameState.screen === 'playing') {
-    update(delta);
+    const events = game.tick(dt, pollInput(), now);
+    handleEvents(events);
+    syncState();
+    syncViews(now);
+    updateCamera(game, dt);
+    updateHUD();
+    if (game.over) endRun();
+  } else if (gameState.screen === 'menu') {
+    syncViews(now);
   }
 
-  // Always render
-  render();
-
-  // Clear frame-specific input
-  clearFrameInput();
-}
-
-function update(delta: number): void {
-  // Update player movement
-  updatePlayer(delta);
-
-  // Update game state timers
-  updateGamePowerUps(delta);
-  updateStumble(delta);
-  updateFall(delta);
-
-  // Update path generation
-  updatePathGenerator();
-
-  // Update obstacles
-  updateObstacles(delta);
-
-  // Update collectibles
-  updateCoins(delta);
-  updatePowerUps(delta);
-
-  // Update monkeys
-  updateMonkeys(delta);
-
-  // Update score
-  updateScore(delta);
-
-  // Update camera
-  const player = getPlayer();
-  updateCamera(player.position, player.direction, delta);
-
-  // Update HUD
-  updateHUD();
-
-  // Check for game over
-  if (gameState.screen === 'gameover') {
-    playSound('gameOver');
-    hideHUD();
-    showGameOver();
-  }
-}
-
-function render(): void {
   renderer.render(scene, camera);
+  endFrame();
+}
+
+function handleEvents(events: GameEvent[]): void {
+  for (const e of events) {
+    switch (e.type) {
+      case 'coin': playSound('coin'); break;
+      case 'jump': playSound('jump'); break;
+      case 'slide': playSound('slide'); break;
+      case 'hit': playSound('stumble'); break;
+      case 'fall': playSound('stumble'); break;
+      case 'dead': playSound('gameOver'); break;
+      case 'turn': break;
+    }
+  }
+}
+
+function syncState(): void {
+  gameState.score = game.score;
+  gameState.coins = game.coins;
+  gameState.proximityBar = game.proximity;
+}
+
+function syncViews(now: number): void {
+  updateTrackView(game);
+  updatePlayerView(game, now);
+  updateCoinView(game, now);
+  updateObstacleView(game, now);
 }
 
 function startGame(): void {
   hideMainMenu();
-  showHUD();
   hidePauseMenu();
   hideGameOver();
+  showHUD();
 
-  resetGame();
-  resetPlayer();
-  resetPathGenerator();
-  resetObstacles();
-  resetCoins();
-  resetPowerUps();
-  resetMonkeys();
+  resetTrackView();
+  game.reset(Date.now() >>> 0);
+  gameState.screen = 'playing';
+  syncState();
+  syncViews(performance.now());
+  snapCamera(game);
+  lastTime = performance.now();
+}
 
-  const player = getPlayer();
-  setCameraPosition(player.position, player.direction);
+function endRun(): void {
+  gameState.screen = 'gameover';
+  if (game.score > gameState.highScore) gameState.highScore = game.score;
+  hideHUD();
+  showGameOver();
 }
 
 function pauseGame(): void {
   if (gameState.screen !== 'playing') return;
-
   gameState.screen = 'paused';
   showPauseMenu();
   playSound('click');
@@ -150,7 +135,6 @@ function pauseGame(): void {
 
 function resumeGame(): void {
   if (gameState.screen !== 'paused') return;
-
   gameState.screen = 'playing';
   hidePauseMenu();
   lastTime = performance.now();
@@ -167,9 +151,7 @@ function quitToMenu(): void {
   hideGameOver();
   hideHUD();
   showMainMenu();
-
   gameState.screen = 'menu';
 }
 
-// Start the game when DOM is ready
 document.addEventListener('DOMContentLoaded', init);

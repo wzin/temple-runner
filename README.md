@@ -8,7 +8,7 @@ Live: https://temple.ziniewicz.eu
 ## Develop (Docker only, nothing on the host)
 
 ```bash
-docker compose --profile dev up dev          # http://localhost:3000, hot reload
+docker compose --profile dev up dev          # http://localhost:3001, hot reload (DEV_PORT=… to change)
 docker compose --profile dev run --rm dev npm test
 docker compose --profile dev run --rm dev npx tsc --noEmit
 ```

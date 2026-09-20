@@ -3,7 +3,7 @@
 # Routed by homecloud/traefik/dynamic/temple-runner.yml -> http://temple-runner:80.
 #
 # Local development (no node on the host):
-#   docker compose --profile dev up dev      -> http://localhost:3000
+#   docker compose --profile dev up dev      -> http://localhost:3001 (DEV_PORT overrides)
 #   docker compose --profile dev run --rm dev npm test
 
 services:
@@ -25,7 +25,7 @@ services:
     working_dir: /app
     command: sh -c "npm ci && npm run dev -- --host 0.0.0.0 --port 3000"
     ports:
-      - "3000:3000"
+      - "${DEV_PORT:-3001}:3000"
     volumes:
       - .:/app
       - node_modules:/app/node_modules
