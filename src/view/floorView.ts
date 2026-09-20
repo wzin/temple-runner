@@ -19,7 +19,7 @@ let slabVariants: THREE.InstancedMesh[] = [];
 let brokenEdge: THREE.InstancedMesh;
 let wallBlocks: THREE.InstancedMesh[] = [];
 const counts: number[] = [0, 0, 0];
-const wallCounts: number[] = [0, 0, 0, 0];
+const wallCounts: number[] = [0, 0, 0];
 let nBroken = 0;
 const WALL_H = 2; const WALL_T = 0.5;
 const dummy = new THREE.Object3D();
@@ -58,7 +58,6 @@ export function initFloorView(scene: THREE.Scene): void {
   const mk = (folder: string, t: number) => pbrMaterial(remoteSet(folder, 0x8a8088, 1), { color: t });
   wallBlocks = [
     new THREE.InstancedMesh(wg, pbrMaterial(textures().wall, { color: wallTint }), MAX),
-    new THREE.InstancedMesh(wg, mk('wall-vines', 0xd8dcd0), MAX),
     new THREE.InstancedMesh(wg, mk('wall-carved', 0xe0d8c8), MAX),
     new THREE.InstancedMesh(wg, mk('wall-mossy', 0xc8d8c0), MAX),
   ];
@@ -83,7 +82,7 @@ function brokenSlabGeometry(): THREE.BoxGeometry {
 /** Wall look per segment, matching trackView.wallFor. */
 function wallVariantFor(segId: number): number {
   const r = segHash(segId, 77);
-  return r < 0.45 ? 0 : r < 0.7 ? 1 : r < 0.85 ? 2 : 3;
+  return r < 0.6 ? 0 : r < 0.8 ? 1 : 2;
 }
 
 /** Floor look per segment: mostly the worn path, with broken and mossy stretches. */
@@ -154,7 +153,7 @@ export function updateFloorView(game: Game): void {
     if (seg.resolved) along(seg, corner + TRACK_HALF_WIDTH, s1);
   }
   for (let i = 0; i < 3; i++) { slabVariants[i].count = counts[i]; slabVariants[i].instanceMatrix.needsUpdate = true; }
-  for (let i = 0; i < 4; i++) { wallBlocks[i].count = wallCounts[i]; wallBlocks[i].instanceMatrix.needsUpdate = true; }
+  for (let i = 0; i < 3; i++) { wallBlocks[i].count = wallCounts[i]; wallBlocks[i].instanceMatrix.needsUpdate = true; }
   brokenEdge.count = nBroken; brokenEdge.instanceMatrix.needsUpdate = true;
 }
 

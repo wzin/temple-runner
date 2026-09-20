@@ -50,7 +50,8 @@ export function initTrackView(scene: THREE.Scene): void {
   wallMaterial = pbrMaterial(tex.wall, { color: activeBiome().wallTint });
   // Wall looks alternate per segment: Inca masonry, vine-covered, carved warriors, wet moss.
   const mk = (folder: string, tint: number) => { const m = remoteSet(folder, 0x8a8088, 1); return pbrMaterial(m, { color: tint }); };
-  wallVariants = [wallMaterial, mk('wall-vines', 0xd8dcd0), mk('wall-carved', 0xe0d8c8), mk('wall-mossy', 0xc8d8c0)];
+  // Looks: Inca masonry (most), carved warriors, wet moss. (The vine-covered set read as a tree pasted on the wall and was dropped.)
+  wallVariants = [wallMaterial, mk('wall-carved', 0xe0d8c8), mk('wall-mossy', 0xc8d8c0)];
   // The totem is a 0.9 × 3.4 m pole: stack the carved face texture instead of stretching it.
   for (const t of [tex.totem.map, tex.totem.normalMap, tex.totem.roughnessMap]) t.repeat.set(1, 3.5);
   totemMat = pbrMaterial(tex.totem, { color: 0xffffff });
@@ -104,7 +105,7 @@ export function resetTrackView(): void {
 /** Walls covering the centre line from s0 to s1 (world placement from sample()); floors are instanced in floorView. */
 function wallFor(seg: Segment): THREE.MeshStandardMaterial {
   const r = segHash(seg.id, 77);
-  return r < 0.45 ? wallVariants[0] : r < 0.7 ? wallVariants[1] : r < 0.85 ? wallVariants[2] : wallVariants[3];
+  return r < 0.6 ? wallVariants[0] : r < 0.8 ? wallVariants[1] : wallVariants[2];
 }
 
 function addStraightPiece(group: THREE.Group, track: Track, seg: Segment, s0: number, s1: number, x: number, overhang: number, walls: { left: boolean; right: boolean }): void {
