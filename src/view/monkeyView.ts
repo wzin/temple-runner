@@ -5,7 +5,8 @@ import type { Game } from '../core/game';
 import { yawOf } from './util';
 
 /**
- * The chasers: two wolves and a Monkroose (Quaternius, CC0), animated GLBs galloping behind the runner.
+ * The chasers: three big cats — the Quaternius wolf model (CC0) galloping behind the runner, the middle one
+ * recoloured black like a panther. (Wojtek asked to keep "the cat" of the two beasts and have three of them.)
  * They close in as the proximity meter rises (9 m → 2.5 m behind) and snap when almost on you.
  * The module keeps its old name so main.ts is untouched.
  */
@@ -15,11 +16,11 @@ const NEAR = 2.5; // metres behind at proximity 100
 const SPREAD = 1.7;
 
 interface Beast { group: THREE.Group; mixer: THREE.AnimationMixer | null; run?: THREE.AnimationAction; attack?: THREE.AnimationAction; runDuration: number; attackUntil: number }
-interface Spec { file: string; height: number; run: string; attack: string; lane: number }
+interface Spec { file: string; height: number; run: string; attack: string; lane: number; tint?: number }
 const SPECS: Spec[] = [
   { file: 'wolf', height: 1.35, run: 'Gallop', attack: 'Attack', lane: -1 },
-  { file: 'monkroose', height: 1.7, run: 'Run', attack: 'Punch', lane: 0 },
-  { file: 'wolf', height: 1.35, run: 'Gallop', attack: 'Attack', lane: 1 },
+  { file: 'wolf', height: 1.5, run: 'Gallop', attack: 'Attack', lane: 0, tint: 0x1a1a1e },
+  { file: 'wolf', height: 1.35, run: 'Gallop', attack: 'Attack', lane: 1, tint: 0x6a5238 },
 ];
 const beasts: Beast[] = [];
 let lastMs = 0;
@@ -31,7 +32,14 @@ function setup(beast: Beast, spec: Spec, scene: THREE.Group, clips: THREE.Animat
   const k = spec.height / Math.max(0.01, size.y);
   scene.scale.setScalar(k);
   scene.position.set(-(box.min.x + box.max.x) / 2 * k, -box.min.y * k, -(box.min.z + box.max.z) / 2 * k);
-  scene.traverse((o) => { if (o instanceof THREE.Mesh) { o.frustumCulled = false; o.castShadow = true; } });
+  scene.traverse((o) => {
+    if (!(o instanceof THREE.Mesh)) return;
+    o.frustumCulled = false; o.castShadow = true;
+    // Each cat gets its own coat: clone the body materials so a tint does not leak into the others.
+    const mats = (Array.isArray(o.material) ? o.material : [o.material]).map((m) => (m as THREE.MeshStandardMaterial).clone());
+    for (const m of mats) if (spec.tint !== undefined && /Main/.test(m.name)) m.color.set(spec.tint).multiplyScalar(m.name.includes('Light') ? 1.6 : 1);
+    o.material = Array.isArray(o.material) ? mats : mats[0];
+  });
   beast.group.add(scene);
   beast.mixer = new THREE.AnimationMixer(scene);
   const find = (n: string) => clips.find((c) => c.name.replace(/^.*\|/, '') === n);
@@ -50,8 +58,8 @@ export function initMonkeyView(scene: THREE.Scene): void {
     beasts.push(beast);
     if (!cache.has(spec.file)) cache.set(spec.file, new Promise((resolve, reject) => loader.load(`/models/beasts/${spec.file}.glb`, (g) => resolve({ scene: g.scene, clips: g.animations }), undefined, reject)));
     cache.get(spec.file)!.then(({ scene: src, clips }) => {
-      // The second wolf is a skeleton-aware clone of the first.
-      const model = (i === 0 || spec.file !== SPECS[0].file) ? src : (cloneSkeleton(src) as THREE.Group);
+      // Every cat after the first is a skeleton-aware clone of the shared model.
+      const model = i === 0 ? src : (cloneSkeleton(src) as THREE.Group);
       setup(beast, spec, model, clips);
     }).catch(() => { /* no chasers if the model is missing */ });
   });

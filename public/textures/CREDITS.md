@@ -51,5 +51,5 @@ Art: menu-bg, og-image, sky.
 - `public/models/ruins/ruins.glb` — Quaternius Modular Ruins Pack (CC0), trimmed.
 - `public/models/chars/` — Quaternius animated characters (CC0), trimmed; the jump comes from the Animated Men pack.
 - `public/models/nature/nature.glb` — Quaternius Stylized Nature (CC0): textured trees, pines, palms, dead trees, bushes, rocks, grass, a twisted landmark tree; textures WebP.
-- `public/models/beasts/` — Quaternius Wolf (Animated Animal Pack) and Monkroose (Ultimate Monsters), the chasers.
+- `public/models/beasts/` — Quaternius Wolf (Animated Animal Pack), the three chasing cats.
 - Floor sets floor-glyph, floor-cobble, floor-sand, floor-obsidian (fal.ai, 2026-09-20) join floor-path/broken/mossy/temple as slab looks.

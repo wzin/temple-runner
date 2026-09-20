@@ -106,7 +106,7 @@ Everything repeated is instanced and rebuilt from the live segments each frame (
 | `coinView.ts` | coin discs with embossed faces; big medallions |
 | `powerUpView.ts` | artefacts (iron horseshoe, gold sun disc, condor feather) + camera-facing icon sprites |
 | `playerView.ts` | animated GLB character (Quaternius, CC0) with an AnimationMixer: Run speed-matched (`STRIDE` 7.5 m/cycle), Roll = slide (compressed to 0.7 s), HitRecieve = stumble, Death = fall, Idle when standing. No jump clip in the pack → `Man_Jump` from the Animated Men pack retargeted by bone name (quaternion tracks only). `SKINS` = files adventurer / adventurer-f / hooded (ids runner / runner-f / guardian kept for saved prefs); only the chosen file is downloaded (~1.2–1.5 MB). Normalised to 1.75 m, feet at 0. Shield aura, boost ghosting, dim lamp kept |
-| `monkeyView.ts` | the chasers: two Quaternius wolves (Gallop) and a Monkroose (Run), animated GLBs `9 → 2.5 m` behind as proximity rises, snapping (Attack/Punch) above 80, hidden while invulnerable |
+| `monkeyView.ts` | the chasers: three big cats (the Quaternius wolf model, one recoloured black), animated GLBs `9 → 2.5 m` behind as proximity rises, snapping (Attack/Punch) above 80, hidden while invulnerable |
 | `torchView.ts` | instanced torches: bronze bowls, shader flames, soot decals |
 | `flameMaterial.ts` | procedural fire shader for instanced quads (instancing-aware, `tickFlames(t)`): domain-warped 5-octave fbm, three overlapping tongues, cavities, rising sparks; opts scale/speed/width/glow. Used by torches and bonfires |
 | `particles.ts` | pooled additive points: embers over fire, coin sparks, hit sparks, power-up bursts, landing dust |
@@ -186,8 +186,7 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
-0.9.0 feedback round: arches out, root sprite out, textured Quaternius nature library replaces Kenney trees, wolves + Monkroose
-chase, golden idol at forks, 8 floor looks, thicker fog + mist patches, doubled props/coins/crests, bigger runner, aligned hall of fame.
+0.9.0 feedback round: arches out, root sprite out, textured Quaternius nature library replaces Kenney trees, three cats chase, golden idol at forks, 8 floor looks, thicker fog + mist patches, doubled props/coins/crests, bigger runner, aligned hall of fame.
 
 ## 11. Next candidates
 
