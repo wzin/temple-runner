@@ -60,6 +60,15 @@
         <p>High Score: <span id="high-score">0</span></p>
         <p>Coins: <span id="final-coins">0</span></p>
       </div>
+      <div id="score-entry" class="score-entry">
+        <label for="nick">ENTER YOUR NAME</label>
+        <div class="entry-row">
+          <input id="nick" maxlength="12" autocomplete="off" spellcheck="false" placeholder="AAA">
+          <button id="submit-score" class="menu-btn small">SAVE</button>
+        </div>
+      </div>
+      <p id="board-status" class="board-status"></p>
+      <ol id="leaderboard" class="leaderboard"></ol>
       <button id="retry-btn" class="menu-btn">PLAY AGAIN <span class="key">Space</span></button>
       <button id="menu-btn" class="menu-btn">MAIN MENU</button>
     </div>

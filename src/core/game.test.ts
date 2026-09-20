@@ -209,4 +209,12 @@ describe('Game', () => {
     for (const c of g.spawner.coins) expect(c.s).toBeLessThan(end);
     for (const pu of g.spawner.powerUps) expect(pu.s).toBeLessThan(end);
   });
+
+  it('score always equals floor(distance) + 10 * coins, including on the tick the run ends', () => {
+    const { g, sim } = gameWithEarlyTurn(); const w = g.track.turnWindows()[0];
+    g.spawner.obstacles.length = 0;
+    sim.run(() => g.over, { noObstacles: true });
+    expect(g.player.s).toBeGreaterThan(w.corner);
+    expect(g.score).toBe(Math.floor(g.distance) + g.coins * 10);
+  });
 });

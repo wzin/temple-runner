@@ -87,6 +87,7 @@ export class Game {
     }
 
     this.distance = p.s;
+    this.score = Math.floor(this.distance) + this.coins * 10;   // keep score and distance consistent even if this tick ends the run
     this.tickPowerUp(dt, events);
     if (this.boostGrace > 0) this.boostGrace -= dt;
     this.handleTurns(nowMs, events);

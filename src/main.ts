@@ -10,11 +10,15 @@ import { initObstacleView, updateObstacleView } from './view/obstacleView';
 import { initPowerUpView, updatePowerUpView } from './view/powerUpView';
 import { initMonkeyView, updateMonkeyView } from './view/monkeyView';
 import { coinBurst, initParticles, updateParticles } from './view/particles';
+import { initFloorView, updateFloorView } from './view/floorView';
+import { initSky, updateSky } from './view/skyView';
+import { initTrees, updateTrees } from './view/treeView';
+import { activeBiome } from './view/biome';
 import { endFrame, initDomInput, onTurn, pollInput, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD } from './ui/HUD';
 import { initPauseMenu, showPauseMenu, hidePauseMenu } from './ui/PauseMenu';
-import { initGameOver, showGameOver, hideGameOver } from './ui/GameOver';
+import { initGameOver, isEnteringName, showGameOver, hideGameOver } from './ui/GameOver';
 
 const HIGH_SCORE_KEY = 'temple-runner.highScore';
 
@@ -39,6 +43,9 @@ function init(): void {
   initDomInput();
   initAudio();
 
+  initSky(scene, activeBiome());
+  initTrees(scene, activeBiome());
+  initFloorView(scene);
   initTrackView(scene);
   initPlayerView(scene);
   initCoinView(scene);
@@ -51,7 +58,7 @@ function init(): void {
     if (gameState.screen === 'playing') game.pressTurn(dir, nowMs);
   });
   window.addEventListener('keydown', (e) => {
-    if (e.repeat) return;
+    if (e.repeat || isEnteringName()) return;
     if ((e.code === 'Space' || e.code === 'Enter') && (gameState.screen === 'gameover' || gameState.screen === 'menu')) {
       e.preventDefault();
       startGame();
@@ -98,6 +105,7 @@ function loop(now: number): void {
     syncViews(now);
   }
 
+  updateSky(camera);
   renderer.render(scene, camera);
   endFrame();
 }
@@ -130,6 +138,8 @@ function syncState(): void {
 
 function syncViews(now: number): void {
   updateTrackView(game);
+  updateFloorView(game);
+  updateTrees(game);
   updatePlayerView(game, now);
   updateCoinView(game, now);
   updateObstacleView(game, now);
@@ -159,7 +169,7 @@ function endRun(): void {
     saveHighScore(gameState.highScore);
   }
   hideHUD();
-  showGameOver();
+  showGameOver({ score: game.score, coins: game.coins, distance: Math.floor(game.distance) });
 }
 
 function pauseGame(): void {

@@ -11,7 +11,7 @@ let turnListener: TurnListener | null = null;
 
 export function initDomInput(): void {
   window.addEventListener('keydown', (e) => {
-    if (e.repeat) return;
+    if (e.repeat || (e.target instanceof HTMLInputElement)) return;
     // A/D and the arrows behave the same: a tap is a turn press, holding drifts sideways.
     switch (e.code) {
       case 'KeyA': case 'ArrowLeft': held.left = true; turnListener?.('left', performance.now()); e.preventDefault(); break;

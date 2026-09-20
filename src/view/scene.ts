@@ -1,13 +1,14 @@
 import * as THREE from 'three';
-import { skyGradient } from './textures';
+import { activeBiome } from './biome';
+import { sunDirection } from './skyView';
 
 export let scene: THREE.Scene;
 export let renderer: THREE.WebGLRenderer;
 
 export function initScene(): void {
   scene = new THREE.Scene();
-  scene.background = skyGradient();
-  scene.fog = new THREE.Fog(0x1c1a3a, 60, 170);
+  const biome = activeBiome();
+  scene.fog = new THREE.Fog(biome.fog.color, biome.fog.near, biome.fog.far);
 
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -17,12 +18,12 @@ export function initScene(): void {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   // Ambient light
-  const ambientLight = new THREE.AmbientLight(0x6a6a90, 0.9);
+  const ambientLight = new THREE.AmbientLight(biome.light.ambient, biome.light.ambientIntensity);
   scene.add(ambientLight);
 
   // Main directional light
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-  directionalLight.position.set(10, 20, 10);
+  const directionalLight = new THREE.DirectionalLight(biome.light.sun, biome.light.sunIntensity);
+  directionalLight.position.copy(sunDirection(biome).multiplyScalar(40));
   directionalLight.castShadow = true;
   directionalLight.shadow.mapSize.width = 2048;
   directionalLight.shadow.mapSize.height = 2048;

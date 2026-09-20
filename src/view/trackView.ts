@@ -1,19 +1,18 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
-import { SEGMENT_LENGTH, Segment, TRACK_HALF_WIDTH, Track } from '../core/track';
+import { Segment, TRACK_HALF_WIDTH, Track } from '../core/track';
+import { STUB_LENGTH } from './floorView';
+import { activeBiome } from './biome';
 import { pbrMaterial, textures } from './textures';
 import { disposeGroup, faceHeading } from './util';
 
 const WALL_HEIGHT = 2;
 const WALL_THICKNESS = 0.5;
-const FLOOR_THICKNESS = 0.5;
 
 // Textures are created lazily because the canvas needs a DOM; materials are shared by all segments.
-let floorMaterial: THREE.MeshStandardMaterial;
 let wallMaterial: THREE.MeshStandardMaterial;
 const TEXTURE_METRES = 2; // one texture tile covers 2 m of track
 const accentMaterial = new THREE.MeshStandardMaterial({ color: 0xe94560, emissive: 0xe94560, emissiveIntensity: 0.3 });
-const stripeGeometry = new THREE.BoxGeometry(TRACK_HALF_WIDTH * 2, 0.02, 0.4);
 
 const groups = new Map<number, THREE.Group>();
 let root: THREE.Scene;
@@ -75,9 +74,7 @@ function addTotem(group: THREE.Group, x: number, z: number, dir: { x: number; z:
 
 export function initTrackView(scene: THREE.Scene): void {
   root = scene;
-  const t = textures();
-  floorMaterial = pbrMaterial(t.floor, { color: 0xc4ccd8 });
-  wallMaterial = pbrMaterial(t.wall, { color: 0xb0b0bc });
+  wallMaterial = pbrMaterial(textures().wall, { color: activeBiome().wallTint });
 }
 
 /** Box with UVs scaled so the texture repeats every TEXTURE_METRES on each face. */
@@ -124,17 +121,11 @@ export function resetTrackView(): void {
   groups.clear();
 }
 
-/** Floor slab plus two walls covering the centre line from s0 to s1 (world placement from sample()). */
+/** Walls covering the centre line from s0 to s1 (world placement from sample()); floors are instanced in floorView. */
 function addStraightPiece(group: THREE.Group, track: Track, s0: number, s1: number, x: number, overhang: number, walls: { left: boolean; right: boolean }): void {
   const length = s1 - s0 + overhang;
   const mid = track.sample((s0 + s1) / 2, x);
   const dir = mid.dir;
-
-  const floor = new THREE.Mesh(texturedBox(TRACK_HALF_WIDTH * 2, FLOOR_THICKNESS, length), floorMaterial);
-  floor.position.set(mid.x, -FLOOR_THICKNESS / 2, mid.z);
-  faceHeading(floor, dir);
-  floor.receiveShadow = true;
-  group.add(floor);
 
   for (const side of [-1, 1] as const) {
     if ((side === -1 && !walls.left) || (side === 1 && !walls.right)) continue;
@@ -147,6 +138,46 @@ function addStraightPiece(group: THREE.Group, track: Track, s0: number, s1: numb
   }
 }
 
+function wallBox(length: number): THREE.Mesh {
+  const m = new THREE.Mesh(texturedBox(WALL_THICKNESS, WALL_HEIGHT, length), wallMaterial);
+  m.position.y = WALL_HEIGHT / 2; m.castShadow = true;
+  return m;
+}
+
+/** T-junction: far wall across both stubs, near-side stub walls, arrows both ways, a totem facing the runner. */
+function buildFork(group: THREE.Group, track: Track, seg: Segment, c: { x: number; z: number; dir: { x: number; z: number } }, at: (dx: number, dz: number) => THREE.Vector3): void {
+  const dirIn = c.dir;
+  const rightIn = { x: -dirIn.z, z: dirIn.x };
+  const lateral = TRACK_HALF_WIDTH + WALL_THICKNESS / 2;
+  const span = TRACK_HALF_WIDTH + STUB_LENGTH;
+  // Far wall of the T.
+  const far = wallBox(span * 2 + WALL_THICKNESS);
+  far.position.add(at(dirIn.x * lateral, dirIn.z * lateral));
+  faceHeading(far, rightIn);
+  group.add(far);
+  for (const side of [-1, 1] as const) {
+    const dirSide = { x: side * rightIn.x, z: side * rightIn.z };
+    // Near-side wall of the stub, from the square edge to the stub end.
+    const near = wallBox(STUB_LENGTH);
+    const mid = TRACK_HALF_WIDTH + STUB_LENGTH / 2;
+    near.position.add(at(dirSide.x * mid - dirIn.x * lateral, dirSide.z * mid - dirIn.z * lateral));
+    faceHeading(near, dirSide);
+    group.add(near);
+    // Arrow pointing into the stub.
+    const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.2, 4), accentMaterial);
+    arrow.position.set(c.x + dirSide.x * 1.5, 0.8, c.z + dirSide.z * 1.5);
+    arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dirSide.x, 0, dirSide.z));
+    group.add(arrow);
+    addTorch(group, track, seg.s0 + 4, side);
+  }
+  const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), accentMaterial);
+  marker.position.set(c.x, 0.03, c.z);
+  group.add(marker);
+  // Totem on the far wall, looking back down the incoming corridor.
+  const tot = at(dirIn.x * (TRACK_HALF_WIDTH + 1.0), dirIn.z * (TRACK_HALF_WIDTH + 1.0));
+  addTotem(group, tot.x, tot.z, dirIn);
+}
+
 function buildSegment(track: Track, seg: Segment): THREE.Group {
   const group = new THREE.Group();
   const s0 = seg.s0;
@@ -154,13 +185,6 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
 
   if (seg.kind === 'straight') {
     addStraightPiece(group, track, s0, s1, 0, 0.1, { left: true, right: true });
-    for (let i = 1; i <= 4; i++) {
-      const p = track.sample(s0 + (i * SEGMENT_LENGTH) / 5);
-      const stripe = new THREE.Mesh(stripeGeometry, accentMaterial);
-      stripe.position.set(p.x, 0.01, p.z);
-      faceHeading(stripe, p.dir);
-      group.add(stripe);
-    }
     // Torches alternate sides every TORCH_SPACING; a few are missing for variety.
     for (let s = s0 + 5; s < s1; s += TORCH_SPACING) {
       if (hash(seg.id, Math.round(s)) < 0.2) continue;
@@ -184,11 +208,7 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   const lateral = TRACK_HALF_WIDTH + WALL_THICKNESS / 2;
   const at = (dx: number, dz: number) => new THREE.Vector3(c.x + dx, 0, c.z + dz);
 
-  const square = new THREE.Mesh(texturedBox(TRACK_HALF_WIDTH * 2, FLOOR_THICKNESS, TRACK_HALF_WIDTH * 2), floorMaterial);
-  square.position.copy(at(0, 0)); square.position.y = -FLOOR_THICKNESS / 2;
-  faceHeading(square, dirIn);
-  square.receiveShadow = true;
-  group.add(square);
+  if (seg.fork) { buildFork(group, track, seg, c, at); return group; }
 
   // Outer wall, incoming heading: continues the run-in outer wall across the square.
   const wallLen = TRACK_HALF_WIDTH * 2 + WALL_THICKNESS;

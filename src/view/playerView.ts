@@ -14,7 +14,7 @@ let shieldMesh: THREE.Mesh;
 let lamp: THREE.PointLight;
 let squash = 0; // 0..1, decays after landing
 
-const STRIDE = 1.7; // metres per full run cycle
+const STRIDE = 7.5; // metres per full run cycle (~2 cycles/s at base speed)
 
 export function playerLanded(): void { squash = 1; }
 
@@ -106,10 +106,10 @@ export function updatePlayerView(game: Game, timeMs: number): void {
     armL.rotation.x = armR.rotation.x = -0.4;
     legL.rotation.x = legR.rotation.x = 0.3;
   } else {
-    armL.rotation.x = swing * 1.0; armR.rotation.x = -swing * 1.0;
-    legL.rotation.x = -swing * 1.1; legR.rotation.x = swing * 1.1;
+    armL.rotation.x = swing * 0.7; armR.rotation.x = -swing * 0.7;
+    legL.rotation.x = -swing * 0.8; legR.rotation.x = swing * 0.8;
   }
-  const bob = jumping || sliding ? 0 : Math.abs(Math.cos(phase)) * 0.06;
+  const bob = jumping || sliding ? 0 : Math.abs(Math.cos(phase)) * 0.04;
   torso.position.y = 1.1 + bob; head.position.y = 1.62 + bob;
 
   shieldMesh.visible = game.shield;

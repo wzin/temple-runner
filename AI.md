@@ -11,7 +11,7 @@ Implementation plan: `docs/superpowers/plans/2026-09-20-track-space-core.md`.
 
 ```bash
 docker compose --profile dev run --rm dev npm ci      # once, fills the node_modules volume
-docker compose --profile dev up -d dev                # http://localhost:3001 (DEV_PORT=… to change)
+docker compose --profile dev up -d dev                # http://localhost:3001 (DEV_PORT=… to change); starts api-dev too
 docker compose --profile dev run --rm dev npm test
 docker compose --profile dev run --rm dev npx tsc --noEmit
 docker build -t temple-runner .                       # production image (Caddy)
@@ -30,7 +30,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | File | Purpose |
 |------|---------|
 | `src/core/rng.ts` | seedable PRNG (`mulberry32`); all randomness goes through it |
-| `src/core/track.ts` | segments (straight / 90° turn), generator rules, `sample()`, turn windows |
+| `src/core/track.ts` | segments (straight / 90° turn / fork), generator rules, `sample()`, turn windows; a fork stops generation until `resolveFork()` |
 | `src/core/input.ts` | `TickInput` shape and the one-slot `TurnBuffer` (150 ms) |
 | `src/core/player.ts` | state machine `running/jumping/sliding/falling/dead`, physics constants |
 | `src/core/spawner.ts` | coins and obstacles laid by `s`; `OBSTACLES` type table |
@@ -43,10 +43,14 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/trackView.ts` | one `Group` per segment, added/disposed with the track |
 | `src/view/playerView.ts` | low-poly rigged runner (arms/legs swing by distance, tuck on jump, lean on slide), shield aura, warm point light |
 | `coinView.ts`, `obstacleView.ts`, `powerUpView.ts`, `monkeyView.ts` | instanced meshes placed from track coordinates each frame; monkeys sit `9 → 2.5 m` behind the player as proximity rises |
+| `src/view/floorView.ts` | one instanced mesh of 2 m floor slabs rebuilt per frame; slabs over gap obstacles are skipped, so gaps are real holes; fork stubs |
+| `src/view/biome.ts`, `skyView.ts`, `treeView.ts` | biome config (sky, sun, fog, tints, trees); equirect sky dome with sun/clouds/mountains following the camera; instanced low-poly trees beside straights |
 | `src/view/trackView.ts` props | torches every 10 m on alternating walls (20% missing), a totem with glowing eyes at every corner |
 | `src/view/particles.ts` | pooled additive point sprites: embers over fire obstacles, gold sparks on coin pickup |
 | `src/view/textures.ts` | seamless procedural PBR sets (colour + normal + roughness) for stone floor, bricks, bark, leaves, baked on canvases at startup (~0.4 s); one tile = 2 m; sky gradient background |
 | `src/ui/domInput.ts` | keyboard → `TickInput`; turn presses go straight to `game.pressTurn` with the real press time |
+| `src/ui/GameOver.ts`, `src/ui/leaderboard.ts` | arcade name entry (Enter saves, Space restarts afterwards), top-10 board from `/api/scores` |
+| `server/index.mjs` | leaderboard API: Node 22 `node:sqlite`, GET/POST `/api/scores`, name 1–12 chars, score must equal distance + 10·coins, 3 s per-IP cooldown |
 | `src/ui/*` (HUD, menus), `src/gameState.ts`, `src/audio.ts`, `src/styles.css` | UI shell kept from the prototype; `main.ts` copies score/coins/proximity into `gameState` |
 | `src/main.ts` | RAF loop, screens, events → sounds |
 
@@ -57,6 +61,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 - Controls: A/D and ←/→ are symmetric (hold = drift, tap = turn press); W/↑/Space jump; S/↓ slide.
 - Turn window: 6 m before the corner to 2 m after. Correct press inside it → turn.
   Wrong direction → fall. No press by the corner → run straight off the edge.
+- Forks (from 150 m, 35% of turns): T-junction, either direction is accepted, the other branch stays a dead-end stub; boost picks a random branch.
 - Jump: 11.5 m/s up, gravity 30 → 0.77 s airtime, 2.2 m apex. Slide: 0.7 s, height 0.9.
 - Obstacles (`OBSTACLES` in `spawner.ts`): fire (lane, y 0–0.8, jump), log (y 1.0–1.6,
   slide or jump), branch (y 1.0–2.6, slide), gap (fatal, jump; drawn as a violet pit with yellow rims). First at s ≥ 60,
@@ -71,13 +76,10 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 
 ## Deployment
 
-Static site: `Dockerfile` builds with node and serves `dist/` with Caddy
-(`Caddyfile`). `compose.yaml` is the Komodo stack (`temple-runner` on
-mail.ziniewicz.eu, network `traefik_proxy`); Traefik route lives in
-`homecloud/traefik/dynamic/temple-runner.yml` → https://temple.ziniewicz.eu.
+Two containers: `web` (Dockerfile: node build → Caddy serving `dist/`, proxying `/api/*` to `api:3002`) and `api` (Dockerfile.api: Node 22 + node:sqlite, DB in the `scores_data` volume). `compose.yaml` is the Komodo stack (`temple-runner` on mail.ziniewicz.eu, `web` on `traefik_proxy`, both on the stack's `internal` network); Traefik route lives in `homecloud/traefik/dynamic/temple-runner.yml` → https://temple.ziniewicz.eu.
 
 ## Roadmap
 
 2. Done (2026-09-20): speed ramp, camera swing/dip/shake, landing squash, power-ups, monkeys, patterns, persistence, basic procedural textures.
-3. Done (2026-09-20): procedural PBR textures, sky gradient, torches, totems, rigged runner, particles. Next: AI/CC0 textures, character detail, ambient sound.
+3. Done (2026-09-20): procedural PBR textures, torches, totems, rigged runner, particles, forks, real gap holes, biome sky/trees, SQLite leaderboard. Next: more biomes, AI/CC0 textures, ambient sound, mobile controls.
 4. Mobile controls. 5. Persistence, stats, audio assets.
