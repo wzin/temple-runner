@@ -44,7 +44,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/ui/*` (HUD, menus), `src/gameState.ts`, `src/audio.ts`, `src/styles.css` | UI shell kept from the prototype; `main.ts` copies score/coins/proximity into `gameState` |
 | `src/main.ts` | RAF loop, screens, events → sounds |
 
-`window.__game` exposes the live `Game` for automated play-testing.
+`window.__game` (live `Game`) and `window.__scene` (Three.js scene) are exposed for automated play-testing.
 
 ## Rules of play (as implemented)
 

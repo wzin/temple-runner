@@ -17,11 +17,12 @@ const game = new Game(Date.now() >>> 0);
 let lastTime = 0;
 
 // Exposed for automated play-testing (headless browser drives the run through this handle).
-declare global { interface Window { __game: Game } }
+declare global { interface Window { __game: Game; __scene: typeof scene } }
 window.__game = game;
 
 function init(): void {
   initScene();
+  window.__scene = scene;
   initCamera();
   initDomInput();
   initAudio();

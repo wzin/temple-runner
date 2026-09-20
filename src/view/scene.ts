@@ -16,7 +16,7 @@ export function initScene(): void {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   // Ambient light
-  const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+  const ambientLight = new THREE.AmbientLight(0x6a6a90, 0.9);
   scene.add(ambientLight);
 
   // Main directional light
