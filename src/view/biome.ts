@@ -15,6 +15,7 @@ export interface Biome {
   floorTint: number;
   wallTint: number;
   groundTint: number;
+  cliffTint: number;
   tree: { trunk: number; canopy: number; canopyAlt: number; density: number };
 }
 
@@ -27,11 +28,12 @@ export const BIOMES: Record<string, Biome> = {
       cloudCover: 0.45,
       mountains: { color: '#2b2140', height: 0.12, layers: 3 },
     },
-    fog: { color: 0x6a5a7a, near: 70, far: 220 },
+    fog: { color: 0x7a6688, near: 45, far: 165 },
     light: { sun: 0xffe2b0, sunIntensity: 1.6, ambient: 0x8090b0, ambientIntensity: 0.7 },
     floorTint: 0xc4ccd8,
     wallTint: 0xb0a8b0,
-    groundTint: 0x9aa890,
+    groundTint: 0x8c9c84,
+    cliffTint: 0x8a8088,
     tree: { trunk: 0x5a3c26, canopy: 0x2f7a3e, canopyAlt: 0x4f9a3a, density: 6 },
   },
 };

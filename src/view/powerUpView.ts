@@ -6,7 +6,7 @@ const MAX = 32;
 const meshes = new Map<PowerUpKind, THREE.InstancedMesh>();
 const dummy = new THREE.Object3D();
 
-const COLORS: Record<PowerUpKind, number> = { magnet: 0x3b82f6, shield: 0x22c55e, boost: 0xf97316 };
+const COLORS: Record<PowerUpKind, number> = { magnet: 0x3b82f6, shield: 0x5fd8ff, boost: 0xf97316 };
 
 export function initPowerUpView(scene: THREE.Scene): void {
   for (const kind of POWERUP_KINDS) {

@@ -126,6 +126,7 @@ export class Game {
   private activate(kind: PowerUpKind, events: GameEvent[]): void {
     if (kind === 'shield') { this.shield = true; }
     else {
+      if (kind === 'boost') this.proximity = 0;   // the monkeys are left behind
       if (this.active) events.push({ type: 'powerupEnd', kind: this.active.kind });
       this.active = { kind, timer: POWERUPS[kind].duration };
     }
@@ -163,6 +164,8 @@ export class Game {
     if (this.invulnerable) {
       // Flying: any press is harmless, the corner is taken automatically.
       this.buffer.consume();
+      // At a fork the player's press still decides; random only if nothing was pressed.
+      if (seg.fork && !seg.resolved && pressed) this.track.resolveFork(seg, pressed);
       if (p.s > w.corner) {
         if (seg.fork && !seg.resolved) this.track.resolveFork(seg, pick(this.rng, ['left', 'right'] as const));
         seg.turnDone = true; events.push({ type: 'turn', dir: seg.turn! }); this.lastTurn = { dir: seg.turn!, age: 0 };

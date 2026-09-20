@@ -34,8 +34,8 @@ const totemEyeMat = new THREE.MeshStandardMaterial({ color: 0xffd040, emissive: 
 const TORCH_SPACING = 10;
 const hash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
-function addTorch(group: THREE.Group, track: Track, s: number, side: -1 | 1): void {
-  const w = track.sample(s, side * (TRACK_HALF_WIDTH - 0.05));
+function addTorch(group: THREE.Group, track: Track, seg: Segment, s: number, side: -1 | 1): void {
+  const w = track.sampleSegment(seg, s, side * (TRACK_HALF_WIDTH - 0.05));
   const torch = new THREE.Group();
   torch.position.set(w.x, 1.5, w.z);
   faceHeading(torch, w.dir);
@@ -96,7 +96,7 @@ function texturedBox(w: number, h: number, d: number): THREE.BoxGeometry {
 
 export function updateTrackView(game: Game): void {
   const live = new Set<number>();
-  for (const seg of game.track.segments) {
+  for (const seg of game.track.allSegments()) {
     live.add(seg.id);
     if (!groups.has(seg.id)) {
       const g = buildSegment(game.track, seg);
@@ -122,14 +122,14 @@ export function resetTrackView(): void {
 }
 
 /** Walls covering the centre line from s0 to s1 (world placement from sample()); floors are instanced in floorView. */
-function addStraightPiece(group: THREE.Group, track: Track, s0: number, s1: number, x: number, overhang: number, walls: { left: boolean; right: boolean }): void {
+function addStraightPiece(group: THREE.Group, track: Track, seg: Segment, s0: number, s1: number, x: number, overhang: number, walls: { left: boolean; right: boolean }): void {
   const length = s1 - s0 + overhang;
-  const mid = track.sample((s0 + s1) / 2, x);
+  const mid = track.sampleSegment(seg, (s0 + s1) / 2, x);
   const dir = mid.dir;
 
   for (const side of [-1, 1] as const) {
     if ((side === -1 && !walls.left) || (side === 1 && !walls.right)) continue;
-    const wallSample = track.sample((s0 + s1) / 2, side * (TRACK_HALF_WIDTH + WALL_THICKNESS / 2));
+    const wallSample = track.sampleSegment(seg, (s0 + s1) / 2, side * (TRACK_HALF_WIDTH + WALL_THICKNESS / 2));
     const wall = new THREE.Mesh(texturedBox(WALL_THICKNESS, WALL_HEIGHT, length), wallMaterial);
     wall.position.set(wallSample.x, WALL_HEIGHT / 2, wallSample.z);
     faceHeading(wall, dir);
@@ -168,7 +168,7 @@ function buildFork(group: THREE.Group, track: Track, seg: Segment, c: { x: numbe
     arrow.position.set(c.x + dirSide.x * 1.5, 0.8, c.z + dirSide.z * 1.5);
     arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dirSide.x, 0, dirSide.z));
     group.add(arrow);
-    addTorch(group, track, seg.s0 + 4, side);
+    addTorch(group, track, seg, seg.s0 + 4, side);
   }
   const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), accentMaterial);
   marker.position.set(c.x, 0.03, c.z);
@@ -184,11 +184,11 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   const s1 = seg.s0 + seg.length;
 
   if (seg.kind === 'straight') {
-    addStraightPiece(group, track, s0, s1, 0, 0.1, { left: true, right: true });
+    addStraightPiece(group, track, seg, s0, s1, 0, 0.1, { left: true, right: true });
     // Torches alternate sides every TORCH_SPACING; a few are missing for variety.
     for (let s = s0 + 5; s < s1; s += TORCH_SPACING) {
       if (hash(seg.id, Math.round(s)) < 0.2) continue;
-      addTorch(group, track, s, Math.round(s / TORCH_SPACING) % 2 === 0 ? -1 : 1);
+      addTorch(group, track, seg, s, Math.round(s / TORCH_SPACING) % 2 === 0 ? -1 : 1);
     }
     return group;
   }
@@ -196,10 +196,10 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   // Turn: run-in corridor, a full 6x6 corner square, run-out corridor.
   const corner = track.cornerOf(seg);
   const isLeft = seg.turn === 'left';
-  addStraightPiece(group, track, s0, corner - TRACK_HALF_WIDTH, 0, 0.1, { left: true, right: true });
-  addStraightPiece(group, track, corner + TRACK_HALF_WIDTH, s1, 0, 0.1, { left: true, right: true });
+  addStraightPiece(group, track, seg, s0, corner - TRACK_HALF_WIDTH, 0, 0.1, { left: true, right: true });
+  if (!seg.fork) addStraightPiece(group, track, seg, corner + TRACK_HALF_WIDTH, s1, 0, 0.1, { left: true, right: true });
 
-  const c = track.sample(corner - 1e-6);            // corner point, incoming heading
+  const c = track.sampleSegment(seg, corner - 1e-6);            // corner point, incoming heading
   const dirIn = c.dir;
   const dirOut = seg.outDir;
   const rightIn = { x: -dirIn.z, z: dirIn.x };
@@ -237,7 +237,7 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
   // Totem watching the corner from the far outer side, facing the incoming runner.
   const tot = at(dirIn.x * (TRACK_HALF_WIDTH + 1.0) + outer * rightIn.x * (TRACK_HALF_WIDTH - 0.9), dirIn.z * (TRACK_HALF_WIDTH + 1.0) + outer * rightIn.z * (TRACK_HALF_WIDTH - 0.9));
   addTotem(group, tot.x, tot.z, dirIn);
-  addTorch(group, track, s0 + 4, outer as -1 | 1);
+  addTorch(group, track, seg, s0 + 4, outer as -1 | 1);
 
   // Corner marker and arrow pointing along the new heading.
   const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), accentMaterial);

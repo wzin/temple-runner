@@ -4,9 +4,9 @@ import { pbrMaterial, textures } from './textures';
 
 /** Large ground plane that follows the camera, so trees and the track stand on land, not in the void. */
 
-export const GROUND_Y = -0.6;
+export const GROUND_Y = -14; // the track sits on an embankment; the land is far below
 const SIZE = 600;
-const TILE = 3; // metres per texture repeat
+const TILE = 6; // metres per texture repeat (seen from 14 m up, coarser reads better)
 let plane: THREE.Mesh;
 
 export function initGround(scene: THREE.Scene): void {

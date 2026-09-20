@@ -86,23 +86,61 @@ describe('forks', () => {
     const fork = t.pendingFork();
     expect(fork).not.toBeNull();
     expect(t.segments[t.segments.length - 1]).toBe(fork);
-    expect(t.end()).toBe(fork!.s0 + SEGMENT_LENGTH);
-    expect(t.extendTo(500)).toHaveLength(0);
+    // The main path stops at the fork; the pre-generated branches carry the usable end further.
+    expect(t.segments.every((sg) => sg.s0 + sg.length <= fork!.s0 + SEGMENT_LENGTH)).toBe(true);
+    expect(t.end()).toBeGreaterThan(fork!.s0 + SEGMENT_LENGTH);
+    const mainCount = t.segments.length;
+    t.extendTo(500);
+    expect(t.segments.length).toBe(mainCount);   // main path does not grow past a pending fork
     t.resolveFork(fork!, 'right');
     expect(fork!.turn).toBe('right');
     expect(fork!.resolved).toBe(true);
-    const added = t.extendTo(fork!.s0 + 60);
-    expect(added.length).toBeGreaterThan(0);
-    expect(added[0].dir).toEqual(fork!.outDir);
+    const next = t.segments[mainCount];
+    expect(next.dir).toEqual(fork!.outDir);
     const end = t.sample(fork!.s0 + fork!.length - 1e-6);
-    expect(Math.hypot(end.x - added[0].start.x, end.z - added[0].start.z)).toBeLessThan(1e-3);
+    expect(Math.hypot(end.x - next.start.x, end.z - next.start.z)).toBeLessThan(1e-3);
     // Two straights follow a resolved fork, like any turn.
-    expect(added.slice(0, 2).every((s) => s.kind === 'straight')).toBe(true);
+    expect(t.segments.slice(mainCount, mainCount + 2).every((s) => s.kind === 'straight')).toBe(true);
   });
   it('does not fork before forkMinS', () => {
     const t = new Track(mulberry32(9), { turnChance: 1, forkChance: 1, forkMinS: 300 });
     t.extendTo(250);
     expect(t.segments.some((s) => s.fork)).toBe(false);
     expect(t.segments.some((s) => s.kind === 'turn')).toBe(true);
+  });
+});
+
+describe('fork branches are pre-generated', () => {
+  it('both continuations exist before the choice and the chosen one becomes the path', () => {
+    const t = new Track(mulberry32(21), { turnChance: 1, forkChance: 1, forkMinS: 0 });
+    t.extendTo(400);
+    const fork = t.pendingFork()!;
+    expect(t.branches).not.toBeNull();
+    const forkEnd = fork.s0 + fork.length;
+    for (const dir of ['left', 'right'] as const) {
+      const b = t.branches![dir];
+      expect(b.segments.length).toBeGreaterThan(3);
+      expect(b.segments[0].s0).toBe(forkEnd);
+      expect(b.segments.every((s) => s.branch === dir && !s.fork)).toBe(true);
+      expect(b.nextS).toBeGreaterThan(forkEnd + 100);
+      // Continuity: the branch starts where the fork's run-out ends for that direction.
+      const outDir = dir === 'left' ? turnLeft(fork.dir) : turnRight(fork.dir);
+      expect(b.segments[0].dir).toEqual(outDir);
+    }
+    expect(t.allSegments().length).toBe(t.segments.length + t.branches!.left.segments.length + t.branches!.right.segments.length);
+    expect(t.end()).toBeGreaterThan(forkEnd + 100);
+    const leftSegs = t.branches!.left.segments;
+    t.resolveFork(fork, 'left');
+    expect(t.branches).toBeNull();
+    expect(t.segments.slice(-leftSegs.length)).toEqual(leftSegs);
+    expect(leftSegs.every((s) => s.branch === undefined)).toBe(true);
+    // Continuous in space through the fork and along the adopted branch.
+    for (let i = 1; i < t.segments.length; i++) {
+      const prev = t.segments[i - 1]; const cur = t.segments[i];
+      const end = t.sample(prev.s0 + prev.length - 1e-9);
+      expect(Math.hypot(end.x - cur.start.x, end.z - cur.start.z)).toBeLessThan(1e-3);
+    }
+    const more = t.extendTo(t.end() + 60);
+    expect(more.length).toBeGreaterThan(0);
   });
 });

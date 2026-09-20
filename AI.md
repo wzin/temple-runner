@@ -44,11 +44,11 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 | `src/view/playerView.ts` | low-poly rigged runner (arms/legs swing by distance, tuck on jump, lean on slide), shield aura, warm point light |
 | `coinView.ts`, `obstacleView.ts`, `powerUpView.ts`, `monkeyView.ts` | instanced meshes placed from track coordinates each frame; monkeys sit `9 → 2.5 m` behind the player as proximity rises |
 | `src/view/floorView.ts` | one instanced mesh of 2 m floor slabs rebuilt per frame; slabs over gap obstacles are skipped, so gaps are real holes; fork stubs |
-| `src/view/groundView.ts` | textured ground plane at y = −0.6 following the camera (trees stand on it) |
+| `src/view/groundView.ts`, `cliffView.ts` | the land lies 14 m below; the track runs on an instanced stone embankment (2 m blocks), trees grow on the low ground 7–21 m out |
 | `src/view/biome.ts`, `skyView.ts`, `treeView.ts` | biome config (sky, sun, fog, tints, trees); equirect sky dome with sun/clouds/mountains following the camera; instanced low-poly trees beside straights |
 | `src/view/trackView.ts` props | torches every 10 m on alternating walls (20% missing), a totem with glowing eyes at every corner |
 | `src/view/particles.ts` | pooled additive point sprites: embers over fire obstacles, gold sparks on coin pickup |
-| `src/view/textures.ts` | seamless procedural PBR sets (colour + normal + roughness) for stone floor, bricks, bark, leaves, baked on canvases at startup (~0.4 s); one tile = 2 m; sky gradient background |
+| `src/view/textures.ts` | procedural PBR sets baked at startup as the fallback; `loadRealTextures()` swaps in `public/textures/<set>/{color,normal,roughness}.jpg` (CC0 from ambientCG, see `public/textures/CREDITS.md`) in place when present |
 | `src/ui/domInput.ts` | keyboard → `TickInput`; turn presses go straight to `game.pressTurn` with the real press time |
 | `src/ui/GameOver.ts`, `src/ui/leaderboard.ts` | arcade name entry (Enter saves, Space restarts afterwards), top-10 board from `/api/scores` |
 | `server/index.mjs` | leaderboard API: Node 22 `node:sqlite`, GET/POST `/api/scores`, name 1–12 chars, score must equal distance + 10·coins, 3 s per-IP cooldown |
@@ -62,7 +62,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 - Controls: A/D and ←/→ are symmetric (hold = drift, tap = turn press); W/↑/Space jump; S/↓ slide.
 - Turn window: 6 m before the corner to 2 m after. Correct press inside it → turn.
   Wrong direction → fall. No press by the corner → run straight off the edge.
-- Forks (from 150 m, 35% of turns): T-junction, either direction is accepted, the other branch stays a dead-end stub; boost picks a random branch.
+- Forks (from 150 m, 35% of turns): T-junction, either direction is accepted. Both continuations are pre-generated 100 m ahead (`track.branches`, rendered via `track.allSegments()`), so nothing pops in when you choose; the unchosen branch disappears. During boost your press still decides; random only if you pressed nothing.
 - Jump: 11.5 m/s up, gravity 30 → 0.77 s airtime, 2.2 m apex. Slide: 0.7 s, height 0.9.
 - Obstacles (`OBSTACLES` in `spawner.ts`): fire (lane, y 0–0.8, jump), log (y 1.0–1.6,
   slide or jump), branch (y 1.0–2.6, slide), gap (fatal, jump; drawn as a violet pit with yellow rims). First at s ≥ 60,

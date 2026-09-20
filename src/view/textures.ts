@@ -218,6 +218,27 @@ export function textures(): TextureSet {
   return cached;
 }
 
+/**
+ * Swap in real PBR sets from /textures/<name>/{color,normal,roughness}.jpg when they exist.
+ * The procedural canvases stay as the fallback and are replaced in place, so materials
+ * never need to know which source they show.
+ */
+export function loadRealTextures(): void {
+  const loader = new THREE.TextureLoader();
+  const sets: [keyof TextureSet, string][] = [['floor', 'floor'], ['wall', 'wall'], ['bark', 'bark'], ['ground', 'ground']];
+  for (const [key, folder] of sets) {
+    const maps = textures()[key];
+    const swap = (target: THREE.CanvasTexture, file: string) => {
+      loader.load(`/textures/${folder}/${file}.jpg`, (tex) => {
+        target.image = tex.image;
+        target.needsUpdate = true;
+        console.info(`[textures] ${folder}/${file} loaded`);
+      }, undefined, () => { /* keep procedural */ });
+    };
+    swap(maps.map, 'color'); swap(maps.normalMap, 'normal'); swap(maps.roughnessMap, 'roughness');
+  }
+}
+
 /** Standard material wired to a PBR map set. */
 export function pbrMaterial(maps: Maps, extra: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
   return new THREE.MeshStandardMaterial({

@@ -47,6 +47,6 @@ export function updateMonkeyView(game: Game, timeMs: number): void {
     const hop = Math.abs(Math.sin(timeMs * 0.012 + i * 2)) * 0.35;
     m.position.set(w.x, hop, w.z);
     m.rotation.set(0, yawOf(w.dir), 0);
-    m.visible = game.proximity > 0 || behind < FAR;
+    m.visible = !game.invulnerable && game.proximity > 0;
   }
 }

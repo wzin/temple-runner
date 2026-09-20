@@ -12,9 +12,11 @@ import { initMonkeyView, updateMonkeyView } from './view/monkeyView';
 import { coinBurst, initParticles, updateParticles } from './view/particles';
 import { initFloorView, updateFloorView } from './view/floorView';
 import { initGround, updateGround } from './view/groundView';
+import { initCliffs, updateCliffs } from './view/cliffView';
 import { initSky, updateSky } from './view/skyView';
 import { initTrees, updateTrees } from './view/treeView';
 import { activeBiome } from './view/biome';
+import { loadRealTextures } from './view/textures';
 import { endFrame, initDomInput, onTurn, pollInput, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD, showHighScoreBanner, hideHighScoreBanner } from './ui/HUD';
@@ -49,9 +51,11 @@ function init(): void {
 
   initSky(scene, activeBiome());
   initGround(scene);
+  initCliffs(scene);
   initTrees(scene, activeBiome());
   initFloorView(scene);
   initTrackView(scene);
+  loadRealTextures();   // upgrades the procedural maps in place once the JPEGs arrive
   initPlayerView(scene);
   initCoinView(scene);
   initObstacleView(scene);
@@ -157,6 +161,7 @@ function syncState(): void {
 function syncViews(now: number): void {
   updateTrackView(game);
   updateFloorView(game);
+  updateCliffs(game);
   updateTrees(game);
   updatePlayerView(game, now);
   updateCoinView(game, now);

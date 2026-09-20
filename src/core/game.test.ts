@@ -193,7 +193,9 @@ describe('Game', () => {
       const events = sim.run(() => g.player.s > w.corner + 2, { noObstacles: true });
       expect(events.some((e) => e.type === 'turn' && e.dir === dir)).toBe(true);
       expect(fork.turn).toBe(dir);
-      expect(g.track.end()).toBeGreaterThan(endBefore);
+      expect(g.track.pendingFork()).toBeNull();
+      expect(g.track.end()).toBeGreaterThanOrEqual(endBefore);
+      expect(g.track.segments.some((sg) => sg.s0 > fork.s0 && sg.dir.x === fork.outDir.x && sg.dir.z === fork.outDir.z)).toBe(true);
       expect(g.player.state).toBe('running');
     }
     const { g, sim, fork } = forkGame();

@@ -26,15 +26,16 @@ export function initTrees(scene: THREE.Scene, biome: Biome): void {
 
 export function updateTrees(game: Game): void {
   let n = 0; let a = 0; let b = 0;
-  for (const seg of game.track.segments) {
+  for (const seg of game.track.allSegments()) {
     if (seg.kind !== 'straight') continue;
     for (let i = 0; i < density * 2 && n < MAX; i++) {
       const side = i % 2 === 0 ? -1 : 1;
       const r1 = hash(seg.id, i); const r2 = hash(seg.id, i + 100); const r3 = hash(seg.id, i + 200);
       const s = seg.s0 + 1 + r1 * (seg.length - 2);
-      const lateral = side * (TRACK_HALF_WIDTH + 2.5 + r2 * 8);
-      const scale = 0.8 + r3 * 0.9;
-      const w = game.track.sample(s, lateral);
+      // Trees grow on the low ground beyond the cliff, never on the embankment itself.
+      const lateral = side * (TRACK_HALF_WIDTH + 7 + r2 * 14);
+      const scale = 1.6 + r3 * 1.6;
+      const w = game.track.sampleSegment(seg, s, lateral);
       dummy.position.set(w.x, GROUND_Y + 1.1 * scale, w.z); dummy.scale.setScalar(scale); faceHeading(dummy, w.dir); dummy.rotation.y += r2 * 6;
       dummy.updateMatrix(); trunks.setMatrixAt(n++, dummy.matrix);
       dummy.position.y = GROUND_Y + (2.2 + 1.5) * scale; dummy.updateMatrix();

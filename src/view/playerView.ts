@@ -60,7 +60,7 @@ export function initPlayerView(scene: THREE.Scene): void {
   legL = limb(0.55, 0.11, pants, 0.8, -0.15); legR = limb(0.55, 0.11, pants, 0.8, 0.15);
   rig.add(armL, armR, legL, legR);
 
-  shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12), new THREE.MeshStandardMaterial({ color: 0x22c55e, emissive: 0x22c55e, emissiveIntensity: 0.6, transparent: true, opacity: 0.25 }));
+  shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12), new THREE.MeshStandardMaterial({ color: 0x5fd8ff, emissive: 0x3ab8ff, emissiveIntensity: 0.9, transparent: true, opacity: 0.22, depthWrite: false }));
   shieldMesh.position.y = 1.0;
   shieldMesh.visible = false;
   group.add(shieldMesh);

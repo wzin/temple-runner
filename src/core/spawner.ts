@@ -75,7 +75,7 @@ export class Spawner {
     const pattern = this.choosePattern(s);
     const len = this.patternLength(pattern, t.speed);
     // The whole pattern span must stay clear of every turn window (long patterns can straddle a segment).
-    const clearOfTurns = !this.track.turnWindows().some((w) => w.to + o.turnMargin >= s && w.from - o.turnMargin <= s + len);
+    const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.to + o.turnMargin >= s && w.from - o.turnMargin <= s + len);
     const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
     if (canObstacle && chance(this.rng, t.obstacleChance)) { this.layPattern(pattern, s, t.speed); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }
@@ -147,8 +147,12 @@ export class Spawner {
     }
   }
 
+  private nearAnyTurn(s: number, margin: number): boolean {
+    return this.track.turnWindowsForSpawning().some((w) => s >= w.from - margin && s <= w.to + margin);
+  }
+
   private layPowerUp(s: number): void {
-    if (this.track.nearTurnWindow(s, 4)) return;
+    if (this.nearAnyTurn(s, 4)) return;
     for (const ob of this.obstacles) if (s >= ob.s0 - 2 && s <= ob.s1 + 2) return;
     this.powerUps.push({ id: this.nextId++, kind: pick(this.rng, POWERUP_KINDS), s, x: pick(this.rng, LANES), y: 1.0, taken: false });
   }
@@ -158,7 +162,7 @@ export class Spawner {
     const lane = pick(this.rng, LANES);
     const arc = chance(this.rng, 0.3);
     const end = s + (n - 1) * COIN_SPACING;
-    if (this.track.nearTurnWindow(s, 2) || this.track.nearTurnWindow(end, 2)) return;
+    if (this.nearAnyTurn(s, 2) || this.nearAnyTurn(end, 2)) return;
     for (const ob of this.obstacles) if (end >= ob.s0 - 1 && s <= ob.s1 + 1) return;
     for (let i = 0; i < n; i++) {
       const y = arc ? 0.6 + 1.6 * Math.sin((Math.PI * i) / (n - 1)) : 0.6;
