@@ -16,9 +16,10 @@ export function initCoinView(scene: THREE.Scene): void {
   const cap = new THREE.MeshStandardMaterial({ map: face.map, normalMap: face.normalMap, color: 0xffe8a0, emissive: 0xaa7700, emissiveIntensity: 0.35, metalness: 0.85, roughness: 0.3 });
   mesh = new THREE.InstancedMesh(geometry, [rim, cap, cap], MAX_COINS);
   mesh.count = 0;
-  const bigGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.14, 28); bigGeo.rotateX(Math.PI / 2);
+  // Medallions share the coin's size so runs stay visually even; only the face and glow differ.
+  const bigGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 24); bigGeo.rotateX(Math.PI / 2);
   const bigFace = remoteSet('coin-big', 0xffc040);
-  const bigCap = new THREE.MeshStandardMaterial({ map: bigFace.map, normalMap: bigFace.normalMap, color: 0xffe0a0, emissive: 0xcc8800, emissiveIntensity: 0.45, metalness: 0.85, roughness: 0.3 });
+  const bigCap = new THREE.MeshStandardMaterial({ map: bigFace.map, normalMap: bigFace.normalMap, color: 0xffe0a0, emissive: 0xff7a00, emissiveIntensity: 0.7, metalness: 0.85, roughness: 0.3 });
   big = new THREE.InstancedMesh(bigGeo, [rim, bigCap, bigCap], 64);
   big.count = 0; big.frustumCulled = false; scene.add(big);
   scene.add(mesh);
@@ -35,8 +36,9 @@ export function updateCoinView(game: Game, timeMs: number): void {
       const target = c.value >= 5 ? big : mesh;
       const idx = c.value >= 5 ? b : i;
       if (idx >= (c.value >= 5 ? 64 : MAX_COINS)) break;
-      dummy.position.set(p.x, p.y + (c.value >= 5 ? 0.7 : 0.4), p.z);
-      dummy.rotation.set(0, spin * (c.value >= 5 ? 0.6 : 1) + c.id, 0);
+      // Same height and spin phase for every coin, so a run reads as one straight, even line.
+      dummy.position.set(p.x, p.y + 0.4, p.z);
+      dummy.rotation.set(0, spin, 0);
       dummy.updateMatrix();
       target.setMatrixAt(idx, dummy.matrix);
       if (c.value >= 5) b++; else i++;

@@ -169,13 +169,13 @@ export class Spawner {
   private layCoinRun(s: number): void {
     const n = int(this.rng, 6, 10);
     const lane = pick(this.rng, LANES);
-    const arc = chance(this.rng, 0.3);
     const end = s + (n - 1) * COIN_SPACING;
     if (this.nearAnyTurn(s, 2) || this.nearAnyTurn(end, 2)) return;
     for (const ob of this.obstacles) if (end >= ob.s0 - 1 && s <= ob.s1 + 1) return;
     for (let i = 0; i < n; i++) {
-      const y = arc ? 0.6 + 1.6 * Math.sin((Math.PI * i) / (n - 1)) : 0.6;
-      // The middle coin of a run is sometimes a big medallion worth five.
+      // Runs are straight lines at one height, evenly spaced (arcs only appear over the log obstacle).
+      const y = 0.6;
+      // The middle coin of a run is sometimes a medallion worth five (same size, different face).
       const value = i === Math.floor(n / 2) && chance(this.rng, 0.12) ? 5 : 1;
       this.coins.push({ id: this.nextId++, s: s + i * COIN_SPACING, x: lane, y, collected: false, value });
     }
