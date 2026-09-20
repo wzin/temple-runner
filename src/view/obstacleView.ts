@@ -170,7 +170,9 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
           const y = 2.0 - (2.0 - restY) * dropK + bounce;
           dummy.position.set(p.x + right.x * side * (TRACK_HALF_WIDTH + 0.25), y, p.z + right.z * side * (TRACK_HALF_WIDTH + 0.25));
           faceHeading(dummy, p.dir);
-          dummy.rotateZ(side * angle);
+          // Local +x points to the runner's left (faceHeading maps +z to the heading), so a tree on the right wall
+          // (side +1) must rotate towards +x: negative angle about z.
+          dummy.rotateZ(-side * angle);
           // Once wedged, roll a little so the broken end sits lower than the roots.
           dummy.rotateX(dropK * 0.08);
           dummy.scale.set(1, 1, 1); dummy.updateMatrix();

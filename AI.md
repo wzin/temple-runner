@@ -86,7 +86,7 @@ windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log
 200 m, gapThenBranch 400 m (branch placed at `gap + 0.77 s × speed + 4 m`), laneFireRow 600 m. Coins in runs of 5–8
 (some arcs), `value` 1 or 5 (big medallion). Power-ups from 120 m, 8%/chunk, one live: magnet 10 s (pull
 `max(20, 1.8 × speed)` m/s), shield (one stumble), boost 5 s (×1.6, invulnerable, auto-turns) + 0.6 s grace.
-Proximity meter +25 per hit, −2/s, 100 = caught; boost resets it and hides the cats. **Coin energy**: each coin value adds 2.5 to `game.energy` (40 coin-points fill it, not while boosting); at 100 the `energyFull` event fires and `pressBoost()` (E / Enter / Shift / B, tapping the HUD bar or the pad's ⚡) spends it on a normal 5 s boost.
+Proximity meter +25 per hit, −2/s, 100 = caught; boost resets it and hides the cats. **Coin energy**: each coin value adds 0.6 to `game.energy` (~170 coin-points), capped at `100 × seconds/45` since the run or last boost, so a boost is never ready before 45 s of running (typically ~60 s); at 100 the `energyFull` event fires and `pressBoost()` (E / Enter / Shift / B, tapping the HUD bar or the pad's ⚡) spends it on a normal 5 s boost.
 
 **Lookahead:** `game.lookahead = clamp(12 s × speed, 150, 300)` m; fog near/far are 6%/40% of it (biome fractions; thickened on request so the scattered world reads as one haze).
 

@@ -262,9 +262,14 @@ describe('coin energy', () => {
     expect(g.pressBoost()).toBe(false);
     // Lay a line of coins straight ahead in the runner's lane and run through them.
     g.spawner.coins.length = 0; g.spawner.obstacles.length = 0;
-    for (let i = 0; i < 45; i++) g.spawner.coins.push({ id: 90000 + i, s: g.player.s + 5 + i * 1.5, x: 0, y: 0.6, collected: false, value: 1 });
-    const events = sim.run(() => g.player.s > 80, { autopilot: true, noObstacles: true });
-    expect(g.coins).toBeGreaterThanOrEqual(40);
+    // Coins alone are not enough: a full meter also needs at least 45 s of running.
+    for (let i = 0; i < 300; i++) g.spawner.coins.push({ id: 90000 + i, s: g.player.s + 5 + i * 1.5, x: 0, y: 0.6, collected: false, value: 1 });
+    sim.run(() => g.player.s > 300, { autopilot: true, noObstacles: true });
+    expect(g.coins).toBeGreaterThanOrEqual(150);
+    expect(g.energy).toBeLessThan(100);
+    expect(g.pressBoost()).toBe(false);
+    for (let i = 0; i < 400; i++) g.spawner.coins.push({ id: 91000 + i, s: g.player.s + 5 + i * 2.5, x: 0, y: 0.6, collected: false, value: 1 });
+    const events = sim.run(() => g.player.s > 1200, { autopilot: true, noObstacles: true });
     expect(g.energy).toBe(100);
     expect(events.some((e) => e.type === 'energyFull')).toBe(true);
     expect(g.pressBoost()).toBe(true);

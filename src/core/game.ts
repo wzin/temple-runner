@@ -33,8 +33,9 @@ export const COIN_RADIUS = 1.2;
 export const POWERUP_RADIUS = 1.4;
 export const PROXIMITY_PER_HIT = 25;
 export const PROXIMITY_DECAY = 2; // per second
-/** Energy per coin value: 40 coin-points fill the meter. */
-const ENERGY_PER_COIN = 2.5;
+/** Energy per coin value (~170 coin-points fill the meter) and the minimum seconds of running before it can be full. */
+const ENERGY_PER_COIN = 0.6;
+const ENERGY_MIN_SECONDS = 45;
 /** Seconds after a boost ends during which the runner is still invulnerable and turns are automatic. */
 export const BOOST_GRACE = 0.6;
 
@@ -47,6 +48,8 @@ export class Game {
   coins = 0; distance = 0; score = 0; proximity = 0; over = false;
   /** Energy 0..100 charged by coins; at 100 the player may fire a boost (`pressBoost`). */
   energy = 0;
+  /** Seconds since the run started or the last boost was fired; caps how fast the meter can fill. */
+  private energyTime = 0;
   active: ActivePowerUp | null = null;
   shield = false;
   private boostGrace = 0;
@@ -72,7 +75,7 @@ export class Game {
     this.player = new Player();
     this.spawner = new Spawner(rng, this.track, { tuning: (s) => difficultyAt(s) });
     this.buffer.clear();
-    this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false; this.energy = 0;
+    this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false; this.energy = 0; this.energyTime = 0;
     this.active = null; this.shield = false; this.boostGrace = 0; this.lastTurn = null; this.forkIntent = null; this.fallPose = null; this.deadReported = false;
     this.applyDifficulty();
     this.layAhead();
@@ -107,6 +110,7 @@ export class Game {
     this.distance = p.s;
     this.score = Math.floor(this.distance) + this.coins * 10;   // keep score and distance consistent even if this tick ends the run
     this.tickPowerUp(dt, events);
+    if (!this.boosting) this.energyTime += dt;
     if (this.boostGrace > 0) this.boostGrace -= dt;
     this.handleTurns(nowMs, events);
     if (p.down) return events;
@@ -114,7 +118,7 @@ export class Game {
     if (this.magnet) this.pullCoins(dt);
     for (const c of pickCoins(this.spawner.coins, p.s, p.x, p.y, COIN_RADIUS)) {
       this.coins += c.value; events.push({ type: 'coin', value: c.value });
-      if (!this.boosting) { const was = this.energy; this.energy = Math.min(100, this.energy + c.value * ENERGY_PER_COIN); if (was < 100 && this.energy >= 100) events.push({ type: 'energyFull' }); }
+      if (!this.boosting) { const was = this.energy; this.energy = Math.min(100, 100 * this.energyTime / ENERGY_MIN_SECONDS, this.energy + c.value * ENERGY_PER_COIN); if (was < 100 && this.energy >= 100) events.push({ type: 'energyFull' }); }
     }
     for (const pu of pickPowerUps(this.spawner.powerUps, p.s, p.x, p.y, POWERUP_RADIUS)) this.activate(pu.kind, events);
 
@@ -149,7 +153,7 @@ export class Game {
   /** Spend a full energy meter on a boost. Returns true if it fired. */
   pressBoost(): boolean {
     if (this.over || this.player.down || this.energy < 100 || this.boosting) return false;
-    this.energy = 0;
+    this.energy = 0; this.energyTime = 0;
     const events: GameEvent[] = [];
     this.activate('boost', events);
     this.pendingEvents.push(...events);
