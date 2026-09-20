@@ -14,6 +14,9 @@ export interface Segment {
   runIn: number;  // distance from start to the corner (== length for straights)
   outDir: Vec2;   // heading after the corner (== dir for straights)
   turnDone: boolean;
+  /** T-junction: the player picks left or right; until then outDir is a placeholder. */
+  fork: boolean;
+  resolved: boolean;
 }
 
 export interface Sample { x: number; y: number; z: number; dir: Vec2 }
@@ -28,7 +31,7 @@ export function rightOf(d: Vec2): Vec2 { return { x: -d.z, z: d.x }; }
 export function turnLeft(d: Vec2): Vec2 { return { x: d.z, z: -d.x }; }
 export function turnRight(d: Vec2): Vec2 { return { x: -d.z, z: d.x }; }
 
-export interface TrackOptions { turnChance?: number | (() => number); straightsAfterTurn?: number; initialStraights?: number }
+export interface TrackOptions { turnChance?: number | (() => number); straightsAfterTurn?: number; initialStraights?: number; forkChance?: number; forkMinS?: number }
 
 export class Track {
   readonly segments: Segment[] = [];
@@ -43,20 +46,41 @@ export class Track {
   turnEarly = TURN_EARLY;
   private readonly straightsAfterTurn: number;
   private readonly initialStraights: number;
+  private readonly forkChance: number;
+  private readonly forkMinS: number;
 
   constructor(private readonly rng: Rng, opts: TrackOptions = {}) {
     const tc = opts.turnChance ?? 0.15;
     this.turnChance = typeof tc === 'function' ? tc : () => tc;
     this.straightsAfterTurn = opts.straightsAfterTurn ?? 2;
     this.initialStraights = opts.initialStraights ?? 3;
+    this.forkChance = opts.forkChance ?? 0.35;
+    this.forkMinS = opts.forkMinS ?? 150;
   }
 
   end(): number { return this.nextS; }
 
+  /** The last segment, if it is a fork still waiting for the player's choice. */
+  pendingFork(): Segment | null {
+    const last = this.segments[this.segments.length - 1];
+    return last && last.fork && !last.resolved ? last : null;
+  }
+
   extendTo(s: number): Segment[] {
     const added: Segment[] = [];
-    while (this.nextS <= s) added.push(this.append(this.chooseKind()));
+    while (this.nextS <= s && !this.pendingFork()) added.push(this.append(this.chooseKind()));
     return added;
+  }
+
+  /** Commit a fork to one branch so generation can continue behind it. */
+  resolveFork(seg: Segment, dir: TurnDir): void {
+    if (!seg.fork || seg.resolved) return;
+    seg.turn = dir;
+    seg.outDir = dir === 'left' ? turnLeft(seg.dir) : turnRight(seg.dir);
+    seg.resolved = true;
+    this.nextStart = this.exactEnd(seg);
+    this.nextDir = seg.outDir;
+    this.straightsSinceTurn = 0;
   }
 
   dropBehind(s: number): Segment[] {
@@ -113,14 +137,16 @@ export class Track {
 
   private append(kind: 'straight' | 'turn'): Segment {
     const dir = this.nextDir;
-    const turn = kind === 'turn' ? pick(this.rng, ['left', 'right'] as const) : undefined;
+    const fork = kind === 'turn' && this.nextS >= this.forkMinS && chance(this.rng, this.forkChance);
+    const turn = kind === 'turn' && !fork ? pick(this.rng, ['left', 'right'] as const) : undefined;
     const outDir = turn === 'left' ? turnLeft(dir) : turn === 'right' ? turnRight(dir) : dir;
     const runIn = kind === 'turn' ? SEGMENT_LENGTH / 2 : SEGMENT_LENGTH;
-    const seg: Segment = { id: this.nextId++, kind, turn, s0: this.nextS, length: SEGMENT_LENGTH, start: this.nextStart, dir, runIn, outDir, turnDone: false };
+    const seg: Segment = { id: this.nextId++, kind, turn, s0: this.nextS, length: SEGMENT_LENGTH, start: this.nextStart, dir, runIn, outDir, turnDone: false, fork, resolved: !fork };
     this.segments.push(seg);
+    this.nextS += SEGMENT_LENGTH;
+    if (fork) { this.laid++; return seg; }  // cursor advances once the player picks a branch
     this.nextStart = this.exactEnd(seg);
     this.nextDir = outDir;
-    this.nextS += SEGMENT_LENGTH;
     this.laid++;
     this.straightsSinceTurn = kind === 'turn' ? 0 : this.straightsSinceTurn + 1;
     return seg;

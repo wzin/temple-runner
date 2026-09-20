@@ -4,7 +4,7 @@ import { OBSTACLES, Spawner } from './spawner';
 import { Track } from './track';
 
 function build(seed: number) {
-  const rng = mulberry32(seed); const track = new Track(rng, { turnChance: 0.4 });
+  const rng = mulberry32(seed); const track = new Track(rng, { turnChance: 0.4, forkChance: 0 }); // forks stop generation; tested in track/game
   track.extendTo(1500); const sp = new Spawner(rng, track); sp.fill(1400); return { track, sp };
 }
 

@@ -3,7 +3,7 @@ import { difficultyAt } from './difficulty';
 import { TickInput, TurnBuffer } from './input';
 import { Player } from './player';
 import { BOOST_SPEED_FACTOR, MAGNET_PULL_SPEED, MAGNET_RADIUS, POWERUPS, PowerUpKind } from './powerups';
-import { mulberry32 } from './rng';
+import { Rng, mulberry32, pick } from './rng';
 import { OBSTACLES, ObstacleKind, Spawner } from './spawner';
 import { Track, TurnDir, Vec2 } from './track';
 
@@ -35,6 +35,7 @@ export interface ActivePowerUp { kind: PowerUpKind; timer: number }
 
 export class Game {
   track!: Track; player!: Player; spawner!: Spawner;
+  private rng!: Rng;
   readonly buffer = new TurnBuffer(150);
   coins = 0; distance = 0; score = 0; proximity = 0; over = false;
   active: ActivePowerUp | null = null;
@@ -49,6 +50,7 @@ export class Game {
 
   reset(seed = Date.now() >>> 0): void {
     const rng = mulberry32(seed);
+    this.rng = rng;
     this.track = new Track(rng, { turnChance: () => difficultyAt(this.track.end()).turnChance });
     this.player = new Player();
     this.spawner = new Spawner(rng, this.track, { tuning: (s) => difficultyAt(s) });
@@ -156,21 +158,26 @@ export class Game {
     const w = this.track.turnWindowAt(p.s);
     const pressed = this.buffer.peek(nowMs);
     if (!w) return;
+    const seg = w.segment;
     if (this.invulnerable) {
       // Flying: any press is harmless, the corner is taken automatically.
       this.buffer.consume();
-      if (p.s > w.corner) { w.segment.turnDone = true; events.push({ type: 'turn', dir: w.segment.turn! }); this.lastTurn = { dir: w.segment.turn!, age: 0 }; }
+      if (p.s > w.corner) {
+        if (seg.fork && !seg.resolved) this.track.resolveFork(seg, pick(this.rng, ['left', 'right'] as const));
+        seg.turnDone = true; events.push({ type: 'turn', dir: seg.turn! }); this.lastTurn = { dir: seg.turn!, age: 0 };
+      }
       return;
     }
     if (pressed) {
       this.buffer.consume();
-      w.segment.turnDone = true;
-      if (pressed === w.segment.turn) { events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; }
+      seg.turnDone = true;
+      if (seg.fork && !seg.resolved) this.track.resolveFork(seg, pressed);   // a fork accepts either direction
+      if (pressed === seg.turn) { events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; }
       else this.startFall('wrongTurn', events);
       return;
     }
     if (p.s > w.corner) {
-      w.segment.turnDone = true;
+      seg.turnDone = true;
       // Past the corner with no input: keep running straight off the edge.
       this.startFall('missedTurn', events);
     }
@@ -188,7 +195,7 @@ export class Game {
   private layAhead(): void {
     const ahead = this.player.s + LOOKAHEAD;
     this.track.extendTo(ahead);
-    this.spawner.fill(ahead - 10);
+    this.spawner.fill(ahead - 10);   // clamps itself to the laid track (forks stop generation)
     this.track.dropBehind(this.player.s - KEEP_BEHIND);
     this.spawner.prune(this.player.s - KEEP_BEHIND);
   }

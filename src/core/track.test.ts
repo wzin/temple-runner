@@ -74,3 +74,35 @@ describe('Track.sample', () => {
     expect(t.nearTurnWindow(c - TURN_EARLY - 11, 10)).toBe(false);
   });
 });
+
+describe('forks', () => {
+  function trackWithFork() {
+    const t = new Track(mulberry32(9), { turnChance: 1, forkChance: 1, forkMinS: 0 });
+    t.extendTo(500);
+    return t;
+  }
+  it('stops extending at an unresolved fork and continues after resolving', () => {
+    const t = trackWithFork();
+    const fork = t.pendingFork();
+    expect(fork).not.toBeNull();
+    expect(t.segments[t.segments.length - 1]).toBe(fork);
+    expect(t.end()).toBe(fork!.s0 + SEGMENT_LENGTH);
+    expect(t.extendTo(500)).toHaveLength(0);
+    t.resolveFork(fork!, 'right');
+    expect(fork!.turn).toBe('right');
+    expect(fork!.resolved).toBe(true);
+    const added = t.extendTo(fork!.s0 + 60);
+    expect(added.length).toBeGreaterThan(0);
+    expect(added[0].dir).toEqual(fork!.outDir);
+    const end = t.sample(fork!.s0 + fork!.length - 1e-6);
+    expect(Math.hypot(end.x - added[0].start.x, end.z - added[0].start.z)).toBeLessThan(1e-3);
+    // Two straights follow a resolved fork, like any turn.
+    expect(added.slice(0, 2).every((s) => s.kind === 'straight')).toBe(true);
+  });
+  it('does not fork before forkMinS', () => {
+    const t = new Track(mulberry32(9), { turnChance: 1, forkChance: 1, forkMinS: 300 });
+    t.extendTo(250);
+    expect(t.segments.some((s) => s.fork)).toBe(false);
+    expect(t.segments.some((s) => s.kind === 'turn')).toBe(true);
+  });
+});

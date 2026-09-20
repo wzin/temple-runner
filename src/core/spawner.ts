@@ -12,7 +12,7 @@ export const OBSTACLES: Record<ObstacleKind, { depth: number; y0: number; y1: nu
   fire:   { depth: 1.0, y0: 0.0,  y1: 0.8, lane: true,  fatal: false }, // jump over; sliding still burns
   log:    { depth: 1.2, y0: 1.0,  y1: 1.6, lane: false, fatal: false }, // slide under or jump over
   branch: { depth: 0.6, y0: 1.0,  y1: 2.6, lane: false, fatal: false }, // must slide
-  gap:    { depth: 3.0, y0: -10,  y1: 0.0, lane: false, fatal: true  }, // must jump; touching the floor here = fall
+  gap:    { depth: 4.0, y0: -10,  y1: 0.0, lane: false, fatal: true  }, // must jump; 4 m = two floor slabs, so the hole matches the collision
 };
 
 export const LANES = [-1.5, 0, 1.5];
@@ -55,7 +55,8 @@ export class Spawner {
   constructor(private readonly rng: Rng, private readonly track: Track, opts: Partial<SpawnerOptions> = {}) { this.opts = { ...DEFAULTS, ...opts }; }
 
   fill(upTo: number): void {
-    while (this.cursor < upTo) { this.layChunk(this.cursor); this.cursor += this.opts.chunk; }
+    const limit = Math.min(upTo, this.track.end() - this.opts.chunk);
+    while (this.cursor < limit) { this.layChunk(this.cursor); this.cursor += this.opts.chunk; }
   }
 
   prune(behind: number): void {

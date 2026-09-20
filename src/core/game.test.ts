@@ -9,11 +9,16 @@ class Sim {
   press(dir: 'left' | 'right'): void { this.g.pressTurn(dir, this.ms); }
   tick(input: TickInput = NO_INPUT): GameEvent[] { const ev = this.g.tick(this.dt, input, this.ms); this.ms += this.dt * 1000; return ev; }
   /** Tick until pred() or the run is over; with autopilot the correct turn is pressed when a window opens. */
-  run(pred: () => boolean, opts: { autopilot?: boolean; noObstacles?: boolean; maxTicks?: number } = {}): GameEvent[] {
+  run(pred: () => boolean, opts: { autopilot?: boolean; forkChoice?: 'left' | 'right'; noObstacles?: boolean; maxTicks?: number } = {}): GameEvent[] {
     const events: GameEvent[] = []; let n = 0;
     while (!pred() && !this.g.over) {
       if (opts.noObstacles) this.g.spawner.obstacles.length = 0;
-      if (opts.autopilot) { const w = this.g.track.turnWindowAt(this.g.player.s); if (w) this.press(w.segment.turn!); }
+      if (opts.autopilot) {
+        const w = this.g.track.turnWindowAt(this.g.player.s);
+        // Forced turns are taken; unresolved forks are left to the test unless it asks for a default choice.
+        if (w && w.segment.turn) this.press(w.segment.turn);
+        else if (w && opts.forkChoice) this.press(opts.forkChoice);
+      }
       events.push(...this.tick());
       if (++n > (opts.maxTicks ?? 200_000)) throw new Error('Sim.run runaway');
     }
@@ -32,7 +37,7 @@ function gameWithEarlyTurn(): { g: Game; sim: Sim } {
 describe('Game', () => {
   it('keeps the track and content laid ahead of the player', () => {
     const g = new Game(1); const sim = new Sim(g);
-    sim.run(() => g.player.s > 300, { autopilot: true });
+    sim.run(() => g.player.s > 300, { autopilot: true, forkChoice: 'left' });
     expect(g.player.s).toBeGreaterThan(300);
     expect(g.track.end()).toBeGreaterThan(g.player.s + LOOKAHEAD - 1);
     const first = g.track.segments[0];
@@ -100,7 +105,7 @@ describe('Game', () => {
   it('speeds up with distance and widens the turn window accordingly', () => {
     const g = new Game(4); const sim = new Sim(g);
     const early = g.track.turnEarly;
-    sim.run(() => g.player.s > 1600, { autopilot: true, noObstacles: true });
+    sim.run(() => g.player.s > 1600, { autopilot: true, forkChoice: 'right', noObstacles: true });
     expect(g.over).toBe(false);
     expect(g.player.speed).toBeGreaterThan(20);
     expect(g.track.turnEarly).toBeGreaterThan(early);
@@ -166,5 +171,42 @@ describe('Game', () => {
     expect(events.some((e) => e.type === 'powerupEnd' && e.kind === 'boost')).toBe(true);
     expect(events.some((e) => e.type === 'fall')).toBe(false);
     expect(g.player.state).toBe('running');
+  });
+
+  it('forks: either direction is accepted, generation continues, a missed fork falls', () => {
+    const forkGame = () => {
+      for (let seed = 1; seed < 400; seed++) {
+        const g = new Game(seed);
+        const sim = new Sim(g);
+        sim.run(() => g.track.segments.some((sg) => sg.fork && !sg.resolved) || g.player.s > 900, { autopilot: true, noObstacles: true });
+        const fork = g.track.segments.find((sg) => sg.fork && !sg.resolved);
+        if (fork && !g.over) return { g, sim, fork };
+      }
+      throw new Error('no fork found');
+    };
+    for (const dir of ['left', 'right'] as const) {
+      const { g, sim, fork } = forkGame();
+      const w = g.track.turnWindows().find((tw) => tw.segment === fork)!;
+      sim.run(() => g.player.s >= w.from + 0.5, { autopilot: true, noObstacles: true });
+      const endBefore = g.track.end();
+      sim.press(dir);
+      const events = sim.run(() => g.player.s > w.corner + 2, { noObstacles: true });
+      expect(events.some((e) => e.type === 'turn' && e.dir === dir)).toBe(true);
+      expect(fork.turn).toBe(dir);
+      expect(g.track.end()).toBeGreaterThan(endBefore);
+      expect(g.player.state).toBe('running');
+    }
+    const { g, sim, fork } = forkGame();
+    const w = g.track.turnWindows().find((tw) => tw.segment === fork)!;
+    const events = sim.run(() => g.player.down || g.player.s > w.to + 5, { autopilot: true, noObstacles: true });
+    expect(events.some((e) => e.type === 'fall' && e.reason === 'missedTurn')).toBe(true);
+  });
+
+  it('spawner never lays content past the laid track', () => {
+    const g = new Game(11); const sim = new Sim(g);
+    sim.run(() => g.track.pendingFork() !== null || g.player.s > 900, { autopilot: true, noObstacles: true });
+    const end = g.track.end();
+    for (const c of g.spawner.coins) expect(c.s).toBeLessThan(end);
+    for (const pu of g.spawner.powerUps) expect(pu.s).toBeLessThan(end);
   });
 });
