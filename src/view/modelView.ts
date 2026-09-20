@@ -15,53 +15,67 @@ import { GROUND_Y } from './groundView';
  * Placement is seeded per segment so the world stays put while the player runs.
  */
 
-type Kind = 'tree' | 'palm' | 'rock' | 'plant' | 'statue' | 'debris' | 'arch' | 'column' | 'ruin' | 'tower' | 'prop' | 'shrine';
-interface ModelDef { name: string; kind: Kind; scale: number; max: number; lib?: string }
+type Kind = 'tree' | 'palm' | 'rock' | 'plant' | 'statue' | 'debris' | 'column' | 'ruin' | 'tower' | 'prop' | 'shrine' | 'crest' | 'idol' | 'landmark';
+interface ModelDef { name: string; kind: Kind; scale: number; max: number; lib?: string; gold?: boolean }
 const RUINS = 'ruins';
+const NATURE = 'nature';
 const MODELS: ModelDef[] = [
-  // Kenney Nature Kit: the forest on the low ground
-  { name: 'tree_default', kind: 'tree', scale: 3.2, max: 128 },
-  { name: 'tree_oak', kind: 'tree', scale: 3.4, max: 128 },
-  { name: 'tree_detailed', kind: 'tree', scale: 3.2, max: 128 },
-  { name: 'tree_fat', kind: 'tree', scale: 3.0, max: 128 },
-  { name: 'tree_tall', kind: 'tree', scale: 3.6, max: 128 },
-  { name: 'tree_pineTallA_detailed', kind: 'tree', scale: 3.4, max: 128 },
-  { name: 'tree_plateau', kind: 'tree', scale: 2.6, max: 64 },
-  { name: 'tree_palmDetailedTall', kind: 'palm', scale: 3.0, max: 64 },
-  { name: 'tree_palmTall', kind: 'palm', scale: 2.8, max: 64 },
-  { name: 'palm-detailed-bend', kind: 'palm', scale: 1.5, max: 64 },
-  { name: 'palm-detailed-straight', kind: 'palm', scale: 1.5, max: 64 },
-  { name: 'palm-bend', kind: 'palm', scale: 1.4, max: 64 },
+  // Quaternius Stylized Nature (textured, normal-mapped): the forest on the low ground
+  { name: 'NormalTree_1', kind: 'tree', scale: 1.6, max: 96, lib: NATURE },
+  { name: 'NormalTree_2', kind: 'tree', scale: 1.6, max: 96, lib: NATURE },
+  { name: 'NormalTree_3', kind: 'tree', scale: 1.7, max: 96, lib: NATURE },
+  { name: 'NormalTree_4', kind: 'tree', scale: 1.7, max: 96, lib: NATURE },
+  { name: 'NormalTree_5', kind: 'tree', scale: 2.2, max: 96, lib: NATURE },
+  { name: 'PineTree_5', kind: 'tree', scale: 1.8, max: 96, lib: NATURE },
+  { name: 'PineTree_1', kind: 'tree', scale: 2.0, max: 96, lib: NATURE },
+  { name: 'PineTree_2', kind: 'tree', scale: 1.6, max: 96, lib: NATURE },
+  { name: 'PineTree_4', kind: 'tree', scale: 2.0, max: 96, lib: NATURE },
+  { name: 'DeadTree_6', kind: 'tree', scale: 1.5, max: 48, lib: NATURE },
+  { name: 'DeadTree_8', kind: 'tree', scale: 1.4, max: 48, lib: NATURE },
+  { name: 'DeadTree_10', kind: 'tree', scale: 1.5, max: 48, lib: NATURE },
+  { name: 'TwistedTree_1', kind: 'landmark', scale: 1.0, max: 12, lib: NATURE },
+  { name: 'PalmTree_1', kind: 'palm', scale: 2.0, max: 96, lib: NATURE },
+  { name: 'PalmTree_2', kind: 'palm', scale: 2.0, max: 96, lib: NATURE },
+  { name: 'PalmTree_3', kind: 'palm', scale: 2.2, max: 96, lib: NATURE },
+  { name: 'PalmTree_4', kind: 'palm', scale: 2.0, max: 96, lib: NATURE },
+  { name: 'PalmTree_5', kind: 'palm', scale: 2.4, max: 96, lib: NATURE },
+  { name: 'Rock_1', kind: 'rock', scale: 2.4, max: 64, lib: NATURE },
+  { name: 'Rock_2', kind: 'rock', scale: 2.4, max: 64, lib: NATURE },
+  { name: 'Rock_3', kind: 'rock', scale: 2.6, max: 64, lib: NATURE },
+  { name: 'Rock_4', kind: 'rock', scale: 2.2, max: 64, lib: NATURE },
+  { name: 'Rock_5', kind: 'rock', scale: 2.4, max: 64, lib: NATURE },
+  { name: 'Bush', kind: 'plant', scale: 2.4, max: 192, lib: NATURE },
+  { name: 'Bush_Flowers', kind: 'plant', scale: 2.4, max: 192, lib: NATURE },
+  { name: 'Plant_1', kind: 'plant', scale: 2.2, max: 192, lib: NATURE },
+  { name: 'Plant_Flowers', kind: 'plant', scale: 1.8, max: 192, lib: NATURE },
+  { name: 'Plant_2', kind: 'plant', scale: 2.0, max: 192, lib: NATURE },
+  { name: 'Grass_Large_Extruded', kind: 'plant', scale: 3.0, max: 256, lib: NATURE },
+  // Kenney fillers that still fit
   { name: 'rock_largeA', kind: 'rock', scale: 2.0, max: 64 },
-  { name: 'rock_largeB', kind: 'rock', scale: 2.0, max: 64 },
   { name: 'stone_tallA', kind: 'rock', scale: 1.8, max: 48 },
   { name: 'stone_tallB', kind: 'rock', scale: 1.8, max: 48 },
-  { name: 'rocks-large', kind: 'rock', scale: 1.2, max: 48 },
   { name: 'rocks-tall', kind: 'rock', scale: 1.3, max: 48 },
-  { name: 'rocks-a', kind: 'rock', scale: 1.3, max: 48 },
-  { name: 'plant_bushLarge', kind: 'plant', scale: 2.0, max: 96 },
-  { name: 'plant_bushDetailed', kind: 'plant', scale: 1.8, max: 96 },
-  { name: 'grass_large', kind: 'plant', scale: 1.6, max: 128 },
   { name: 'flower_purpleA', kind: 'plant', scale: 1.4, max: 64 },
   { name: 'flowers-tall', kind: 'plant', scale: 1.6, max: 64 },
   { name: 'mushrooms', kind: 'plant', scale: 1.4, max: 64 },
   { name: 'Bush_Round', kind: 'plant', scale: 1.6, max: 64, lib: RUINS },
-  { name: 'DeadTree_1', kind: 'tree', scale: 2.4, max: 48, lib: RUINS },
-  { name: 'DeadTree_3', kind: 'tree', scale: 2.4, max: 48, lib: RUINS },
   // Statues at the bends
   { name: 'statue_head', kind: 'statue', scale: 2.2, max: 24 },
   { name: 'statue_obelisk', kind: 'statue', scale: 2.4, max: 24 },
   { name: 'Statue_Stag', kind: 'statue', scale: 1.5, max: 24, lib: RUINS },
   { name: 'Statue_Fox', kind: 'statue', scale: 1.6, max: 24, lib: RUINS },
+  // Golden idols on the T wall of every fork (the same statues, cast in gold)
+  { name: 'Statue_Fox', kind: 'idol', scale: 1.1, max: 16, lib: RUINS, gold: true },
+  { name: 'Statue_Stag', kind: 'idol', scale: 0.9, max: 16, lib: RUINS, gold: true },
   // Path stones and rubble
-  { name: 'rock_smallA', kind: 'debris', scale: 0.35, max: 256 },
-  { name: 'rock_smallB', kind: 'debris', scale: 0.3, max: 256 },
-  { name: 'stones', kind: 'debris', scale: 0.5, max: 128 },
-  { name: 'debris', kind: 'debris', scale: 0.6, max: 128 },
-  // Gateways over the path (stand on the wall tops)
-  { name: 'Arch_Round', kind: 'arch', scale: 1, max: 24, lib: RUINS },
-  { name: 'Arch_Gothic', kind: 'arch', scale: 1, max: 24, lib: RUINS },
-  { name: 'Arch_Round_RoundColumn', kind: 'arch', scale: 1, max: 24, lib: RUINS },
+  { name: 'rock_smallA', kind: 'debris', scale: 0.35, max: 384 },
+  { name: 'rock_smallB', kind: 'debris', scale: 0.3, max: 384 },
+  { name: 'stones', kind: 'debris', scale: 0.5, max: 256 },
+  { name: 'debris', kind: 'debris', scale: 0.6, max: 256 },
+  // Crests on the wall tops between the columns: spikes and skulls
+  { name: 'spike-block', kind: 'crest', scale: 0.7, max: 128 },
+  { name: 'trap-spikes', kind: 'crest', scale: 0.8, max: 128 },
+  { name: 'Skull', kind: 'crest', scale: 0.9, max: 128, lib: RUINS },
   // Columns on the wall tops at segment joints
   { name: 'Column_Round', kind: 'column', scale: 0.8, max: 96, lib: RUINS },
   { name: 'Column_Square', kind: 'column', scale: 0.8, max: 96, lib: RUINS },
@@ -70,33 +84,32 @@ const MODELS: ModelDef[] = [
   { name: 'pillar-obelisk', kind: 'column', scale: 1.8, max: 64 },
   { name: 'pillar-large', kind: 'column', scale: 1.6, max: 64 },
   // Ruined walls and towers on the low ground
-  { name: 'Wall_ArchRound_Overgrown', kind: 'ruin', scale: 2.8, max: 48, lib: RUINS },
-  { name: 'Wall_ArchRound_Overgrown_Broken', kind: 'ruin', scale: 2.8, max: 48, lib: RUINS },
-  { name: 'Wall_ArchRound_Broken', kind: 'ruin', scale: 2.8, max: 48, lib: RUINS },
-  { name: 'Wall_Broken', kind: 'ruin', scale: 2.8, max: 48, lib: RUINS },
-  { name: 'Wall_Overgrown', kind: 'ruin', scale: 2.8, max: 48, lib: RUINS },
-  { name: 'Wall_Double_Broken', kind: 'ruin', scale: 2.8, max: 48, lib: RUINS },
-  { name: 'Window_Bars_Overgrown', kind: 'ruin', scale: 2.8, max: 48, lib: RUINS },
-  { name: 'Support_Tall', kind: 'ruin', scale: 2.4, max: 48, lib: RUINS },
-  { name: 'Column_BridgeSupport', kind: 'ruin', scale: 2.4, max: 48, lib: RUINS },
-  { name: 'stone-wall-damaged', kind: 'ruin', scale: 3.0, max: 48 },
+  { name: 'Wall_ArchRound_Overgrown', kind: 'ruin', scale: 2.8, max: 96, lib: RUINS },
+  { name: 'Wall_ArchRound_Overgrown_Broken', kind: 'ruin', scale: 2.8, max: 96, lib: RUINS },
+  { name: 'Wall_ArchRound_Broken', kind: 'ruin', scale: 2.8, max: 96, lib: RUINS },
+  { name: 'Wall_Broken', kind: 'ruin', scale: 2.8, max: 96, lib: RUINS },
+  { name: 'Wall_Overgrown', kind: 'ruin', scale: 2.8, max: 96, lib: RUINS },
+  { name: 'Wall_Double_Broken', kind: 'ruin', scale: 2.8, max: 96, lib: RUINS },
+  { name: 'Window_Bars_Overgrown', kind: 'ruin', scale: 2.8, max: 96, lib: RUINS },
+  { name: 'Support_Tall', kind: 'ruin', scale: 2.4, max: 96, lib: RUINS },
+  { name: 'Column_BridgeSupport', kind: 'ruin', scale: 2.4, max: 96, lib: RUINS },
+  { name: 'stone-wall-damaged', kind: 'ruin', scale: 3.0, max: 96 },
   { name: 'tower-square-base', kind: 'tower', scale: 3.2, max: 24 },
   { name: 'tower-square-mid-open', kind: 'tower', scale: 3.2, max: 24 },
   { name: 'tower-square-top', kind: 'tower', scale: 3.2, max: 24 },
   { name: 'tower-square-arch', kind: 'tower', scale: 3.2, max: 24 },
   // Small props at the foot of the walls, on the path
-  { name: 'Pot1', kind: 'prop', scale: 0.7, max: 64, lib: RUINS },
-  { name: 'Pot1_Broken', kind: 'prop', scale: 0.7, max: 64, lib: RUINS },
-  { name: 'Pot2', kind: 'prop', scale: 0.8, max: 64, lib: RUINS },
-  { name: 'Pot3', kind: 'prop', scale: 0.8, max: 64, lib: RUINS },
-  { name: 'Barrel', kind: 'prop', scale: 0.7, max: 64, lib: RUINS },
-  { name: 'Crate', kind: 'prop', scale: 0.7, max: 64, lib: RUINS },
-  { name: 'Skull', kind: 'prop', scale: 0.8, max: 64, lib: RUINS },
-  { name: 'Candles_1', kind: 'prop', scale: 0.7, max: 64, lib: RUINS },
-  { name: 'urn-round', kind: 'prop', scale: 0.9, max: 64 },
-  { name: 'urn-square', kind: 'prop', scale: 0.9, max: 64 },
-  { name: 'chest', kind: 'prop', scale: 0.8, max: 32 },
-  { name: 'pot', kind: 'prop', scale: 0.8, max: 64 },
+  { name: 'Pot1', kind: 'prop', scale: 0.7, max: 128, lib: RUINS },
+  { name: 'Pot1_Broken', kind: 'prop', scale: 0.7, max: 128, lib: RUINS },
+  { name: 'Pot2', kind: 'prop', scale: 0.8, max: 128, lib: RUINS },
+  { name: 'Pot3', kind: 'prop', scale: 0.8, max: 128, lib: RUINS },
+  { name: 'Barrel', kind: 'prop', scale: 0.7, max: 128, lib: RUINS },
+  { name: 'Crate', kind: 'prop', scale: 0.7, max: 128, lib: RUINS },
+  { name: 'Candles_1', kind: 'prop', scale: 0.7, max: 128, lib: RUINS },
+  { name: 'urn-round', kind: 'prop', scale: 0.9, max: 128 },
+  { name: 'urn-square', kind: 'prop', scale: 0.9, max: 128 },
+  { name: 'chest', kind: 'prop', scale: 0.8, max: 64 },
+  { name: 'pot', kind: 'prop', scale: 0.8, max: 128 },
   // Shrines in the ruin clusters
   { name: 'altar-stone', kind: 'shrine', scale: 2.2, max: 24 },
   { name: 'fire-basket', kind: 'shrine', scale: 2.0, max: 24 },
@@ -139,6 +152,8 @@ function register(scene: THREE.Scene, def: ModelDef, root: THREE.Object3D, meshe
     geo.scale(def.scale, def.scale, def.scale);
     const m = (mat as THREE.MeshStandardMaterial).clone();
     m.roughness = Math.max(m.roughness, 0.85); m.metalness = 0;
+    if (def.gold) { m.map = null; m.color.set(0xd9a52a); m.emissive.set(0x5a3a08); m.emissiveIntensity = 0.5; m.metalness = 0.85; m.roughness = 0.3; }
+    if (m.map) { m.map.colorSpace = THREE.SRGBColorSpace; m.map.anisotropy = 4; }
     // Kenney's flat foliage is a minty teal; pull anything green-ish towards jungle greens (varies per model).
     const c = m.color; const hsl = { h: 0, s: 0, l: 0 }; c.getHSL(hsl);
     if (!m.map && hsl.h > 0.3 && hsl.h < 0.55 && hsl.s > 0.2) {
@@ -151,7 +166,7 @@ function register(scene: THREE.Scene, def: ModelDef, root: THREE.Object3D, meshe
     parts.push(inst);
   }
   const entry: Loaded = { def, parts, count: 0, width: Math.max(size.x, size.z) * def.scale, height: size.y * def.scale };
-  loaded.set(def.name, entry);
+  loaded.set(def.kind + ':' + def.name, entry);
   const list = byKind.get(def.kind) ?? []; list.push(entry); byKind.set(def.kind, list);
 }
 
@@ -203,8 +218,13 @@ function place(entry: Loaded, x: number, y: number, z: number, yaw: number, scal
 }
 
 /** Trees, palms, rocks, plants and statues on the low ground, plus debris on the path and rubble at gaps. */
+/** Centres of the ruin clusters laid this frame; cloudView drapes mist over them. */
+export interface MistPatch { x: number; z: number; r: number; seed: number }
+export const mistPatches: MistPatch[] = [];
+
 export function updateModels(game: Game): void {
   for (const e of loaded.values()) e.count = 0;
+  mistPatches.length = 0;
   const track = game.track;
   const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
   const nearGap = (s: number, pad = 1) => gaps.some((g) => s > g.s0 - pad && s < g.s1 + pad);
@@ -213,7 +233,7 @@ export function updateModels(game: Game): void {
     const start = track.sampleSegment(seg, seg.s0 + 0.01);
     const yaw = Math.atan2(start.dir.x, start.dir.z);
     // Forest on the low ground.
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 40; i++) {
       const side = i % 2 === 0 ? -1 : 1;
       const r1 = hash(seg.id, 1000 + i); const r2 = hash(seg.id, 1100 + i); const r3 = hash(seg.id, 1200 + i); const kindR = hash(seg.id, 1300 + i);
       const s = seg.s0 + 1 + r1 * (seg.length - 2);
@@ -223,46 +243,68 @@ export function updateModels(game: Game): void {
       const entry = pick(kind, r3);
       if (entry) place(entry, w.x, GROUND_Y, w.z, r2 * Math.PI * 2, 0.8 + r3 * 0.6);
     }
-    // Ruin clusters: a few wall pieces and a shrine around a centre 10–25 m out, walls snapped to right angles.
-    if (hash(seg.id, 2000) < 0.55) {
+    // Ruin clusters: wall pieces and a shrine around a centre 10–25 m out, walls snapped to right angles. The
+    // cluster is tied together by a ring of undergrowth, rubble between the pieces and a mist patch (cloudView).
+    if (hash(seg.id, 2000) < 0.75) {
       const side = hash(seg.id, 2001) < 0.5 ? -1 : 1;
       const cs = seg.s0 + 4 + hash(seg.id, 2002) * (seg.length - 8);
       const cl = side * (TRACK_HALF_WIDTH + 10 + hash(seg.id, 2003) * 14);
-      const n = 2 + Math.floor(hash(seg.id, 2004) * 3);
+      const n = 3 + Math.floor(hash(seg.id, 2004) * 3);
       for (let i = 0; i < n; i++) {
         const r = hash(seg.id, 2010 + i);
         const w = track.sampleSegment(seg, cs + (hash(seg.id, 2020 + i) - 0.5) * 12, cl + (hash(seg.id, 2030 + i) - 0.5) * 12);
         const entry = pick(r < 0.8 ? 'ruin' : 'tower', hash(seg.id, 2040 + i));
         if (entry) place(entry, w.x, GROUND_Y - 0.2, w.z, yaw + Math.floor(r * 4) * Math.PI / 2 + (r - 0.5) * 0.2, 0.9 + hash(seg.id, 2050 + i) * 0.4);
       }
-      if (hash(seg.id, 2005) < 0.5) {
+      if (hash(seg.id, 2005) < 0.6) {
         const w = track.sampleSegment(seg, cs, cl);
         const entry = pick('shrine', hash(seg.id, 2006));
         if (entry) place(entry, w.x, GROUND_Y, w.z, yaw, 1);
       }
+      for (let i = 0; i < 14; i++) {
+        const a = hash(seg.id, 2060 + i) * Math.PI * 2; const d = 4 + hash(seg.id, 2080 + i) * 7;
+        const w = track.sampleSegment(seg, cs + Math.cos(a) * d, cl + Math.sin(a) * d);
+        const r = hash(seg.id, 2100 + i);
+        const entry = pick(r < 0.65 ? 'plant' : r < 0.85 ? 'debris' : 'rock', hash(seg.id, 2120 + i));
+        if (entry) place(entry, w.x, GROUND_Y, w.z, a, r < 0.65 ? 0.9 + r : 1.2 + r);
+      }
+      const c = track.sampleSegment(seg, cs, cl);
+      mistPatches.push({ x: c.x, z: c.z, r: 9 + hash(seg.id, 2007) * 5, seed: seg.id });
+    }
+    // A giant twisted tree as a landmark now and then, far out.
+    if (hash(seg.id, 2500) < 0.12) {
+      const w = track.sampleSegment(seg, seg.s0 + 10, (hash(seg.id, 2501) < 0.5 ? -1 : 1) * (TRACK_HALF_WIDTH + 22 + hash(seg.id, 2502) * 12));
+      const entry = pick('landmark', hash(seg.id, 2503));
+      if (entry) place(entry, w.x, GROUND_Y - 0.3, w.z, hash(seg.id, 2504) * Math.PI * 2, 0.9 + hash(seg.id, 2505) * 0.4);
+    }
+    // Mist over the low ground on both sides, so the scattered ruins and trees sit in one haze.
+    for (const side of [-1, 1]) {
+      const c = track.sampleSegment(seg, seg.s0 + 6 + hash(seg.id, 2600 + side) * 8, side * (TRACK_HALF_WIDTH + 12 + hash(seg.id, 2610 + side) * 10));
+      mistPatches.push({ x: c.x, z: c.z, r: 10 + hash(seg.id, 2620 + side) * 6, seed: seg.id * 3 + side });
     }
     // Columns on the wall tops where segments meet.
-    if (seg.s0 > 20 && hash(seg.id, 2100) < 0.6 && !nearGap(seg.s0, 2)) {
-      const entry = pick('column', hash(seg.id, 2101));
+    if (seg.s0 > 20 && hash(seg.id, 2140) < 0.6 && !nearGap(seg.s0, 2)) {
+      const entry = pick('column', hash(seg.id, 2141));
       if (entry) for (const side of [-1, 1]) {
         const w = track.sampleSegment(seg, seg.s0, side * (TRACK_HALF_WIDTH + 0.25));
         place(entry, w.x, WALL_TOP, w.z, yaw, 1);
       }
     }
-    // Gateway arch spanning the path, standing on the wall tops; never right after the start.
-    if (seg.s0 > 40 && hash(seg.id, 2200) < 0.22 && !nearGap(seg.s0 + 4, 3)) {
-      const entry = pick('arch', hash(seg.id, 2201));
-      if (entry) {
-        const w = track.sampleSegment(seg, seg.s0 + 4, 0);
-        // Scale so the opening clears the walls: the arch models are ~3.1 wide with ~2.4 m openings.
-        const k = (2 * (TRACK_HALF_WIDTH + 0.5) + 0.6) / Math.max(1, entry.width);
-        place(entry, w.x, WALL_TOP - 0.05, w.z, yaw + Math.PI / 2, k);
-      }
+    // Spikes and skulls along the wall tops (never where a gap cuts the wall).
+    for (let i = 0; i < 6; i++) {
+      const r = hash(seg.id, 2200 + i);
+      if (r > 0.45) continue;
+      const side = i % 2 === 0 ? -1 : 1;
+      const s = seg.s0 + 1.5 + hash(seg.id, 2210 + i) * (seg.length - 3);
+      if (nearGap(s, 1.5)) continue;
+      const w = track.sampleSegment(seg, s, side * (TRACK_HALF_WIDTH + 0.25));
+      const entry = pick('crest', hash(seg.id, 2220 + i));
+      if (entry) place(entry, w.x, WALL_TOP, w.z, yaw + (r < 0.2 ? Math.PI / 2 : 0), 0.9 + hash(seg.id, 2230 + i) * 0.3);
     }
     // Pots, crates and skulls at the foot of the walls; small stones on the path itself.
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 8; i++) {
       const r = hash(seg.id, 2300 + i);
-      if (r > 0.35) continue;
+      if (r > 0.5) continue;
       const side = i % 2 === 0 ? -1 : 1;
       const s = seg.s0 + 2 + hash(seg.id, 2310 + i) * (seg.length - 4);
       if (nearGap(s, 1.5)) continue;
@@ -270,7 +312,7 @@ export function updateModels(game: Game): void {
       const entry = pick('prop', hash(seg.id, 2320 + i));
       if (entry) place(entry, w.x, 0, w.z, r * 20, 0.8 + hash(seg.id, 2330 + i) * 0.4);
     }
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 6; i++) {
       const r = hash(seg.id, 1400 + i);
       if (r > 0.6) continue;
       const s = seg.s0 + 2 + hash(seg.id, 1500 + i) * (seg.length - 4);
@@ -305,6 +347,14 @@ function statuesAt(track: Track, seg: Segment): void {
   const x = c.x + outer * right.x * (TRACK_HALF_WIDTH + 6) + c.dir.x * 5; const z = c.z + outer * right.z * (TRACK_HALF_WIDTH + 6) + c.dir.z * 5;
   const entry = pick('statue', hash(seg.id, 42));
   if (entry) place(entry, x, GROUND_Y, z, Math.atan2(-c.dir.x, -c.dir.z), 1.4);
+  // Forks: a golden idol on top of the T wall, facing the runner, glinting between the two choices.
+  if (seg.fork) {
+    const idol = pick('idol', hash(seg.id, 44));
+    if (idol) {
+      const w = track.sampleSegment(seg, corner + TRACK_HALF_WIDTH + 0.25, 0);
+      place(idol, w.x, WALL_TOP, w.z, Math.atan2(-c.dir.x, -c.dir.z), 1);
+    }
+  }
   // A pair of columns flanking the corner on the wall tops.
   const col = pick('column', hash(seg.id, 43));
   if (col) for (const side of [-1, 1]) {

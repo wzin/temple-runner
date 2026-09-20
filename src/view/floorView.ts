@@ -18,7 +18,7 @@ let slabs: THREE.InstancedMesh;
 let slabVariants: THREE.InstancedMesh[] = [];
 let brokenEdge: THREE.InstancedMesh;
 let wallBlocks: THREE.InstancedMesh[] = [];
-const counts: number[] = [0, 0, 0];
+const counts: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
 const wallCounts: number[] = [0, 0, 0];
 let nBroken = 0;
 const WALL_H = 2; const WALL_T = 0.5;
@@ -41,9 +41,10 @@ export function initFloorView(scene: THREE.Scene): void {
   const geo = slabGeometry();
   const tint = activeBiome().floorTint;
   slabs = new THREE.InstancedMesh(geo, pbrMaterial(textures().floor, { color: tint }), MAX);
-  const broken = new THREE.InstancedMesh(geo, pbrMaterial(remoteSet('floor-broken', 0x807870, 1), { color: tint }), MAX);
-  const mossy = new THREE.InstancedMesh(geo, pbrMaterial(remoteSet('floor-mossy', 0x6a8060, 1), { color: tint }), MAX);
-  slabVariants = [slabs, broken, mossy];
+  const look = (folder: string, fallback: number) => new THREE.InstancedMesh(geo, pbrMaterial(remoteSet(folder, fallback, 1), { color: tint }), MAX);
+  // Looks: 0 worn path (default), 1 broken, 2 mossy (these three are mixed slab by slab), then whole stretches of
+  // glyph tiles, dark cobbles, red sandstone, obsidian with gold joints and the old temple tiles.
+  slabVariants = [slabs, look('floor-broken', 0x807870), look('floor-mossy', 0x6a8060), look('floor-glyph', 0x9a8a6a), look('floor-cobble', 0x585858), look('floor-sand', 0x9a6a50), look('floor-obsidian', 0x2a2a30), look('floor-temple', 0x8a7a68)];
   for (const m of slabVariants) { m.count = 0; m.frustumCulled = false; m.receiveShadow = true; scene.add(m); }
   // Ragged slab at the lip of a gap: the gap-facing edge is torn back randomly.
   brokenEdge = new THREE.InstancedMesh(brokenSlabGeometry(), pbrMaterial(remoteSet('floor-broken', 0x807870, 1), { color: tint }), 64);
@@ -85,16 +86,19 @@ function wallVariantFor(segId: number): number {
   return r < 0.6 ? 0 : r < 0.8 ? 1 : 2;
 }
 
-/** Floor look per segment: mostly the worn path, with broken and mossy stretches. */
+/** Floor look per segment: mostly the worn path, with broken and mossy stretches and five rarer whole-segment looks. */
 function variantFor(segId: number): number {
   const r = segHash(segId, 91);
-  return r < 0.6 ? 0 : r < 0.8 ? 1 : 2;
+  if (r < 0.4) return 0;
+  if (r < 0.52) return 1;
+  if (r < 0.64) return 2;
+  return 3 + Math.floor((r - 0.64) / 0.36 * 5) % 5;
 }
 
 export function updateFloorView(game: Game): void {
   const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
   const holed = (s: number) => gaps.some((g) => s + SLAB / 2 > g.s0 + 1e-6 && s - SLAB / 2 < g.s1 - 1e-6);
-  counts[0] = counts[1] = counts[2] = 0; wallCounts.fill(0); nBroken = 0;
+  counts.fill(0); wallCounts.fill(0); nBroken = 0;
   let variant = 0;
   /** Slab with per-slab imperfections: a little tilt and height noise, some sunk, looks mixed per slab. */
   const put = (x: number, z: number, dir: { x: number; z: number }, key = 0) => {
@@ -152,7 +156,7 @@ export function updateFloorView(game: Game): void {
     if (seg.fork) forkStubs(seg, c, put);   // both run-outs before the choice, the unchosen one after
     if (seg.resolved) along(seg, corner + TRACK_HALF_WIDTH, s1);
   }
-  for (let i = 0; i < 3; i++) { slabVariants[i].count = counts[i]; slabVariants[i].instanceMatrix.needsUpdate = true; }
+  for (let i = 0; i < slabVariants.length; i++) { slabVariants[i].count = counts[i]; slabVariants[i].instanceMatrix.needsUpdate = true; }
   for (let i = 0; i < 3; i++) { wallBlocks[i].count = wallCounts[i]; wallBlocks[i].instanceMatrix.needsUpdate = true; }
   brokenEdge.count = nBroken; brokenEdge.instanceMatrix.needsUpdate = true;
 }

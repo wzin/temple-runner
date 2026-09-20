@@ -43,7 +43,7 @@ export interface SpawnerOptions {
   tuning: (s: number) => SpawnTuning;
 }
 const DEFAULTS: SpawnerOptions = {
-  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.55, powerUpChance: 0.08, firstPowerUpAt: 120, afterCornerSeconds: 1.2,
+  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.9, powerUpChance: 0.08, firstPowerUpAt: 120, afterCornerSeconds: 1.2,
   tuning: () => ({ obstacleChance: 0.45, obstacleSpacing: 25, speed: 15 }),
 };
 
@@ -101,6 +101,8 @@ export class Spawner {
     const ob: Obstacle = { id: this.nextId++, kind, s0: s, s1: s + spec.depth, x0: centre - half, x1: centre + half, y0: spec.y0, y1: spec.y1, hit: false, passed: false };
     this.obstacles.push(ob);
     this.lastObstacleEnd = Math.max(this.lastObstacleEnd, ob.s1);
+    // A coin run laid in an earlier chunk may reach this far: ground coins never sit inside an obstacle.
+    for (let i = this.coins.length - 1; i >= 0; i--) { const c = this.coins[i]; if (c.y < 1.0 && c.s >= ob.s0 - 1 && c.s <= ob.s1 + 1) this.coins.splice(i, 1); }
     return ob;
   }
 
@@ -164,7 +166,7 @@ export class Spawner {
   }
 
   private layCoinRun(s: number): void {
-    const n = int(this.rng, 5, 8);
+    const n = int(this.rng, 6, 10);
     const lane = pick(this.rng, LANES);
     const arc = chance(this.rng, 0.3);
     const end = s + (n - 1) * COIN_SPACING;

@@ -1,0 +1,4 @@
+nature.glb — Quaternius "Ultimate Stylized Nature Pack" and "Stylized Nature MegaKit" (CC0 1.0 Universal), via Poly Pizza:
+Trees etFGNvsiFv, Maple Trees iGFtQd0PJO, Pine Trees w8ZaiYjK8C, Dead Trees F5I0Q7TwO5, Palm Trees VYslw9DEi6,
+Bushes J2h3HrO356, Flower Bushes 1X06RgvSr6, Rocks gYhoEOKItJ, Grass UGTOzcO3P2, Twisted Tree 9aWlx82xUf.
+Merged into one library and textures converted to WebP ≤1024 px (scripts/trim-glb.mjs --webp).

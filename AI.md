@@ -88,7 +88,7 @@ windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log
 `max(20, 1.8 × speed)` m/s), shield (one stumble), boost 5 s (×1.6, invulnerable, auto-turns) + 0.6 s grace.
 Proximity meter +25 per hit, −2/s, 100 = caught; boost resets it and hides the monkeys.
 
-**Lookahead:** `game.lookahead = clamp(12 s × speed, 150, 300)` m; fog near/far are 10%/50% of it (biome fractions).
+**Lookahead:** `game.lookahead = clamp(12 s × speed, 150, 300)` m; fog near/far are 6%/40% of it (biome fractions; thickened on request so the scattered world reads as one haze).
 
 ## 4. Rendering (view)
 
@@ -96,17 +96,17 @@ Everything repeated is instanced and rebuilt from the live segments each frame (
 
 | Module | What |
 |---|---|
-| `floorView.ts` | 2 m floor slabs in three looks mixed per slab with tilt/height noise and sunk slabs; **wall blocks** (2 m, three looks, straights only) so a gap cuts floor + walls; torn slabs (`brokenSlabGeometry`) at gap lips; fork stubs |
+| `floorView.ts` | 2 m floor slabs in eight looks (path/broken/mossy mixed per slab, plus whole stretches of glyph, cobble, sand, obsidian, temple) with tilt/height noise and sunk slabs; **wall blocks** (2 m, three looks, straights only) so a gap cuts floor + walls; torn slabs (`brokenSlabGeometry`) at gap lips; fork stubs |
 | `trackView.ts` | per-segment groups: bend walls (L-shaped outer wall, inner post), T walls for forks, totems, glyph plates. Straight walls are NOT here (see floorView) |
 | `cliffView.ts` | stone embankment blocks from the ground (y −14) to the floor, skipped under gaps |
 | `decalView.ts` | per 2 m block: relief band, gold trim; cornice blocks on wall tops; vines/banners; portal arch or jaguar face on bend walls; arrow glyph decals on corner plates; start mosaic — all skip gap spans |
-| `modelView.ts` | GLB models flattened to instanced parts (`register`), base at y 0, centred. Kenney kits: forest (trees, palms, rocks, plants), statues, path stones, gap rubble, graveyard pillars/urns/altars, castle towers. Quaternius Modular Ruins library (`ruins/ruins.glb`, pieces picked by node name): gateway arches over the path on the wall tops (22% of straights after 40 m), columns at segment joints and bends, ruin clusters + shrines on the low ground 10–25 m out, pots/crates/skulls at the wall feet. `window.__models` = per-model counts for the harness |
+| `modelView.ts` | GLB models flattened to instanced parts (`register`), base at y 0, centred; `lib:` entries come from library GLBs (`ruins`, `nature`) by node name; `gold: true` recasts a piece in gold. Forest = Quaternius Stylized Nature (textured trees/pines/palms/dead trees, bushes, rocks, grass, a giant twisted landmark tree 12% of segments) + Kenney fillers; 40 spots per segment. Ruin clusters (75% of segments, 10–25 m out) with shrines, a ring of undergrowth/rubble and a mist patch; more mist patches on both sides of every segment (`mistPatches` → cloudView). Columns at joints and bends, spikes/skulls (`crest`) along the wall tops, pots/crates at the wall feet, path stones, gap rubble, statues at bends, **golden idol on the T wall of every fork**. Gateway arches were tried and removed (read as blocking the path). `window.__models` = per-model counts for the harness |
 | `propView.ts` | remaining billboards: ferns, bushes, skulls, roots on the cliff; textured columns and pillars |
 | `obstacleView.ts` | fire = bonfire: coal bed (lava set, emissive), four shader flame sheets (one camera-facing + two fanned + hot core), flickering ground glow, one point light following the nearest fire ahead; log = bark cylinder with tree-ring caps; **branch = low stone gate** (carved posts with pyramid caps, relief lintel 1.0–1.8 m, five stone teeth to 2.6 m — must slide); gaps show a lava or river pool below (40% water) and a veil while invulnerable |
 | `coinView.ts` | coin discs with embossed faces; big medallions |
 | `powerUpView.ts` | artefacts (iron horseshoe, gold sun disc, condor feather) + camera-facing icon sprites |
 | `playerView.ts` | animated GLB character (Quaternius, CC0) with an AnimationMixer: Run speed-matched (`STRIDE` 7.5 m/cycle), Roll = slide (compressed to 0.7 s), HitRecieve = stumble, Death = fall, Idle when standing. No jump clip in the pack → `Man_Jump` from the Animated Men pack retargeted by bone name (quaternion tracks only). `SKINS` = files adventurer / adventurer-f / hooded (ids runner / runner-f / guardian kept for saved prefs); only the chosen file is downloaded (~1.2–1.5 MB). Normalised to 1.75 m, feet at 0. Shield aura, boost ghosting, dim lamp kept |
-| `monkeyView.ts` | three fur-textured monkeys with face wraps, `9 → 2.5 m` behind as proximity rises, hidden while invulnerable |
+| `monkeyView.ts` | the chasers: two Quaternius wolves (Gallop) and a Monkroose (Run), animated GLBs `9 → 2.5 m` behind as proximity rises, snapping (Attack/Punch) above 80, hidden while invulnerable |
 | `torchView.ts` | instanced torches: bronze bowls, shader flames, soot decals |
 | `flameMaterial.ts` | procedural fire shader for instanced quads (instancing-aware, `tickFlames(t)`): domain-warped 5-octave fbm, three overlapping tongues, cavities, rising sparks; opts scale/speed/width/glow. Used by torches and bonfires |
 | `particles.ts` | pooled additive points: embers over fire, coin sparks, hit sparks, power-up bursts, landing dust |
@@ -185,11 +185,13 @@ leaderboard, forks, real gaps, biome, mobile · 0.4.x lookahead/fog, both-branch
 mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + progressive loading, dispose fix,
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
-kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck.
+kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
+0.9.0 feedback round: arches out, root sprite out, textured Quaternius nature library replaces Kenney trees, wolves + Monkroose
+chase, golden idol at forks, 8 floor looks, thicker fog + mist patches, doubled props/coins/crests, bigger runner, aligned hall of fame.
 
 ## 11. Next candidates
 
-Monkeys as real animated models (no CC0 monkey found; Quaternius Animated Animal Pack has wolf/fox/stag — a "temple beast" pack?); menu preview of the chosen character (idle clip); second biome (night jungle
+Mesh simplification for the nature library (NormalTree ~10k verts each; `gltf-transform simplify`); menu preview of the chosen character (idle clip); second biome (night jungle
 or ice temple); KTX2 compression; seam-free tiling via inpainting; HUD/menu frames in Inca style; ambient sound;
 big-coin/gem variants; water gaps as broken plank bridges (`bridge-plank`, `stone-steps` sets are generated but
 unused); `idol` sprite unused.

@@ -14,7 +14,6 @@ const MAX = 128;
 let reliefs: THREE.InstancedMesh;
 let arrows: THREE.InstancedMesh;
 let portals: THREE.InstancedMesh;
-let jaguars: THREE.InstancedMesh;
 let cornices: THREE.InstancedMesh;
 let trims: THREE.InstancedMesh;
 let banners: THREE.InstancedMesh;
@@ -33,12 +32,11 @@ export function initDecals(scene: THREE.Scene): void {
   portals = new THREE.InstancedMesh(new THREE.PlaneGeometry(5.2, 3.6), pbrMaterial(remoteSet('portal', 0x6a5a58), { polygonOffset: true, polygonOffsetFactor: -1 }), 32);
   const corn = remoteSet('cornice', 0x8a8088); for (const t of [corn.map, corn.normalMap, corn.roughnessMap]) t.repeat.set(1, 1);
   cornices = new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, 0.28, 2), pbrMaterial(corn, { color: 0xd8d0c8 }), 320);
-  jaguars = new THREE.InstancedMesh(new THREE.PlaneGeometry(4.2, 4.2), pbrMaterial(remoteSet('jaguar-face', 0x6a5a58), { polygonOffset: true, polygonOffsetFactor: -1 }), 32);
   const trim = remoteSet('gold-trim', 0xc9a24a); for (const t of [trim.map, trim.normalMap, trim.roughnessMap]) t.repeat.set(1, 1);
   trims = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 0.22), pbrMaterial(trim, { color: 0xffe0a0, emissive: 0x6a4a10, emissiveIntensity: 0.3, metalness: 0.7, roughness: 0.35, polygonOffset: true, polygonOffsetFactor: -1 }), MAX);
   const leafy = (name: string, w: number, h: number, alpha = 0.4) => new THREE.InstancedMesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: sprite(name), transparent: true, alphaTest: alpha, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2 }), MAX);
   banners = leafy('banner', 1.2, 1.7, 0.4);
-  for (const m of [reliefs, arrows, portals, jaguars, cornices, trims, banners]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
+  for (const m of [reliefs, arrows, portals, cornices, trims, banners]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
   // Start medallion: a 6 x 6 mosaic plate on the first slabs.
   mosaic = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 5.6), pbrMaterial(remoteSet('mosaic', 0x907060), { polygonOffset: true, polygonOffsetFactor: -1 }));
   mosaic.rotation.x = -Math.PI / 2;
@@ -50,7 +48,7 @@ export function updateDecals(game: Game, timeMs: number): void {
   const track = game.track;
   const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
   const holed = (s: number) => gaps.some((g) => s + 1 > g.s0 + 1e-6 && s - 1 < g.s1 - 1e-6);
-  let nR = 0; let nA = 0; let nP = 0; let nJ = 0; let nC = 0; let nT = 0; let nB = 0;
+  let nR = 0; let nA = 0; let nP = 0; let nC = 0; let nT = 0; let nB = 0;
   mosaic.visible = track.segments.length > 0 && track.segments[0].s0 === 0;
   const cornice = (x: number, z: number, dir: { x: number; z: number }) => {
     if (nC >= 320) return;
@@ -102,9 +100,8 @@ export function updateDecals(game: Game, timeMs: number): void {
       dummy.position.set(px, 1.85, pz);
       const facing = seg.fork ? { x: -c.dir.x, z: -c.dir.z } : { x: -outer * right.x, z: -outer * right.z };
       dummy.rotation.set(0, Math.atan2(facing.x, facing.z), 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-      // Every other bend shows a carved jaguar instead of the portal arch.
-      if (segHash(seg.id, 5) < 0.5) portals.setMatrixAt(nP++, dummy.matrix);
-      else if (nJ < 32) { dummy.position.y = 1.7; dummy.updateMatrix(); jaguars.setMatrixAt(nJ++, dummy.matrix); }
+      // Bends show the portal arch; forks get a golden idol on the T wall (modelView) instead of a decal.
+      if (!seg.fork && nP < 32) portals.setMatrixAt(nP++, dummy.matrix);
     }
     const dirs = seg.fork && !seg.resolved
       ? [{ x: c.dir.z, z: -c.dir.x }, { x: -c.dir.z, z: c.dir.x }]
@@ -122,7 +119,6 @@ export function updateDecals(game: Game, timeMs: number): void {
   reliefs.count = nR; reliefs.instanceMatrix.needsUpdate = true;
   arrows.count = nA; arrows.instanceMatrix.needsUpdate = true;
   portals.count = nP; portals.instanceMatrix.needsUpdate = true;
-  jaguars.count = nJ; jaguars.instanceMatrix.needsUpdate = true;
   cornices.count = nC; cornices.instanceMatrix.needsUpdate = true;
   trims.count = nT; trims.instanceMatrix.needsUpdate = true;
   banners.count = nB; banners.instanceMatrix.needsUpdate = true;

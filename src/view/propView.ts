@@ -9,7 +9,7 @@ import { faceHeading } from './util';
 
 const MAX = 256;
 let rocks: THREE.InstancedMesh; let columns: THREE.InstancedMesh; let ferns: THREE.InstancedMesh; let bushes: THREE.InstancedMesh;
-let statues: THREE.InstancedMesh; let pillars: THREE.InstancedMesh; let skulls: THREE.InstancedMesh; let roots: THREE.InstancedMesh; let palms: THREE.InstancedMesh;
+let statues: THREE.InstancedMesh; let pillars: THREE.InstancedMesh; let skulls: THREE.InstancedMesh; let palms: THREE.InstancedMesh;
 const dummy = new THREE.Object3D();
 const hash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
@@ -22,29 +22,18 @@ export function initProps(scene: THREE.Scene): void {
   bushes = new THREE.InstancedMesh(new THREE.PlaneGeometry(3, 3), leafy('bush'), MAX);
   statues = new THREE.InstancedMesh(new THREE.PlaneGeometry(3.2, 4.2), leafy('statue'), 64);
   skulls = new THREE.InstancedMesh(new THREE.PlaneGeometry(1.2, 1.2), leafy('skull'), 64);
-  roots = new THREE.InstancedMesh(new THREE.PlaneGeometry(6, 5), leafy('roots'), 96);
   palms = new THREE.InstancedMesh(new THREE.PlaneGeometry(7, 9), leafy('palm'), MAX);
   const pil = remoteSet('pillar', 0xa09080); for (const t of [pil.map, pil.normalMap, pil.roughnessMap]) t.repeat.set(1, 1);
   pillars = new THREE.InstancedMesh(new THREE.BoxGeometry(1.1, 7, 1.1), pbrMaterial(pil), 64);
-  for (const m of [rocks, columns, ferns, bushes, statues, skulls, roots, palms, pillars]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
+  for (const m of [rocks, columns, ferns, bushes, statues, skulls, palms, pillars]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
 }
 
 export function updateProps(game: Game, camera: THREE.Camera): void {
-  let nR = 0; let nC = 0; let nF = 0; let nB = 0; let nS = 0; let nP = 0; let nK = 0; let nRt = 0; let nPa = 0;
+  let nR = 0; let nC = 0; let nF = 0; let nB = 0; let nS = 0; let nP = 0; let nK = 0; let nPa = 0;
   const track = game.track;
   const bill = (x: number, z: number) => Math.atan2(camera.position.x - x, camera.position.z - z);
   for (const seg of track.allSegments()) {
     if (seg.kind !== 'straight') continue;   // bends get real statue models (modelView)
-    // Roots gripping the cliff face, two per segment on random sides.
-    for (let k = 0; k < 2; k++) {
-      if (nRt >= 96) break;
-      const side = k === 0 ? -1 : 1;
-      if (hash(seg.id, 900 + k) > 0.5) continue;
-      const w = track.sampleSegment(seg, seg.s0 + 4 + hash(seg.id, 950 + k) * 12, side * (TRACK_HALF_WIDTH + 1.2));
-      const right = { x: -w.dir.z, z: w.dir.x };
-      dummy.position.set(w.x, -3.2, w.z); dummy.rotation.set(0, Math.atan2(side * right.x, side * right.z), 0); dummy.scale.setScalar(0.9 + hash(seg.id, 960 + k) * 0.5); dummy.updateMatrix();
-      roots.setMatrixAt(nRt++, dummy.matrix);
-    }
     for (let i = 0; i < 10; i++) {
       const side = i % 2 === 0 ? -1 : 1;
       const r1 = hash(seg.id, 300 + i); const r2 = hash(seg.id, 400 + i); const r3 = hash(seg.id, 500 + i); const kind = hash(seg.id, 600 + i);
@@ -72,7 +61,7 @@ export function updateProps(game: Game, camera: THREE.Camera): void {
     }
   }
   const flush = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; };
-  flush(rocks, nR); flush(columns, nC); flush(ferns, nF); flush(bushes, nB); flush(statues, nS); flush(pillars, nP); flush(skulls, nK); flush(roots, nRt); flush(palms, nPa);
+  flush(rocks, nR); flush(columns, nC); flush(ferns, nF); flush(bushes, nB); flush(statues, nS); flush(pillars, nP); flush(skulls, nK); flush(palms, nPa);
 }
 
 export { faceHeading as _fh2 };

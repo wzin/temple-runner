@@ -21,7 +21,7 @@ export const SKINS: Skin[] = [
 const SKIN_KEY = 'temple-runner.skin';
 export function currentSkinId(): string { try { return localStorage.getItem(SKIN_KEY) || 'runner'; } catch { return 'runner'; } }
 
-const HEIGHT = 1.75;        // metres, matches the 1.8 m collision box
+const HEIGHT = 1.95;        // metres; a touch above the 1.8 m collision box so the runner does not look tiny on the 6 m path
 const STRIDE = 7.5;         // metres per run cycle at which the Run clip plays at 1x (~2 cycles/s at base speed)
 const FADE = 0.12;
 
