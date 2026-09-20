@@ -81,7 +81,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 - High score persists in `localStorage['temple-runner.highScore']`; Space/Enter restarts from the menu or game-over screen. The menu shows the top five from the API.
 - Version: `VERSION` file injected as `__APP_VERSION__` (bottom-right corner). Release with `scripts/release.sh X.Y.Z` (writes VERSION, tags `vX.Y.Z`, pushes; Komodo redeploys from main).
 - Touch: arrow panel on coarse-pointer devices, shown only during a run, raised above browser bars (12dvh + safe area); text selection/callouts/scroll blocked on the canvas; swipe gestures; coach hints at run start and before the first corner
-- Turn window after the corner is `max(2 m, 0.15 s × speed)` (tap = turn, hold = drift, ▲ jump, ▼ slide) plus swipe gestures on the canvas.
+- Turn window: a correct press counts from `1.0 s × speed` before the corner (`turnLead`), a wrong press is fatal only inside the last `0.4 s × speed` (`strictFrom`), and presses up to `max(2 m, 0.15 s × speed)` after the corner still count. Early wrong presses are ignored. (tap = turn, hold = drift, ▲ jump, ▼ slide) plus swipe gestures on the canvas.
 - Performance: no shadow maps, pixel ratio capped at 1.5, everything repeated is instanced (floor, cliffs, trees, torches, coins, obstacles, power-ups).
 - Turn presses survive a frame hitch: the buffer expires 150 ms after the press but never before one tick has seen it.
 - Proximity meter: +25 per hit, −2/s, 100 = caught. Score = floor(distance) + 10 × coins.

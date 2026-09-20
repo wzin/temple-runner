@@ -65,7 +65,7 @@ describe('Game', () => {
 
   it('wrong turn in the window falls, missed turn falls and freezes a pose', () => {
     let { g, sim } = gameWithEarlyTurn(); let w = g.track.turnWindows()[0];
-    sim.run(() => g.player.s >= w.from + 0.5);
+    sim.run(() => g.player.s >= w.strictFrom + 0.5);   // inside the reaction zone a wrong press is fatal
     sim.press(w.segment.turn === 'left' ? 'right' : 'left');
     expect(sim.tick().some((e) => e.type === 'fall' && e.reason === 'wrongTurn')).toBe(true);
 
@@ -228,5 +228,26 @@ describe('Game', () => {
     for (let i = 0; i < 6; i++) g.spawner.coins.push({ id: 700 + i, s: 20 + i * 3, x: 1.5, y: 0.6, collected: false });
     sim.run(() => g.player.s > 60, { noObstacles: true });
     expect(g.coins).toBe(6);
+  });
+
+  it('a correct press up to a second early is accepted; an early wrong press is ignored', () => {
+    let { g, sim } = gameWithEarlyTurn(); let w = g.track.turnWindows()[0];
+    g.spawner.obstacles.length = 0;
+    // 0.9 s before the corner (outside the 0.4 s reaction zone, inside the 1 s lead).
+    sim.run(() => g.player.s >= w.corner - 0.9 * g.player.speed, { noObstacles: true });
+    sim.press(w.segment.turn!);
+    let events = sim.run(() => g.player.s > w.corner + 1, { noObstacles: true });
+    expect(events.some((e) => e.type === 'turn')).toBe(true);
+    expect(g.player.state).toBe('running');
+
+    ({ g, sim } = gameWithEarlyTurn()); w = g.track.turnWindows()[0];
+    g.spawner.obstacles.length = 0;
+    sim.run(() => g.player.s >= w.corner - 0.9 * g.player.speed, { noObstacles: true });
+    sim.press(w.segment.turn === 'left' ? 'right' : 'left');      // wrong, but early: ignored
+    events = sim.run(() => g.player.s >= w.corner - 0.3 * g.player.speed, { noObstacles: true });
+    expect(events.some((e) => e.type === 'fall')).toBe(false);
+    sim.press(w.segment.turn!);                                     // then the right one
+    events = sim.run(() => g.player.s > w.corner + 1, { noObstacles: true });
+    expect(events.some((e) => e.type === 'turn')).toBe(true);
   });
 });

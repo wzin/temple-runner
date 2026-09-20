@@ -80,7 +80,7 @@ export class Spawner {
     // After a corner the margin is time-based: the outgoing leg is hidden behind the corner wall until
     // the runner has turned, so the first obstacle must be at least `afterCorner` seconds of running away.
     const afterCorner = o.afterCornerSeconds * t.speed;
-    const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.corner + afterCorner >= s && w.from - o.turnMargin <= s + len);
+    const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.corner + afterCorner >= s && w.strictFrom - o.turnMargin <= s + len);
     const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
     if (canObstacle && chance(this.rng, t.obstacleChance)) { this.layPattern(pattern, s, t.speed); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }
@@ -153,7 +153,7 @@ export class Spawner {
   }
 
   private nearAnyTurn(s: number, margin: number): boolean {
-    return this.track.turnWindowsForSpawning().some((w) => s >= w.from - margin && s <= w.to + margin);
+    return this.track.turnWindowsForSpawning().some((w) => s >= w.strictFrom - margin && s <= w.to + margin);
   }
 
   private layPowerUp(s: number): void {

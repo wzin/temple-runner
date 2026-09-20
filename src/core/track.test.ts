@@ -69,6 +69,7 @@ describe('Track.sample', () => {
     const turn = t.segments.find((s) => s.kind === 'turn')!;
     const c = t.cornerOf(turn);
     expect(t.turnWindowAt(c - TURN_EARLY + 0.1)?.segment).toBe(turn);
+    expect(t.turnWindowAt(c)?.strictFrom).toBe(c - TURN_EARLY);
     expect(t.turnWindowAt(c + TURN_LATE - 0.1)?.segment).toBe(turn);
     expect(t.turnWindowAt(c - TURN_EARLY - 0.1)).toBeNull();
     turn.turnDone = true;

@@ -132,6 +132,7 @@ export class Game {
     this.player.speedScale = (d.speed / this.player.cfg.speed) * boost;
     this.track.turnEarly = d.reactionTime * d.speed * boost;
     this.track.turnLate = Math.max(2, 0.15 * d.speed * boost);   // a late press still counts for ~150 ms past the corner
+    this.track.turnLead = 1.0 * d.speed * boost;                   // a correct press a full second early is fine
   }
 
   private activate(kind: PowerUpKind, events: GameEvent[]): void {
@@ -187,10 +188,10 @@ export class Game {
     }
     if (pressed) {
       this.buffer.consume();
-      seg.turnDone = true;
       if (seg.fork && !seg.resolved) this.track.resolveFork(seg, pressed);   // a fork accepts either direction
-      if (pressed === seg.turn) { events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; }
-      else this.startFall('wrongTurn', events);
+      if (pressed === seg.turn) { seg.turnDone = true; events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; return; }
+      // Wrong direction: fatal only inside the reaction zone; earlier it is just ignored.
+      if (p.s >= w.strictFrom) { seg.turnDone = true; this.startFall('wrongTurn', events); }
       return;
     }
     if (p.s > w.corner) {

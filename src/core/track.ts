@@ -22,7 +22,11 @@ export interface Segment {
 }
 
 export interface Sample { x: number; y: number; z: number; dir: Vec2 }
-export interface TurnWindow { segment: Segment; corner: number; from: number; to: number }
+/**
+ * Turn window: a correct press counts from `from` (generous lead), a wrong press only
+ * falls from `strictFrom` (the reaction zone), anything up to `to` past the corner.
+ */
+export interface TurnWindow { segment: Segment; corner: number; from: number; strictFrom: number; to: number }
 
 export const TRACK_HALF_WIDTH = 3;
 export const SEGMENT_LENGTH = 20;
@@ -89,6 +93,8 @@ export class Track {
   /** Metres before / after the corner where a turn press is accepted; the game scales both with speed. */
   turnEarly = TURN_EARLY;
   turnLate = TURN_LATE;
+  /** Metres before the corner where a *correct* press is already accepted (≥ turnEarly). */
+  turnLead = TURN_EARLY;
   private readonly straightsAfterTurn: number;
   private readonly initialStraights: number;
   private readonly forkChance: number;
@@ -164,7 +170,7 @@ export class Track {
     if (!this.branches) return main;
     const extra = [...this.branches.left.segments, ...this.branches.right.segments].filter((s) => s.kind === 'turn').map((segment) => {
       const corner = this.cornerOf(segment);
-      return { segment, corner, from: corner - this.turnEarly, to: corner + this.turnLate };
+      return { segment, corner, from: corner - Math.max(this.turnLead, this.turnEarly), strictFrom: corner - this.turnEarly, to: corner + this.turnLate };
     });
     return [...main, ...extra];
   }
@@ -222,7 +228,7 @@ export class Track {
   turnWindows(): TurnWindow[] {
     return this.segments.filter((s) => s.kind === 'turn').map((segment) => {
       const corner = this.cornerOf(segment);
-      return { segment, corner, from: corner - this.turnEarly, to: corner + this.turnLate };
+      return { segment, corner, from: corner - Math.max(this.turnLead, this.turnEarly), strictFrom: corner - this.turnEarly, to: corner + this.turnLate };
     });
   }
 
