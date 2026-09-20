@@ -12,19 +12,18 @@ let turnListener: TurnListener | null = null;
 export function initDomInput(): void {
   window.addEventListener('keydown', (e) => {
     if (e.repeat) return;
+    // A/D and the arrows behave the same: a tap is a turn press, holding drifts sideways.
     switch (e.code) {
-      case 'KeyA': held.left = true; break;
-      case 'KeyD': held.right = true; break;
+      case 'KeyA': case 'ArrowLeft': held.left = true; turnListener?.('left', performance.now()); e.preventDefault(); break;
+      case 'KeyD': case 'ArrowRight': held.right = true; turnListener?.('right', performance.now()); e.preventDefault(); break;
       case 'ArrowUp': case 'KeyW': case 'Space': jumpPressed = true; e.preventDefault(); break;
       case 'ArrowDown': case 'KeyS': slidePressed = true; e.preventDefault(); break;
-      case 'ArrowLeft': turnListener?.('left', performance.now()); e.preventDefault(); break;
-      case 'ArrowRight': turnListener?.('right', performance.now()); e.preventDefault(); break;
       case 'Escape': pausePressed = true; break;
     }
   });
   window.addEventListener('keyup', (e) => {
-    if (e.code === 'KeyA') held.left = false;
-    if (e.code === 'KeyD') held.right = false;
+    if (e.code === 'KeyA' || e.code === 'ArrowLeft') held.left = false;
+    if (e.code === 'KeyD' || e.code === 'ArrowRight') held.right = false;
   });
 }
 

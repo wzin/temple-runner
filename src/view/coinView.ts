@@ -12,6 +12,8 @@ export function initCoinView(scene: THREE.Scene): void {
   mesh = new THREE.InstancedMesh(geometry, material, MAX_COINS);
   mesh.count = 0;
   scene.add(mesh);
+  // The shared bounding sphere sits at the origin; culling would hide every instance once the camera moves away.
+  mesh.frustumCulled = false;
 }
 
 export function updateCoinView(game: Game, timeMs: number): void {

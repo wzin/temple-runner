@@ -32,7 +32,7 @@ export function updatePlayerView(game: Game, timeMs: number): void {
   if (p.down && game.fallPose) {
     // Keep running straight from the frozen pose while dropping, then tumble.
     const elapsed = p.cfg.fallDuration - Math.max(0, p.fallTimer);
-    const run = p.cfg.speed * Math.min(elapsed, 0.6);
+    const run = Math.min(p.cfg.speed * elapsed, 3); // stop at the far wall of the corner square
     const fp = game.fallPose;
     group.position.set(fp.x + fp.dir.x * run, p.y, fp.z + fp.dir.z * run);
     group.rotation.set(-elapsed * 2.5, yawOf(fp.dir), elapsed * 1.5);

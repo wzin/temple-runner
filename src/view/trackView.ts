@@ -86,18 +86,50 @@ function buildSegment(track: Track, seg: Segment): THREE.Group {
     return group;
   }
 
-  // Turn: run-in up to the corner, corner square, run-out after it.
+  // Turn: run-in corridor, a full 6x6 corner square, run-out corridor.
   const corner = track.cornerOf(seg);
   const isLeft = seg.turn === 'left';
-  // Inner wall stops TRACK_HALF_WIDTH before the corner so the bend is open on the inside.
   addStraightPiece(group, track, s0, corner - TRACK_HALF_WIDTH, 0, 0.1, { left: true, right: true });
-  addStraightPiece(group, track, corner - TRACK_HALF_WIDTH, corner, 0, 0, { left: !isLeft, right: isLeft });
-  // Corner square: open on both sides, so running straight past the corner drops off the edge.
-  addStraightPiece(group, track, corner, corner + TRACK_HALF_WIDTH, 0, 0, { left: false, right: false });
   addStraightPiece(group, track, corner + TRACK_HALF_WIDTH, s1, 0, 0.1, { left: true, right: true });
 
-  // No wall on the far side of the corner square: missing the turn means running off the edge.
-  const c = track.sample(corner - 1e-6);
+  const c = track.sample(corner - 1e-6);            // corner point, incoming heading
+  const dirIn = c.dir;
+  const dirOut = seg.outDir;
+  const rightIn = { x: -dirIn.z, z: dirIn.x };
+  const rightOut = { x: -dirOut.z, z: dirOut.x };
+  const outer = isLeft ? 1 : -1;                     // outer side of the bend (in both headings)
+  const lateral = TRACK_HALF_WIDTH + WALL_THICKNESS / 2;
+  const at = (dx: number, dz: number) => new THREE.Vector3(c.x + dx, 0, c.z + dz);
+
+  const square = new THREE.Mesh(new THREE.BoxGeometry(TRACK_HALF_WIDTH * 2, FLOOR_THICKNESS, TRACK_HALF_WIDTH * 2), floorMaterial);
+  square.position.copy(at(0, 0)); square.position.y = -FLOOR_THICKNESS / 2;
+  faceHeading(square, dirIn);
+  square.receiveShadow = true;
+  group.add(square);
+
+  // Outer wall, incoming heading: continues the run-in outer wall across the square.
+  const wallLen = TRACK_HALF_WIDTH * 2 + WALL_THICKNESS;
+  const outerIn = new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, wallLen), wallMaterial);
+  outerIn.position.copy(at(dirIn.x * (WALL_THICKNESS / 2) + outer * rightIn.x * lateral, dirIn.z * (WALL_THICKNESS / 2) + outer * rightIn.z * lateral));
+  outerIn.position.y = WALL_HEIGHT / 2;
+  faceHeading(outerIn, dirIn);
+  outerIn.castShadow = true;
+  group.add(outerIn);
+
+  // Far wall, outgoing heading: closes the square on the side the player runs toward.
+  const outerOut = new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, wallLen), wallMaterial);
+  outerOut.position.copy(at(-dirOut.x * (WALL_THICKNESS / 2) + outer * rightOut.x * lateral, -dirOut.z * (WALL_THICKNESS / 2) + outer * rightOut.z * lateral));
+  outerOut.position.y = WALL_HEIGHT / 2;
+  faceHeading(outerOut, dirOut);
+  outerOut.castShadow = true;
+  group.add(outerOut);
+
+  // Inner corner post fills the notch where the two inner walls meet.
+  const post = new THREE.Mesh(new THREE.BoxGeometry(WALL_THICKNESS, WALL_HEIGHT, WALL_THICKNESS), wallMaterial);
+  post.position.copy(at(-dirIn.x * lateral - outer * rightIn.x * lateral, -dirIn.z * lateral - outer * rightIn.z * lateral));
+  post.position.y = WALL_HEIGHT / 2;
+  faceHeading(post, dirIn);
+  group.add(post);
 
   // Corner marker and arrow pointing along the new heading.
   const marker = new THREE.Mesh(new THREE.BoxGeometry(3, 0.05, 3), accentMaterial);

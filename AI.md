@@ -48,6 +48,7 @@ World axes: start heading is `-z`, right is `+x`. Right vector of heading
 
 ## Rules of play (as implemented)
 
+- Controls: A/D and ←/→ are symmetric (hold = drift, tap = turn press); W/↑/Space jump; S/↓ slide.
 - Turn window: 6 m before the corner to 2 m after. Correct press inside it → turn.
   Wrong direction → fall. No press by the corner → run straight off the edge.
 - Jump: 11.5 m/s up, gravity 30 → 0.77 s airtime, 2.2 m apex. Slide: 0.7 s, height 0.9.

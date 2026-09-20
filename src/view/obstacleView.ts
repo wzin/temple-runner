@@ -27,6 +27,8 @@ export function initObstacleView(scene: THREE.Scene): void {
     const mesh = new THREE.InstancedMesh(geometry, material, MAX_PER_KIND);
     mesh.count = 0;
     mesh.castShadow = kind !== 'gap';
+    // The shared bounding sphere sits at the origin; culling would hide every instance once the camera moves away.
+    mesh.frustumCulled = false;
     meshes.set(kind, mesh);
     scene.add(mesh);
   }
