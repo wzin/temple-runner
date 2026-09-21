@@ -14,7 +14,7 @@ import { initClouds, updateClouds } from './view/cloudView';
 import { currentSkinId, setSkin } from './view/playerView';
 import { creditRun, flushRuns } from './ui/account';
 import { traitsOf } from './core/economy';
-import { startMusic, setMusicIntensity } from './audio';
+import { playCoin, startMusic, setMusicIntensity } from './audio';
 import { loadImage, onLoadProgress, progress } from './view/loading';
 import { initScoresScreen } from './ui/ScoresScreen';
 import { initFloorView, updateFloorView } from './view/floorView';
@@ -182,7 +182,7 @@ function handleEvents(events: GameEvent[]): void {
   for (const e of events) {
     if (e.type === 'turn') turnedOnce = true;
     switch (e.type) {
-      case 'coin': playSound('coin'); coinBurst(game); break;
+      case 'coin': playCoin(); coinBurst(game); break;
       case 'energyFull': playSound('powerup'); flashUntil = performance.now() + 2500; break;
       case 'ruby': playSound('powerup'); rubyFlashUntil = performance.now() + 2200; powerUpBurst(game, [1, 0.2, 0.35]); break;
       case 'jump': playSound('jump'); break;

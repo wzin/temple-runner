@@ -95,6 +95,19 @@ function playSingleSound(ctx: AudioContext, sound: Sound, delay: number): void {
   oscillator.stop(ctx.currentTime + delay + sound.duration + 0.01);
 }
 
+let coinStreak = 0; let lastCoinMs = 0;
+/** Coin chime that climbs a semitone per coin while you keep collecting (resets after a 0.8 s pause). */
+export function playCoin(): void {
+  if (muted) return;
+  const ctx = ensureAudioContext(); if (!ctx || !masterGain) return;
+  const now = performance.now();
+  coinStreak = now - lastCoinMs < 800 ? Math.min(coinStreak + 1, 16) : 0;
+  lastCoinMs = now;
+  const pitch = Math.pow(2, coinStreak / 12);
+  const parts = SOUNDS.coin; const list = Array.isArray(parts) ? parts : [parts];
+  list.forEach((s, i) => playSingleSound(ctx, { ...s, frequency: s.frequency * pitch }, i * 0.04));
+}
+
 export function setMuted(value: boolean): void {
   muted = value;
 }
