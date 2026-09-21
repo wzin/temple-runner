@@ -117,10 +117,18 @@ export class Track {
   }
 
   /** Main path plus speculative branch segments, for rendering. */
+  /** Everything to draw: main path, both pending branches, and the branch the player did not take (kept as a
+   *  visible "ghost" until the corner is well behind, so nothing pops out of existence in front of the runner). */
   allSegments(): Segment[] {
+    const live = this.liveSegments();
+    return this.ghost ? [...live, ...this.ghost.segments] : live;
+  }
+  /** Segments that matter for generation and collisions (no ghost). */
+  private liveSegments(): Segment[] {
     if (!this.branches) return this.segments;
     return [...this.segments, ...this.branches.left.segments, ...this.branches.right.segments];
   }
+  private ghost: { segments: Segment[]; corner: number } | null = null;
 
   /** The last segment, if it is a fork still waiting for the player's choice. */
   pendingFork(): Segment | null {
@@ -163,6 +171,8 @@ export class Track {
     seg.outDir = dir === 'left' ? turnLeft(seg.dir) : turnRight(seg.dir);
     seg.resolved = true;
     const chosen = this.branches?.[dir];
+    const abandoned = this.branches?.[other];
+    this.ghost = abandoned && abandoned.segments.length ? { segments: abandoned.segments, corner: this.cornerOf(seg) } : null;
     if (chosen) {
       for (const b of chosen.segments) { delete b.branch; this.segments.push(b); }
       this.nextS = chosen.nextS; this.nextStart = chosen.nextStart; this.nextDir = chosen.nextDir; this.straightsSinceTurn = chosen.straightsSinceTurn;
@@ -220,6 +230,7 @@ export class Track {
 
   dropBehind(s: number): Segment[] {
     this.behindS = s;
+    if (this.ghost && s > this.ghost.corner + 20) this.ghost = null;   // s is player.s − 40: the corner is 60 m back
     const removed: Segment[] = [];
     while (this.segments.length && this.segments[0].s0 + this.segments[0].length < s) removed.push(this.segments.shift()!);
     return removed;
@@ -255,7 +266,7 @@ export class Track {
   /** Rectangles of every laid segment (main path and branches), for self-intersection tests. */
   private occupied(exclude: Set<Segment>): Rect[] {
     const out: Rect[] = [];
-    for (const seg of this.allSegments()) {
+    for (const seg of this.liveSegments()) {
       if (exclude.has(seg)) continue;
       const runOut = seg.kind === 'turn' ? seg.length - seg.runIn : 0;
       if (seg.fork && !seg.resolved) {

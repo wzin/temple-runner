@@ -248,3 +248,25 @@ describe('dead branches', () => {
     throw new Error('no fork found in 400 seeds');
   });
 });
+
+describe('ghost branch', () => {
+  it('keeps the branch the player did not take visible until the corner is well behind', () => {
+    for (let seed = 1; seed < 400; seed++) {
+      const track = new Track(mulberry32(seed), { turnChance: 0.5, forkChance: 1 });
+      track.extendTo(600);
+      const fork = track.segments.find((s) => s.fork && !s.resolved);
+      if (!fork) continue;
+      const before = track.allSegments().filter((s) => s.branch === 'right').length;
+      if (before === 0) continue;
+      const corner = fork.s0 + fork.runIn;
+      track.resolveFork(fork, 'left');
+      expect(track.allSegments().filter((s) => s.branch === 'right').length).toBe(before);   // still drawn
+      track.dropBehind(corner - 10);
+      expect(track.allSegments().some((s) => s.branch === 'right')).toBe(true);
+      track.dropBehind(corner + 21);
+      expect(track.allSegments().some((s) => s.branch === 'right')).toBe(false);
+      return;
+    }
+    throw new Error('no fork found');
+  });
+});

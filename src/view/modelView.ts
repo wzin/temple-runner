@@ -350,8 +350,10 @@ function statuesAt(track: Track, seg: Segment): void {
   if (seg.fork) {
     const idol = pick('idol', hash(seg.id, 44));
     if (idol) {
-      const w = track.sampleSegment(seg, corner + TRACK_HALF_WIDTH + 0.25, 0);
-      place(idol, w.x, WALL_TOP, w.z, Math.atan2(-c.dir.x, -c.dir.z), 1);
+      // On top of the far wall of the T: from the corner centre along the incoming heading (sampleSegment would
+      // follow the chosen leg once the fork is resolved and drag the idol into the runner's path).
+      const d = TRACK_HALF_WIDTH + 0.25;
+      place(idol, c.x + c.dir.x * d, WALL_TOP, c.z + c.dir.z * d, Math.atan2(-c.dir.x, -c.dir.z), 1);
     }
   }
   // A pair of columns flanking the corner on the wall tops.
