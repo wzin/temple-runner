@@ -1,3 +1,2 @@
-Chasers by Quaternius (https://quaternius.com), CC0 1.0 Universal, via Poly Pizza:
-  wolf.glb       "Wolf" (Animated Animal Pack)         https://poly.pizza/m/P1gU3Qkr9r
-Trimmed to the clips the game plays (scripts/trim-glb.mjs).
+tiger.glb — "Geo Bengal Tiger" by Poly by Google, CC-BY 3.0 (https://creativecommons.org/licenses/by/3.0/), via Poly Pizza https://poly.pizza/m/5A3w06FXUup
+Static mesh; the gallop is animated procedurally in src/view/monkeyView.ts. Rewritten with scripts/trim-glb.mjs (textures embedded).

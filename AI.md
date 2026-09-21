@@ -108,7 +108,7 @@ Everything repeated is instanced and rebuilt from the live segments each frame (
 | `coinView.ts` | coin discs with embossed faces; big medallions |
 | `powerUpView.ts` | big model pickups over a halo: red horseshoe magnet (built), Kenney round shield, golden triple chevron for boost (built), Kenney jewel recast red = ruby gem. The boost blinks (aura + gap veils) in its last 1.5 s (`game.boostEnding`) |
 | `playerView.ts` | animated GLB character (Quaternius, CC0) with an AnimationMixer: Run speed-matched (`STRIDE` 7.5 m/cycle), Roll = slide (compressed to 0.7 s), HitRecieve = stumble, Death = fall, Idle when standing. No jump clip in the pack → `Man_Jump` from the Animated Men pack retargeted by bone name (quaternion tracks only). `SKINS` = files adventurer / adventurer-f / hooded (ids runner / runner-f / guardian kept for saved prefs); only the chosen file is downloaded (~1.2–1.5 MB). Normalised to 1.75 m, feet at 0. Shield aura, boost ghosting, dim lamp kept |
-| `monkeyView.ts` | the chasers: three tigers (the Quaternius wolf model in orange coats, same size), animated GLBs `9 → 2.5 m` behind as proximity rises, snapping (Attack/Punch) above 80, hidden while invulnerable |
+| `monkeyView.ts` | the chasers: three Bengal tigers (Poly by Google "Geo Bengal Tiger", CC-BY 3.0, static mesh; procedural gallop bob/rock/lunge, 1.3 m) `9 → 2.5 m` behind as proximity rises, snapping (Attack/Punch) above 80, hidden while invulnerable |
 | `torchView.ts` | instanced torches: bronze bowls, shader flames, soot decals |
 | `flameMaterial.ts` | procedural fire shader for instanced quads (instancing-aware, `tickFlames(t)`): domain-warped 5-octave fbm, three overlapping tongues, cavities, rising sparks; opts scale/speed/width/glow. Used by torches and bonfires |
 | `particles.ts` | pooled additive points: embers over fire, coin sparks, hit sparks, power-up bursts, landing dust |
@@ -221,7 +221,7 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
-0.14.2 pit tolerance + density knob ·
+0.14.3 real tigers · 0.14.2 pit tolerance + density knob ·
 0.14.1 freeze fix (boxed-in fresh fork), density rework, far content culled ·
 0.14.0 plank-bridge chasms, spike gates, an obstacle in every segment, 70% forks, stacking power-ups, straight-on missed corners, FPS meter, coin pitch loop ·
 0.13.0 ten runners with traits, procedural music, mosaics along the path, 50% forks ·
