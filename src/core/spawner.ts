@@ -1,3 +1,4 @@
+import { densityScale } from './difficulty';
 import { POWERUP_KINDS, PowerUp } from './powerups';
 import { Rng, chance, int, pick } from './rng';
 import { TRACK_HALF_WIDTH, Track } from './track';
@@ -121,7 +122,7 @@ export class Spawner {
     const clearOfTurns = clearFor(len);
     const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
     // Never an empty stretch: 14 m after the last obstacle (about the minimum spacing) the next clear spot gets one for sure.
-    const overdue = s - this.lastObstacleEnd > 14;
+    const overdue = s - this.lastObstacleEnd > 14 * densityScale();
     if (canObstacle && (overdue || chance(this.rng, t.obstacleChance))) { this.layPattern(pattern, s, t.speed, singleKind); return; }
     if (s >= o.firstRubyAt && chance(this.rng, o.chunk / (o.rubyEvery * this.rubyScale)) && !this.nearAnyTurn(s, 4) && !this.obstacles.some((ob) => s > ob.s0 - 3 && s < ob.s1 + 3)) { this.powerUps.push({ id: this.nextId++, kind: 'ruby', s, x: pick(this.rng, LANES), y: 1.0, taken: false }); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }

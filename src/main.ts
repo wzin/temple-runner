@@ -14,6 +14,7 @@ import { initClouds, updateClouds } from './view/cloudView';
 import { currentSkinId, setSkin } from './view/playerView';
 import { creditRun, flushRuns } from './ui/account';
 import { traitsOf } from './core/economy';
+import { setObstacleDensity } from './core/difficulty';
 import { playCoin, startMusic, setMusicIntensity } from './audio';
 import { loadImage, onLoadProgress, progress } from './view/loading';
 import { initScoresScreen } from './ui/ScoresScreen';
@@ -342,5 +343,9 @@ function quitToMenu(): void {
   gameState.screen = 'menu';
   setTouchControlsVisible(false);
 }
+
+// Tuning hook: ?density=40 (0–100) sets how busy the track is for this page load.
+const densityParam = Number(new URLSearchParams(location.search).get('density'));
+if (Number.isFinite(densityParam) && densityParam > 0) setObstacleDensity(densityParam);
 
 document.addEventListener('DOMContentLoaded', init);

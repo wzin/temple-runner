@@ -314,3 +314,31 @@ describe('character traits', () => {
     expect(g.active!.timer).toBeGreaterThan(5.9);   // 5 s × 1.2 minus a tick
   });
 });
+
+describe('pit tolerance', () => {
+  it('standing on the very edge of a gap still leaves 2 m to jump, and only the body centre counts over a chasm', () => {
+    const g = new Game(8); const sim = new Sim(g);
+    g.spawner.obstacles.length = 0; g.spawner.coins.length = 0; g.spawner.powerUps.length = 0;
+    const gap = { id: 700, kind: 'gap' as const, s0: g.player.s + 6, s1: g.player.s + 10, x0: -3, x1: 3, y0: -10, y1: 0, hit: false, passed: false };
+    g.spawner.obstacles.push(gap);
+    // Run to just past the edge, still on the ground: alive.
+    sim.run(() => g.player.s > gap.s0 + 1.2);
+    expect(g.player.down).toBe(false);
+    // A jump started there clears it.
+    sim.tick({ drift: 0, jump: true, slide: false });
+    sim.run(() => g.player.s > gap.s1 + 1);
+    expect(g.player.down).toBe(false);
+    // Chasm pieces beside a plank at x = 0: the runner's shoulders (±0.4) may overhang the planks' 0.9 m edge at x = 0.7.
+    const s = g.player.s;
+    g.spawner.obstacles.push({ id: 701, kind: 'chasm', s0: s + 6, s1: s + 12, x0: 0.9, x1: 3, y0: -10, y1: 0, hit: false, passed: false, plankX: 0 });
+    g.player.x = 0.7;
+    sim.run(() => g.player.s > s + 14);
+    expect(g.player.down).toBe(false);
+    // Well off the planks it is the end.
+    const s2 = g.player.s;
+    g.spawner.obstacles.push({ id: 702, kind: 'chasm', s0: s2 + 6, s1: s2 + 12, x0: 0.9, x1: 3, y0: -10, y1: 0, hit: false, passed: false, plankX: 0 });
+    g.player.x = 1.5;
+    sim.run(() => g.player.s > s2 + 14 || g.over);
+    expect(g.player.down).toBe(true);
+  });
+});
