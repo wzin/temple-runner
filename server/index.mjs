@@ -1,6 +1,7 @@
 // Temple Runner API. Node 22+, no dependencies: node:sqlite for storage.
 //   GET  /api/health              -> { ok: true }
-//   GET  /api/scores?limit=10     -> { scores: [{ name, score, coins, distance, created_at }] }
+//   GET  /api/scores?limit=10     -> { scores: [{ name, score, coins, distance, created_at, registered }] }
+//   GET  /api/players/<name>/scores -> { name, scores } runs of a registered account
 //   POST /api/scores              -> { name, score, coins, distance } -> { id, rank, top: [...] }
 //   GET  /api/me                  -> player view (creates a guest + session cookie when there is none)
 //   POST /api/progress            -> { coins, distance, rubies } credits a finished run -> view
@@ -61,9 +62,11 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS registrations (ip TEXT NOT NULL, created_at INTEGER NOT NULL);
 `);
 try { db.exec('ALTER TABLE players ADD COLUMN rubies_bonus INTEGER NOT NULL DEFAULT 0'); } catch { /* already there */ }
+try { db.exec('ALTER TABLE scores ADD COLUMN player_id INTEGER'); } catch { /* already there */ }
 const q = {
-  insertScore: db.prepare('INSERT INTO scores (name, score, coins, distance) VALUES (?, ?, ?, ?)'),
-  top: db.prepare('SELECT id, name, score, coins, distance, created_at FROM scores ORDER BY score DESC, id ASC LIMIT ?'),
+  insertScore: db.prepare('INSERT INTO scores (name, score, coins, distance, player_id) VALUES (?, ?, ?, ?, ?)'),
+  top: db.prepare("SELECT s.id, s.name, s.score, s.coins, s.distance, s.created_at, (p.kind = 'user') AS registered FROM scores s LEFT JOIN players p ON p.id = s.player_id ORDER BY s.score DESC, s.id ASC LIMIT ?"),
+  runsOf: db.prepare('SELECT s.id, s.name, s.score, s.coins, s.distance, s.created_at, 1 AS registered FROM scores s JOIN players p ON p.id = s.player_id WHERE p.username = ? COLLATE NOCASE ORDER BY s.score DESC, s.id ASC LIMIT 200'),
   rankOf: db.prepare('SELECT COUNT(*) AS n FROM scores WHERE score > ? OR (score = ? AND id < ?)'),
   newPlayer: db.prepare('INSERT INTO players (ip) VALUES (?)'),
   player: db.prepare('SELECT * FROM players WHERE id = ?'),
@@ -145,18 +148,24 @@ const server = createServer(async (req, res) => {
       if (now - (lastPost.get(ip) || 0) < POST_COOLDOWN_MS) return json(res, 429, { error: 'slow down' });
       const body = await readJson(req);
       if (!body) return json(res, 400, { error: 'invalid json' });
-      const name = String(body.name ?? '').trim();
+      // A registered player's runs always carry the account name (and link to the account).
+      const ctx = currentPlayer(req);
+      const registered = ctx.player.kind === 'user';
+      const name = registered ? ctx.player.username : String(body.name ?? '').trim();
       const score = Number(body.score); const coins = Number(body.coins); const distance = Number(body.distance);
       if (!NAME_RE.test(name)) return json(res, 400, { error: 'name: 1-12 letters, digits, space, _ . -' });
       if (![score, coins, distance].every((v) => Number.isInteger(v) && v >= 0 && v < 1e7)) return json(res, 400, { error: 'bad numbers' });
       // Score is derived from distance and coins in the game; reject anything that does not add up.
       if (score !== distance + coins * 10) return json(res, 400, { error: 'score mismatch' });
       lastPost.set(ip, now);
-      const { lastInsertRowid } = q.insertScore.run(name, score, coins, distance);
+      const { lastInsertRowid } = q.insertScore.run(name, score, coins, distance, registered ? ctx.player.id : null);
       const rank = q.rankOf.get(score, score, Number(lastInsertRowid)).n + 1;
       console.log(`score #${lastInsertRowid} ${name} ${score} (rank ${rank}) from ${ip}`);
-      return json(res, 201, { id: Number(lastInsertRowid), rank, top: q.top.all(10) });
+      return json(res, 201, { id: Number(lastInsertRowid), rank, name, top: q.top.all(10) }, ctx.cookie ? { 'Set-Cookie': ctx.cookie } : {});
     }
+
+    const runs = req.method === 'GET' && path.match(/^\/api\/players\/([A-Za-z0-9_]{3,12})\/scores$/);
+    if (runs) return json(res, 200, { name: runs[1], scores: q.runsOf.all(runs[1]) });
 
     // ---- players -------------------------------------------------------------------------------
     if (req.method === 'GET' && path === '/api/me') return respondView(res, currentPlayer(req));

@@ -81,6 +81,8 @@ export class Track {
   branches: Record<TurnDir, GenState> | null = null;
   /** Last `dropBehind` position: the player runs about KEEP_BEHIND ahead of it (the track's only clue where they are). */
   private behindS = -Infinity;
+  /** A boxed-in branch may turn the fork into a plain corner only when the corner is at least this far ahead (beyond the fog). */
+  collapseDistance = 160;
   /** Branches that ran out of room; they stop growing instead of collapsing a fork the player is already approaching. */
   private deadBranches = new Set<TurnDir>();
   private nextId = 0;
@@ -145,9 +147,18 @@ export class Track {
     return added;
   }
 
-  /** Commit a fork to one branch so generation can continue behind it. */
-  resolveFork(seg: Segment, dir: TurnDir): void {
-    if (!seg.fork || seg.resolved) return;
+  /** The side of the pending fork that stopped growing (boxed in), if any. */
+  deadBranch(): TurnDir | null {
+    if (!this.branches) return null;
+    for (const d of ['left', 'right'] as const) if (this.deadBranches.has(d)) return d;
+    return null;
+  }
+
+  /** Resolve the fork towards `dir`; a dead (boxed-in) branch is never taken — the other side is used. Returns the side taken. */
+  resolveFork(seg: Segment, dir: TurnDir): TurnDir {
+    if (!seg.fork || seg.resolved) return seg.turn ?? dir;
+    const other: TurnDir = dir === 'left' ? 'right' : 'left';
+    if (this.deadBranches.has(dir) && !this.deadBranches.has(other)) dir = other;
     seg.turn = dir;
     seg.outDir = dir === 'left' ? turnLeft(seg.dir) : turnRight(seg.dir);
     seg.resolved = true;
@@ -162,6 +173,7 @@ export class Track {
     }
     this.branches = null;
     this.deadBranches.clear();
+    return dir;
   }
 
   /** Windows on the main path; with `includeBranches` also those on speculative branches (for spawning). */
@@ -386,7 +398,7 @@ export class Track {
     if (!fork) return;
     const playerS = this.behindS + 40;
     const other: TurnDir = dir === 'left' ? 'right' : 'left';
-    if (this.cornerOf(fork) - playerS > 120 && !this.deadBranches.has(other)) this.collapseFork(other);
+    if (this.cornerOf(fork) - playerS > this.collapseDistance && !this.deadBranches.has(other)) this.collapseFork(other);
     else this.deadBranches.add(dir);
   }
 

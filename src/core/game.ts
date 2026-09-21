@@ -151,6 +151,8 @@ export class Game {
     this.track.turnEarly = d.reactionTime * d.speed * boost;
     this.track.turnLate = Math.max(3, 0.35 * d.speed * boost);   // the runner follows the bend visually; a press up to ~350 ms late still counts
     this.track.turnLead = 1.0 * d.speed * boost;                   // a correct press a full second early is fine
+    // A fork may only collapse into a plain corner well beyond the fog (46% of the lookahead), never in view.
+    this.track.collapseDistance = Math.max(160, this.lookahead * 0.46 + 60);
   }
 
   /** Spend a full energy meter on a boost. Returns true if it fired. */
@@ -201,14 +203,14 @@ export class Game {
 
   private handleTurns(nowMs: number, events: GameEvent[]): void {
     const p = this.player;
-    const pressed = this.buffer.peek(nowMs);
+    let pressed = this.buffer.peek(nowMs);
     // A window we ran through without ever turning: fork intent from earlier still counts, otherwise fall.
     const missed = this.track.turnWindows().find((tw) => !tw.segment.turnDone && p.s > tw.to);
     if (missed) {
       const seg = missed.segment;
       if (seg.fork && !seg.resolved && this.forkIntent) {
-        this.track.resolveFork(seg, this.forkIntent);
-        seg.turnDone = true; events.push({ type: 'turn', dir: this.forkIntent }); this.lastTurn = { dir: this.forkIntent, age: 0 }; this.forkIntent = null;
+        const taken = this.track.resolveFork(seg, this.forkIntent);
+        seg.turnDone = true; events.push({ type: 'turn', dir: taken }); this.lastTurn = { dir: taken, age: 0 }; this.forkIntent = null;
         return;
       }
       seg.turnDone = true;
@@ -236,7 +238,7 @@ export class Game {
         // Early at a fork: remember the choice but keep both branches until the reaction zone,
         // so nothing despawns before the player has actually committed.
         if (!inZone) { this.forkIntent = pressed; return; }
-        this.track.resolveFork(seg, pressed);
+        pressed = this.track.resolveFork(seg, pressed);   // a dead branch redirects to the open one
       }
       if (pressed === seg.turn) { seg.turnDone = true; this.forkIntent = null; events.push({ type: 'turn', dir: pressed }); this.lastTurn = { dir: pressed, age: 0 }; return; }
       // Wrong direction is ignored: the same keys drift the runner sideways, so a dodge right before a
@@ -245,8 +247,8 @@ export class Game {
     }
     if (seg.fork && !seg.resolved && this.forkIntent && p.s > w.corner) {
       // Committed early, no later press: take the remembered branch at the corner.
-      this.track.resolveFork(seg, this.forkIntent);
-      seg.turnDone = true; events.push({ type: 'turn', dir: this.forkIntent }); this.lastTurn = { dir: this.forkIntent, age: 0 }; this.forkIntent = null;
+      const taken = this.track.resolveFork(seg, this.forkIntent);
+      seg.turnDone = true; events.push({ type: 'turn', dir: taken }); this.lastTurn = { dir: taken, age: 0 }; this.forkIntent = null;
       return;
     }
     if (p.s > w.to) {

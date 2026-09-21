@@ -6,8 +6,8 @@
  * ("Failed to fetch" is what Chromium reports when the connection itself drops — a deploy in
  * progress, a proxy restart, a phone changing networks — none of which the API can see.)
  */
-export interface ScoreRow { id?: number; name: string; score: number; coins: number; distance: number; created_at?: string }
-export interface SubmitResult { id: number; rank: number; top: ScoreRow[] }
+export interface ScoreRow { id?: number; name: string; score: number; coins: number; distance: number; created_at?: string; registered?: number | boolean }
+export interface SubmitResult { id: number; rank: number; name: string; top: ScoreRow[] }
 export interface ScoreEntry { name: string; score: number; coins: number; distance: number }
 
 const TIMEOUT_MS = 8000;
@@ -58,6 +58,10 @@ async function call<T>(path: string, init?: RequestInit, attempts = 3): Promise<
 
 export function fetchTop(limit = 10): Promise<ScoreRow[]> {   // the API caps at 200
   return call<{ scores: ScoreRow[] }>(`/api/scores?limit=${limit}`).then((r) => r.scores);
+}
+
+export function fetchPlayerRuns(name: string): Promise<ScoreRow[]> {
+  return call<{ scores: ScoreRow[] }>(`/api/players/${encodeURIComponent(name)}/scores`).then((r) => r.scores);
 }
 
 export function submitScore(entry: ScoreEntry): Promise<SubmitResult> {

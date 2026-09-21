@@ -64,8 +64,10 @@ run-in + 90° corner + 10 m run-out; the corner square is 6×6 m.
 corridors closer than ~11 m; the chooser ranks free candidates by reachable depth (`reach`, search depth `LOOK = 5`),
 then open straight distance ahead (`openness`), then the wanted shape. **Forks** (`fork: true`, from 150 m, 35% of
 turns): both continuations are generated (`branches`, `BRANCH_AHEAD = 100`, extended to the lookahead) and rendered
-via `allSegments()`; `resolveFork(seg, dir)` adopts the chosen branch. If a branch is boxed in it stops growing, or,
-when the fork is >120 m ahead of the player, the fork collapses into a plain corner (`collapseFork`). Segments
+via `allSegments()`; `resolveFork(seg, dir)` adopts the chosen branch. If a branch is boxed in it stops growing (`deadBranch()`), or, when the corner is beyond
+`collapseDistance` (set by the game to `max(160, 0.46·lookahead + 60)`, i.e. behind the fog), the fork collapses into a plain corner
+(`collapseFork`). `resolveFork` never takes a dead branch: a press towards it is redirected to the open side and the side taken is
+returned (a tester once saw a branch vanish in view, pressed towards it and died at the corner). Segments
 behind `player.s − 40` are dropped. Stress tests simulate 3 km runs with drop-behind and fork resolution.
 
 **Turn windows** (`TurnWindow {from, strictFrom, corner, to}`): `turnLead = 1.0 s × speed` before the corner (a correct
@@ -163,7 +165,10 @@ and centred (dark bars), so a desktop does not render a wide forest for nothing;
 
 Node 22 `node:sqlite`, DB at `/data/scores.db` (volume `scores_data`; dev uses `scores_dev`). `GET /api/health`,
 `GET /api/scores?limit=`, `POST /api/scores {name, score, coins, distance}`: name `^[A-Za-z0-9 _.-]{1,12}$`, integers,
-**score must equal distance + 10·coins** (the game keeps them consistent even on the final tick), 3 s per-IP cooldown.
+**score must equal distance + 10·coins** (the game keeps them consistent even on the final tick), 3 s per-IP cooldown. A registered
+session's run is stored under the account name whatever the client sent (`scores.player_id`); rows carry `registered`, and
+`GET /api/players/<name>/scores` lists an account's runs. Registered players skip the name prompt at game over (auto-save); ★ names
+on every board open that player's runs (`ScoresScreen.openPlayer`).
 Caddy proxies `/api/*` to `api:3002`; Vite dev proxies to `api-dev` via `API_URL`. Client (`ui/leaderboard.ts`): 8 s timeout,
 3 attempts with back-off (3.2 s after a 429), and an **offline queue** in localStorage: a score that still fails is kept and
 flushed when the menu or game-over board next opens (a tester saw "Failed to fetch" once — a dropped connection, likely a

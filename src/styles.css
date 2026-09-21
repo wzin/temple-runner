@@ -389,3 +389,7 @@ body.logged-in #main-menu h1 { text-shadow: 0 0 24px rgba(255,200,80,0.6), 0 0 4
 .boot-bar span { display: block; height: 100%; width: 0; background: #e94560; transition: width 0.2s; }
 #play-btn.loading { --p: 0%; background: linear-gradient(90deg, #e94560 var(--p), rgba(255,255,255,0.1) var(--p)); color: #ddd; cursor: progress; transform: none; box-shadow: none; }
 #play-btn:disabled { pointer-events: none; }
+
+.player-link { cursor: pointer; pointer-events: auto; color: #ffc850; text-decoration: underline dotted; }
+.player-link::before { content: "★ "; font-size: 0.7em; }
+.player-link:hover { color: #fff; }

@@ -1,6 +1,8 @@
 import { gameState } from '../gameState';
 import { playSound } from '../audio';
 import { NAME_PATTERN, ScoreRow, dequeueScore, fetchTop, flushQueue, queueScore, submitScore } from './leaderboard';
+import { apiOnline, player } from './account';
+import { decorateName } from './ScoresScreen';
 
 /** Game-over screen with arcade-style name entry and the top-10 board. */
 
@@ -72,6 +74,14 @@ export function showGameOver(result: { score: number; coins: number; distance: n
     setTimeout(() => nickInput?.focus(), 50);
   }
   if (submitButton) submitButton.disabled = false;
+  // A registered player needs no name entry: the run is saved under the account name straight away.
+  const me = player();
+  if (apiOnline() && !me.guest && me.username) {
+    entryBox?.classList.add('hidden');
+    if (nickInput) nickInput.value = me.username;
+    void submit();
+    return;
+  }
   // Scores that failed to send earlier go first, then the board.
   void flushQueue().catch(() => 0).then(() => fetchTop(10)).then((rows) => { if (!submitted) renderBoard(rows, null); }).catch(() => { if (boardStatus) boardStatus.textContent = 'Leaderboard offline'; });
 }
@@ -115,7 +125,7 @@ function renderBoard(rows: ScoreRow[], highlightId: number | null): void {
   rows.forEach((r) => {
     const li = document.createElement('li');
     if (highlightId !== null && r.id === highlightId) li.classList.add('me');
-    const name = document.createElement('span'); name.className = 'lb-name'; name.textContent = r.name;
+    const name = document.createElement('span'); name.className = 'lb-name'; name.textContent = r.name; decorateName(name, r);
     const score = document.createElement('span'); score.className = 'lb-score'; score.textContent = String(r.score);
     li.append(name, score);
     boardList!.appendChild(li);

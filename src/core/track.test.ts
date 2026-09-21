@@ -226,3 +226,25 @@ describe('the track never runs into itself', () => {
     }
   });
 });
+
+describe('dead branches', () => {
+  it('never resolves a fork into a boxed-in branch and only collapses forks beyond the fog', () => {
+    // Find a seed whose first fork is pending, mark one side dead by hand and choose it.
+    for (let seed = 1; seed < 400; seed++) {
+      const track = new Track(mulberry32(seed), { turnChance: 0.5, forkChance: 1 });
+      track.extendTo(600);
+      const fork = track.segments.find((s) => s.fork && !s.resolved);
+      if (!fork) continue;
+      const priv = track as unknown as { deadBranches: Set<'left' | 'right'> };
+      expect(track.collapseDistance).toBeGreaterThanOrEqual(160);
+      priv.deadBranches.add('right');
+      expect(track.deadBranch()).toBe('right');
+      const taken = track.resolveFork(fork, 'right');
+      expect(taken).toBe('left');
+      expect(fork.turn).toBe('left');
+      expect(track.deadBranch()).toBeNull();
+      return;
+    }
+    throw new Error('no fork found in 400 seeds');
+  });
+});

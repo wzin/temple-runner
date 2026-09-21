@@ -3,6 +3,7 @@ import { SKINS, coinsToNextRuby, normalizeSkinId } from '../core/economy';
 import { fetchTop, flushQueue } from './leaderboard';
 import { AccountError, isUnlocked, login, logout, onPlayerChange, player, refreshPlayer, register, unlockSkin, apiOnline } from './account';
 import { initSkinPreview, setPreviewLocked, showSkin, startPreview, stopPreview } from './skinPreview';
+import { decorateName } from './ScoresScreen';
 
 /**
  * Lobby: play button, character carousel (← → or swipe; the model idles and turns), rubies, account.
@@ -167,7 +168,7 @@ async function refreshMenuBoard(): Promise<void> {
     list.innerHTML = '';
     for (const r of rows) {
       const li = document.createElement('li');
-      const name = document.createElement('span'); name.className = 'lb-name'; name.textContent = r.name;
+      const name = document.createElement('span'); name.className = 'lb-name'; name.textContent = r.name; decorateName(name, r);
       const score = document.createElement('span'); score.className = 'lb-score'; score.textContent = String(r.score);
       li.append(name, score);
       list.appendChild(li);
