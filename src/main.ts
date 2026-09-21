@@ -11,7 +11,10 @@ import { initPowerUpView, updatePowerUpView } from './view/powerUpView';
 import { initMonkeyView, updateMonkeyView } from './view/monkeyView';
 import { coinBurst, hitSparks, initParticles, landingDust, powerUpBurst, updateParticles } from './view/particles';
 import { initClouds, updateClouds } from './view/cloudView';
-import { SKINS, currentSkinId, setSkin } from './view/playerView';
+import { currentSkinId, setSkin } from './view/playerView';
+import { creditRun, flushRuns } from './ui/account';
+import { loadImage, onLoadProgress, progress } from './view/loading';
+import { initScoresScreen } from './ui/ScoresScreen';
 import { initFloorView, updateFloorView } from './view/floorView';
 import { initGround, updateGround } from './view/groundView';
 import { initCliffs, updateCliffs } from './view/cliffView';
@@ -23,7 +26,7 @@ import { tickFlames } from './view/flameMaterial';
 import { initSky, updateSky } from './view/skyView';
 import { initModels, updateModels } from './view/modelView';
 import { activeBiome } from './view/biome';
-import { loadRealTextures, onAssetProgress, releaseAssets } from './view/textures';
+import { loadRealTextures, releaseAssets } from './view/textures';
 import { endFrame, initDomInput, onTurn, pollInput, setTouchControlsVisible, wasBoostPressed, wasPausePressed } from './ui/domInput';
 import { initMainMenu, showMainMenu, hideMainMenu } from './ui/MainMenu';
 import { initHUD, updateHUD, showHUD, hideHUD, showHighScoreBanner, hideHighScoreBanner } from './ui/HUD';
@@ -83,15 +86,16 @@ function init(): void {
     if (gameState.screen === 'playing') game.pressTurn(dir, nowMs);
   });
   window.addEventListener('keydown', (e) => {
-    if (e.repeat || isEnteringName()) return;
+    if (e.repeat || isEnteringName() || e.target instanceof HTMLInputElement || !document.getElementById('account-modal')?.classList.contains('hidden') || !document.getElementById('scores-screen')?.classList.contains('hidden')) return;
     if ((e.code === 'Space' || e.code === 'Enter') && (gameState.screen === 'gameover' || gameState.screen === 'menu')) {
       e.preventDefault();
       startGame();
     }
   });
 
-  initMainMenu(startGame);
-  initSkinPicker();
+  initMainMenu(startGame, (id) => setSkin(id), currentSkinId());
+  initScoresScreen();
+  void flushRuns().catch(() => undefined);
   initHUD(pauseGame);
   initPauseMenu(resumeGame, restartGame, quitToMenu);
   initGameOver(restartGame, quitToMenu);
@@ -108,13 +112,24 @@ function init(): void {
   requestAnimationFrame(loop);
   // Everything that is not the immediate world starts loading after the first frame, a few files at a time.
   requestAnimationFrame(() => releaseAssets());
-  const loading = document.getElementById('loading'); const count = document.getElementById('loading-count'); const fill = document.getElementById('loading-fill');
-  onAssetProgress((d, total) => {
-    if (!loading) return;
-    const finishedAll = d >= total;
-    loading.classList.toggle('hidden', finishedAll);
-    if (count) count.textContent = `${d}/${total}`;
-    if (fill) fill.style.width = `${total ? Math.round((d / total) * 100) : 100}%`;
+  // Stage 1: the boot overlay stays until the lobby's own assets are in (backdrop + previewed character).
+  void loadImage('/art/menu-bg.webp');
+  const boot = document.getElementById('boot'); const bootFill = document.getElementById('boot-fill');
+  const bootTimeout = setTimeout(() => boot?.classList.add('hidden'), 10_000);
+  // Stage 2: the PLAY button is the progress bar for everything a run needs.
+  const play = document.getElementById('play-btn') as HTMLButtonElement | null;
+  onLoadProgress(() => {
+    const lobby = progress('lobby');
+    if (bootFill) bootFill.style.width = `${Math.round(lobby.fraction * 100)}%`;
+    if (lobby.complete && boot && !boot.classList.contains('hidden')) { boot.classList.add('hidden'); clearTimeout(bootTimeout); }
+    const g = progress('game');
+    const pct = Math.round(g.fraction * 100);
+    if (play) {
+      play.disabled = !g.complete;
+      play.classList.toggle('loading', !g.complete);
+      play.style.setProperty('--p', `${pct}%`);
+      play.textContent = g.complete ? 'PLAY' : `LOADING ${pct}%`;
+    }
   });
 }
 
@@ -166,6 +181,7 @@ function handleEvents(events: GameEvent[]): void {
     switch (e.type) {
       case 'coin': playSound('coin'); coinBurst(game); break;
       case 'energyFull': playSound('powerup'); flashUntil = performance.now() + 2500; break;
+      case 'ruby': playSound('powerup'); rubyFlashUntil = performance.now() + 2200; powerUpBurst(game, [1, 0.2, 0.35]); break;
       case 'jump': playSound('jump'); break;
       case 'slide': playSound('slide'); break;
       case 'land': playSound('land'); playerLanded(); cameraLand(); landingDust(game); break;
@@ -183,7 +199,7 @@ function handleEvents(events: GameEvent[]): void {
 const isTouch = () => window.matchMedia?.('(pointer: coarse)').matches || 'ontouchstart' in window;
 
 /** Start-of-run controls reminder, then a corner coach mark until the first turn is taken. */
-let flashUntil = 0;
+let flashUntil = 0; let rubyFlashUntil = 0;
 function updateHint(now: number): void {
   const el = document.getElementById('hint');
   if (!el) return;
@@ -191,7 +207,9 @@ function updateHint(now: number): void {
   let text = '';
   const w = game.track.turnWindowAt(game.player.s);
   const corner = game.track.turnWindows().find((tw) => !tw.segment.turnDone && tw.corner > game.player.s && tw.corner - game.player.s < 30);
-  if (now < flashUntil) {
+  if (now < rubyFlashUntil) {
+    text = '◆ RUBY FOUND! +1 AT THE END OF THE RUN';
+  } else if (now < flashUntil) {
     text = touch ? 'BOOST READY · TAP THE BAR OR ⚡' : 'BOOST READY · PRESS E';
   } else if (!turnedOnce && (w || corner)) {
     text = touch ? 'SWIPE ◄ ► TO TURN' : 'PRESS ← → TO TURN';
@@ -200,23 +218,6 @@ function updateHint(now: number): void {
   }
   if (text) { if (el.textContent !== text) el.textContent = text; el.classList.remove('hidden'); }
   else el.classList.add('hidden');
-}
-
-/** Skin buttons on the main menu. */
-function initSkinPicker(): void {
-  const box = document.getElementById('skin-picker');
-  if (!box) return;
-  const render = () => {
-    box.innerHTML = '';
-    for (const sk of SKINS) {
-      const b = document.createElement('button');
-      b.className = 'skin-btn' + (sk.id === currentSkinId() ? ' active' : '');
-      b.textContent = sk.name;
-      b.addEventListener('click', () => { setSkin(sk.id); playSound('click'); render(); });
-      box.appendChild(b);
-    }
-  };
-  render();
 }
 
 function syncState(): void {
@@ -249,6 +250,7 @@ function syncViews(now: number): void {
 }
 
 function startGame(): void {
+  if (!progress('game').complete) return;   // every texture and model must be in before a run starts
   hideMainMenu();
   hidePauseMenu();
   hideGameOver();
@@ -277,6 +279,7 @@ function endRun(): void {
     saveHighScore(gameState.highScore);
   }
   hideHUD();
+  void creditRun(game.coins, Math.floor(game.distance), game.rubiesFound).catch(() => undefined);   // rubies: 1 per 10 000 coins across runs
   showGameOver({ score: game.score, coins: game.coins, distance: Math.floor(game.distance) });
 }
 

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { Game } from '../core/game';
+import { viewportSize } from './viewport';
 import { smooth } from './util';
 
 export let camera: THREE.PerspectiveCamera;
@@ -25,9 +26,11 @@ export function cameraLand(): void { dip = 0.45; }
 export function cameraHit(): void { shake = 0.25; }
 
 export function initCamera(): void {
-  camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 400);
+  const size = viewportSize();
+  camera = new THREE.PerspectiveCamera(60, size.w / size.h, 0.1, 400);
   window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const s = viewportSize();
+    camera.aspect = s.w / s.h;
     camera.updateProjectionMatrix();
   });
 }

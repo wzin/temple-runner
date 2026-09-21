@@ -56,7 +56,7 @@ async function call<T>(path: string, init?: RequestInit, attempts = 3): Promise<
   throw e;
 }
 
-export function fetchTop(limit = 10): Promise<ScoreRow[]> {
+export function fetchTop(limit = 10): Promise<ScoreRow[]> {   // the API caps at 200
   return call<{ scores: ScoreRow[] }>(`/api/scores?limit=${limit}`).then((r) => r.scores);
 }
 

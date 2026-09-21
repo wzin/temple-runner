@@ -101,3 +101,18 @@ describe('Spawner', () => {
     }
   });
 });
+
+describe('rubies', () => {
+  it('lays a ruby gem roughly every 2–3 minutes of running (about one per 2.6 km), never right at a corner', () => {
+    let rubies = 0; let metres = 0;
+    for (let seed = 100; seed < 112; seed++) {
+      const { sp, track } = build(seed);
+      const far = track.end();
+      metres += far;
+      for (const p of sp.powerUps) if (p.kind === 'ruby') { rubies++; expect(p.s).toBeGreaterThanOrEqual(500); }
+    }
+    const perKm = rubies / (metres / 1000);
+    expect(perKm).toBeGreaterThan(0.15);
+    expect(perKm).toBeLessThan(0.9);
+  });
+});

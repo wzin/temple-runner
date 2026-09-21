@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Game } from '../core/game';
 import { Segment, TRACK_HALF_WIDTH, Track } from '../core/track';
 import { GROUND_Y } from './groundView';
+import { loadGLB } from './loading';
 
 /**
  * Real low-poly models placed as instanced meshes:
@@ -171,17 +171,16 @@ function register(scene: THREE.Scene, def: ModelDef, root: THREE.Object3D, meshe
 }
 
 export function initModels(scene: THREE.Scene): void {
-  const loader = new GLTFLoader();
   for (const def of MODELS.filter((d) => !d.lib)) {
-    loader.load(`/models/kenney/${def.name}.glb`, (gltf) => {
+    loadGLB(`/models/kenney/${def.name}.glb`).then((gltf) => {
       const meshes: THREE.Mesh[] = [];
       gltf.scene.traverse((o) => { if (o instanceof THREE.Mesh) meshes.push(o); });
       register(scene, def, gltf.scene, meshes);
-    }, undefined, () => { /* model missing: nothing placed */ });
+    }).catch(() => { /* model missing: nothing placed */ });
   }
   // Library GLBs: one file, many named pieces.
   for (const lib of new Set(MODELS.filter((d) => d.lib).map((d) => d.lib!))) {
-    loader.load(`/models/${lib}/${lib}.glb`, (gltf) => {
+    loadGLB(`/models/${lib}/${lib}.glb`).then((gltf) => {
       gltf.scene.updateMatrixWorld(true);
       for (const def of MODELS.filter((d) => d.lib === lib)) {
         const node = gltf.scene.getObjectByName(def.name);
@@ -200,7 +199,7 @@ export function initModels(scene: THREE.Scene): void {
         register(scene, def, holder, meshes);
         meshes.forEach((m, i) => m.matrixWorld.copy(saved[i]));
       }
-    }, undefined, () => { /* library missing */ });
+    }).catch(() => { /* library missing */ });
   }
 }
 

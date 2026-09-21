@@ -6,3 +6,5 @@ Models from Kenney (https://kenney.nl), CC0 1.0 Universal. Kits used:
   Pirate Kit (palm-*, rocks-a)
   Platformer Kit (flowers-tall, mushrooms)
 GLBs from kits that reference an external colormap were rewritten with the texture embedded (scripts/trim-glb.mjs).
+  Mini Dungeon shield-round (the shield pickup), Platformer Kit jewel (the ruby gem), Mini Dungeon potion (unused)
+bolt.glb — "Lightning bolt" by Poly by Google, CC-BY 3.0 (https://poly.pizza/m/7IBFbOFdkcp, https://creativecommons.org/licenses/by/3.0/): the boost pickup.

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { activeBiome } from './biome';
 import { sunDirection } from './skyView';
+import { applyViewport } from './viewport';
 
 export let scene: THREE.Scene;
 export let renderer: THREE.WebGLRenderer;
@@ -12,7 +13,8 @@ export function initScene(): void {
 
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
   renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  const size = applyViewport();
+  renderer.setSize(size.w, size.h);
   // Cap the pixel ratio: 4x pixels on hi-dpi screens cost far more than they show. No shadow maps: the
   // directional light's shadow camera would only ever cover the start area, and the pass is expensive.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
@@ -39,7 +41,8 @@ export function initScene(): void {
 }
 
 function onWindowResize(): void {
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  const size = applyViewport();
+  renderer.setSize(size.w, size.h);
 }
 
 /** Scale the fog to the distance the game keeps generated ahead. */

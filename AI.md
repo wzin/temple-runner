@@ -102,9 +102,9 @@ Everything repeated is instanced and rebuilt from the live segments each frame (
 | `decalView.ts` | per 2 m block: relief band, gold trim; cornice blocks on wall tops; vines/banners; portal arch or jaguar face on bend walls; arrow glyph decals on corner plates; start mosaic — all skip gap spans |
 | `modelView.ts` | GLB models flattened to instanced parts (`register`), base at y 0, centred; `lib:` entries come from library GLBs (`ruins`, `nature`) by node name; `gold: true` recasts a piece in gold. Forest = Quaternius Stylized Nature (textured trees/pines/palms/dead trees, bushes, rocks, grass, a giant twisted landmark tree 12% of segments) + Kenney fillers; 40 spots per segment. Ruin clusters (75% of segments, 10–25 m out) with shrines, a ring of undergrowth/rubble and a mist patch; more mist patches on both sides of every segment (`mistPatches` → cloudView). Columns at joints and bends, spikes/skulls (`crest`) along the wall tops, pots/crates at the wall feet, path stones, gap rubble, statues at bends, **golden idol on the T wall of every fork**. Gateway arches were tried and removed (read as blocking the path). `window.__models` = per-model counts for the harness |
 | `propView.ts` | remaining billboards: ferns, bushes, skulls, roots on the cliff; textured columns and pillars |
-| `obstacleView.ts` | fire = bonfire: coal bed (lava set, emissive), four shader flame sheets (one camera-facing + two fanned + hot core), flickering ground glow, one point light following the nearest fire ahead; log = bark cylinder with tree-ring caps; **branch = low stone gate** (carved posts with pyramid caps, relief lintel 1.0–1.8 m, five stone teeth to 2.6 m — must slide); gaps show a lava or river pool below (40% water) and a veil while invulnerable |
+| `obstacleView.ts` | every obstacle has three looks by `id % 3`. fire = bonfire / burning log / stone brazier ring: coal bed (lava set, emissive), four shader flame sheets (one camera-facing + two fanned + hot core), flickering ground glow, one point light following the nearest fire ahead; log = bark cylinder with tree-ring caps; **branch = low gate** in stone, wooden stakes or obsidian+gold (posts, lintel 1.0–1.8 m, five teeth to 2.6 m — must slide); the toppling log is a dead tree or a stone column; gaps show a lava or river pool below (40% water) and a veil while invulnerable |
 | `coinView.ts` | coin discs with embossed faces; big medallions |
-| `powerUpView.ts` | artefacts (iron horseshoe, gold sun disc, condor feather) + camera-facing icon sprites |
+| `powerUpView.ts` | big model pickups over a halo: red horseshoe magnet (built), Kenney round shield, Poly-by-Google lightning bolt (CC-BY), Kenney jewel recast red = ruby gem |
 | `playerView.ts` | animated GLB character (Quaternius, CC0) with an AnimationMixer: Run speed-matched (`STRIDE` 7.5 m/cycle), Roll = slide (compressed to 0.7 s), HitRecieve = stumble, Death = fall, Idle when standing. No jump clip in the pack → `Man_Jump` from the Animated Men pack retargeted by bone name (quaternion tracks only). `SKINS` = files adventurer / adventurer-f / hooded (ids runner / runner-f / guardian kept for saved prefs); only the chosen file is downloaded (~1.2–1.5 MB). Normalised to 1.75 m, feet at 0. Shield aura, boost ghosting, dim lamp kept |
 | `monkeyView.ts` | the chasers: three big cats (the Quaternius wolf model, one recoloured black), animated GLBs `9 → 2.5 m` behind as proximity rises, snapping (Attack/Punch) above 80, hidden while invulnerable |
 | `torchView.ts` | instanced torches: bronze bowls, shader flames, soot decals |
@@ -139,7 +139,27 @@ swappable (⇄) and switchable off in the pause menu (`temple-runner.pad` in loc
 blocked (fixed Siri/selection popups and hijacked swipes on iOS/Android). Hints: controls line for 4.5 s at start,
 "TAP ◄ ► / SWIPE TO TURN" before the first corner until the first turn.
 
-## 6. Leaderboard API (`server/index.mjs`)
+## 6. Accounts, rubies, lobby (0.11)
+
+**Economy** (`core/economy.ts`, tested): 1 ruby per 10 000 coins collected across all runs, plus rare ruby gems on the
+track (`spawner` lays a `ruby` pickup about once per 2.6 km, never within 4 m of a corner; `game.rubiesFound`).
+Six characters (`SKINS`): adventurer free, adventurer-f 1, hooded 5, king / witch / soldier 10 rubies.
+**Server** (`server/index.mjs`, node:sqlite): every visitor gets a guest player + `tr_session` cookie (httpOnly, 1 year);
+`GET /api/me`, `POST /api/progress {coins, distance, rubies}` (plausibility: coins ≤ 0.8·distance + 30, rubies ≤ 1 + distance/1200),
+`POST /api/register {username, password}` (3–12 chars `[A-Za-z0-9_]`, scrypt; **10 registrations per IP per hour**; the guest's
+progress becomes the account), `/api/login`, `/api/logout`, `POST /api/unlock {skin}` (spends rubies server-side).
+Tables `players`, `sessions`, `registrations`. Rubies = floor(coins_total/10000) + rubies_bonus − rubies_spent.
+**Client** (`ui/account.ts`): cookie session, offline queue of unsent runs (`temple-runner.pending-runs`), `onPlayerChange`.
+**Lobby** (`ui/MainMenu.ts`, `ui/skinPreview.ts`): carousel with a live 3D preview (own small renderer, Idle clip, slow turn;
+← → / A D / swipe on the canvas), locked characters washed out with a 🔒 cost badge, SELECT / UNLOCK FOR N ◆ button,
+ruby pill on every screen (`#rubies`), guest nudge → CREATE A PASSWORD modal (register/login tabs), logged-in badge
+(`body.logged-in`). `ui/ScoresScreen.ts`: full ladder (up to 200 rows: nick, score, coins, local date without seconds).
+**Loading** (`view/loading.ts`): two stages — `lobby` (menu backdrop + previewed character) behind the `#boot` overlay,
+`game` (all texture sets + every GLB through `loadGLB`) shown as the PLAY button filling up; `startGame` refuses until
+`progress('game').complete`. **Pillarbox** (`view/viewport.ts`): on wide screens the play area is capped at aspect 0.9
+and centred (dark bars), so a desktop does not render a wide forest for nothing; overlays live inside `#game-container`.
+
+## 7. Leaderboard API (`server/index.mjs`)
 
 Node 22 `node:sqlite`, DB at `/data/scores.db` (volume `scores_data`; dev uses `scores_dev`). `GET /api/health`,
 `GET /api/scores?limit=`, `POST /api/scores {name, score, coins, distance}`: name `^[A-Za-z0-9 _.-]{1,12}$`, integers,
@@ -150,7 +170,7 @@ flushed when the menu or game-over board next opens (a tester saw "Failed to fet
 redeploy or proxy restart; Caddy access logs on the web container are the place to look). API healthcheck uses 127.0.0.1
 (busybox wget resolves localhost to ::1 and the server binds IPv4). The API logs every accepted score.
 
-## 7. Assets pipeline (fal.ai)
+## 8. Assets pipeline (fal.ai)
 
 Key in `.api_keys` (gitignored, dockerignored) or `FAL_KEY`. `gen-texture.mjs` calls `fal-ai/flux/dev` (28 steps),
 kinds: `pbr` (seamless by offset-blend, normals from `fal-ai/imageutils/marigold-depth` unless `--no-depth`; the depth
@@ -160,7 +180,7 @@ route often came out flat, hence `rebuild-normals.mjs`), `sprite` (RGBA from bla
 Notes: portraits come out as 3D renders, not cylindrical unwraps (hence the two-hemisphere head); "seamless" blend
 leaves faint ghosts on some tiles; wall-vines looked like a tree pasted on the wall and was removed.
 
-## 8. Deployment
+## 9. Deployment
 
 Komodo stack `temple-runner` on mail.ziniewicz.eu builds from `wzin/temple-runner` main via GitHub webhook;
 **Force deploy must be ON** (default `DeployStackIfChanged` only diffs compose.yaml, so code-only pushes would not
@@ -168,7 +188,7 @@ redeploy). Traefik route: `homecloud/traefik/dynamic/temple-runner.yml` → `htt
 `temple.ziniewicz.eu` CNAME → cloud.ziniewicz.eu. Release with `scripts/release.sh` (tags `vX.Y.Z`). The UI shows the
 VERSION; production said `vdev` until VERSION was copied into the image (0.4.1).
 
-## 9. Conventions and gotchas
+## 10. Conventions and gotchas
 
 - Git remotes must be SSH (`gh repo create` makes HTTPS → ksshaskpass prompts). Never commit `.api_keys`.
 - Wojtek wants long tasks handed back with a 7-tone sound (`~/.cache/claude-notify.sh 7`) and a local link.
@@ -179,7 +199,7 @@ VERSION; production said `vdev` until VERSION was copied into the image (0.4.1).
   sphere at the origin culled everything far from the start — the first "invisible obstacles" bug).
 - Vertical UV of equirect canvases: row 0 = zenith for `scene.background`.
 
-## 10. History (2026-09-20)
+## 11. History
 
 0.1 prototype rewrite in track space (fixes drift/dropped input/spawn) · 0.2–0.3 feel, power-ups, monkeys, patterns,
 leaderboard, forks, real gaps, biome, mobile · 0.4.x lookahead/fog, both-branch previews, version label, textures
@@ -188,10 +208,11 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
+0.11.0 accounts + rubies + lobby carousel + full ladder, two-stage loading, pillarbox, obstacle and pickup variants, ruby gems, three cats 0.7 m ·
 0.9.1 three cats · 0.10.0 one-thumb pad + swipe anywhere, falling-tree log, coin energy boost, smaller cats, more gaps/details ·
 0.9.0 feedback round: arches out, root sprite out, textured Quaternius nature library replaces Kenney trees, three cats chase, golden idol at forks, 8 floor looks, thicker fog + mist patches, doubled props/coins/crests, bigger runner, aligned hall of fame.
 
-## 11. Next candidates
+## 12. Next candidates
 
 Mesh simplification for the nature library (NormalTree ~10k verts each; `gltf-transform simplify`); menu preview of the chosen character (idle clip); second biome (night jungle
 or ice temple); KTX2 compression; seam-free tiling via inpainting; HUD/menu frames in Inca style; ambient sound;

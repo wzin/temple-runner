@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { Game } from '../core/game';
 import { yawOf } from './util';
+import { SKINS, normalizeSkinId } from '../core/economy';
+import { loadGLB } from './loading';
 
 /**
  * The runner is a rigged, animated GLB (Quaternius "Ultimate Modular" characters, CC0) driven by
@@ -12,16 +13,10 @@ import { yawOf } from './util';
  * Skins are different character files; only the selected one is downloaded.
  */
 
-export interface Skin { id: string; name: string; file: string }
-export const SKINS: Skin[] = [
-  { id: 'runner', name: 'Adventurer', file: 'adventurer' },
-  { id: 'runner-f', name: 'Adventuress', file: 'adventurer-f' },
-  { id: 'guardian', name: 'Hooded', file: 'hooded' },
-];
 const SKIN_KEY = 'temple-runner.skin';
-export function currentSkinId(): string { try { return localStorage.getItem(SKIN_KEY) || 'runner'; } catch { return 'runner'; } }
+export function currentSkinId(): string { try { return normalizeSkinId(localStorage.getItem(SKIN_KEY)); } catch { return SKINS[0].id; } }
 
-const HEIGHT = 1.95;        // metres; a touch above the 1.8 m collision box so the runner does not look tiny on the 6 m path
+const HEIGHT = 2.1;         // metres; above the 1.8 m collision box so the runner does not look tiny on the 6 m path
 const STRIDE = 7.5;         // metres per run cycle at which the Run clip plays at 1x (~2 cycles/s at base speed)
 const FADE = 0.12;
 
@@ -36,6 +31,7 @@ let current: ClipName | null = null;
 let clipDuration: Partial<Record<ClipName, number>> = {};
 let bodyMaterials: THREE.MeshStandardMaterial[] = [];
 let shieldMesh: THREE.Mesh;
+let shadowBlob: THREE.Mesh;
 let boostAura: THREE.Mesh;
 let lamp: THREE.PointLight;
 let squash = 0;
@@ -43,7 +39,6 @@ let lastMs = 0;
 let loadedSkin = '';
 let jumpClip: THREE.AnimationClip | null = null;
 let pendingJumpFor: THREE.Group | null = null;
-const loader = new GLTFLoader();
 
 export function playerLanded(): void { squash = 1; }
 
@@ -53,6 +48,13 @@ export function initPlayerView(scene: THREE.Scene): void {
   rig = new THREE.Group();
   group.add(rig);
 
+  // Contact shadow under the feet: the cheapest way to make the runner read against the floor.
+  const sc = document.createElement('canvas'); sc.width = sc.height = 64; const sg = sc.getContext('2d')!;
+  const grad = sg.createRadialGradient(32, 32, 2, 32, 32, 32); grad.addColorStop(0, 'rgba(0,0,0,0.75)'); grad.addColorStop(0.6, 'rgba(0,0,0,0.35)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+  sg.fillStyle = grad; sg.fillRect(0, 0, 64, 64);
+  shadowBlob = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.1).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false }));
+  shadowBlob.position.y = 0.03; shadowBlob.renderOrder = 1;
+  group.add(shadowBlob);
   shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1.15, 16, 12), new THREE.MeshStandardMaterial({ color: 0x5fd8ff, emissive: 0x3ab8ff, emissiveIntensity: 0.9, transparent: true, opacity: 0.22, depthWrite: false }));
   shieldMesh.position.y = 1.0; shieldMesh.visible = false;
   group.add(shieldMesh);
@@ -65,10 +67,10 @@ export function initPlayerView(scene: THREE.Scene): void {
   group.add(lamp);
   scene.add(group);
 
-  loader.load('/models/chars/jump-clip.glb', (g) => {
+  loadGLB('/models/chars/jump-clip.glb').then((g) => {
     jumpClip = g.animations.find((c) => c.name === 'Man_Jump') ?? g.animations[0] ?? null;
     if (jumpClip && pendingJumpFor && pendingJumpFor === model) attachJump();
-  }, undefined, () => { /* no jump clip: the run pose is held in the air */ });
+  }).catch(() => { /* no jump clip: the run pose is held in the air */ });
   setSkin(currentSkinId());
 }
 
@@ -92,11 +94,11 @@ function attachJump(): void {
 
 /** Load the chosen character; safe to call any time (also from the menu). */
 export function setSkin(id: string): void {
-  const skin = SKINS.find((sk) => sk.id === id) ?? SKINS[0];
+  const skin = SKINS.find((sk) => sk.id === normalizeSkinId(id)) ?? SKINS[0];
   try { localStorage.setItem(SKIN_KEY, skin.id); } catch { /* ignore */ }
   if (loadedSkin === skin.id) return;
   loadedSkin = skin.id;
-  loader.load(`/models/chars/${skin.file}.glb`, (gltf) => {
+  loadGLB(`/models/chars/${skin.file}.glb`).then((gltf) => {
     if (loadedSkin !== skin.id) return; // a later choice won
     if (model) { rig.remove(model); mixer?.stopAllAction(); }
     model = gltf.scene;
@@ -113,7 +115,12 @@ export function setSkin(id: string): void {
       if (!(o instanceof THREE.Mesh)) return;
       o.frustumCulled = false; o.castShadow = true;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
-      for (const m of mats) if (m instanceof THREE.MeshStandardMaterial) { m.transparent = true; m.roughness = Math.max(0.6, m.roughness); bodyMaterials.push(m); }
+      for (const m of mats) if (m instanceof THREE.MeshStandardMaterial) {
+        m.transparent = true; m.roughness = Math.max(0.6, m.roughness);
+        // Lift the palette a little so the runner separates from the sand-coloured slabs.
+        m.color.multiplyScalar(1.18); m.emissive.set(0x1a1612); m.emissiveIntensity = 1;
+        bodyMaterials.push(m);
+      }
     });
     rig.add(model);
     mixer = new THREE.AnimationMixer(model);
@@ -127,7 +134,7 @@ export function setSkin(id: string): void {
     pendingJumpFor = model;
     if (jumpClip) attachJump();
     play('Idle', 0);
-  }, undefined, () => { loadedSkin = ''; });
+  }).catch(() => { loadedSkin = ''; });
 }
 
 function play(name: ClipName, fade = FADE, timeScale = 1): void {
@@ -161,6 +168,8 @@ export function updatePlayerView(game: Game, timeMs: number): void {
   const lift = game.boosting ? 1.2 : 0;
   const w = game.track.sample(p.s, p.x, p.y + lift);
   group.position.set(w.x, w.y, w.z);
+  // The shadow stays on the slabs while the runner is in the air, fading with height.
+  shadowBlob.position.y = 0.03 - (p.y + lift); shadowBlob.scale.setScalar(Math.max(0.5, 1 - (p.y + lift) * 0.25)); (shadowBlob.material as THREE.MeshBasicMaterial).opacity = Math.max(0.25, 1 - (p.y + lift) * 0.3);
   const speedRatio = p.speed / p.cfg.speed;
   const lean = 0.06 + (speedRatio - 1) * 0.1;
   group.rotation.set(-lean, yawOf(w.dir), p.stumbleTimer > 0 ? Math.sin(timeMs * 0.03) * 0.15 : 0);

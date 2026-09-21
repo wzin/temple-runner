@@ -21,7 +21,8 @@ export type GameEvent =
   | { type: 'land' }
   | { type: 'powerup'; kind: PowerUpKind }
   | { type: 'powerupEnd'; kind: PowerUpKind }
-| { type: 'energyFull' };
+| { type: 'energyFull' }
+| { type: 'ruby' };
 
 /** Content is laid this many seconds of running ahead (clamped); the fog is tuned to hide the far end. */
 export const LOOKAHEAD_SECONDS = 12;
@@ -48,6 +49,8 @@ export class Game {
   coins = 0; distance = 0; score = 0; proximity = 0; over = false;
   /** Energy 0..100 charged by coins; at 100 the player may fire a boost (`pressBoost`). */
   energy = 0;
+  /** Rubies picked up on the track this run (credited to the account at the end). */
+  rubiesFound = 0;
   /** Seconds since the run started or the last boost was fired; caps how fast the meter can fill. */
   private energyTime = 0;
   active: ActivePowerUp | null = null;
@@ -75,7 +78,7 @@ export class Game {
     this.player = new Player();
     this.spawner = new Spawner(rng, this.track, { tuning: (s) => difficultyAt(s) });
     this.buffer.clear();
-    this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false; this.energy = 0; this.energyTime = 0;
+    this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false; this.energy = 0; this.energyTime = 0; this.rubiesFound = 0;
     this.active = null; this.shield = false; this.boostGrace = 0; this.lastTurn = null; this.forkIntent = null; this.fallPose = null; this.deadReported = false;
     this.applyDifficulty();
     this.layAhead();
@@ -162,6 +165,7 @@ export class Game {
   private pendingEvents: GameEvent[] = [];
 
   private activate(kind: PowerUpKind, events: GameEvent[]): void {
+    if (kind === 'ruby') { this.rubiesFound++; events.push({ type: 'ruby' }); return; }
     if (kind === 'shield') { this.shield = true; }
     else {
       if (kind === 'boost') this.proximity = 0;   // the monkeys are left behind

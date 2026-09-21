@@ -12,11 +12,11 @@ import { faceHeading } from './util';
  *  fire   – a bonfire: bed of glowing coals, four shader flame sheets (one facing the camera,
  *           three fanned behind it, one small hot core), a flickering ground glow and a point
  *           light that follows the nearest fire ahead of the runner
- *  log    – a dead tree standing on one wall top that topples across the path as the runner approaches
+ *  log    – by id a dead tree or a stone column standing on one wall top that topples across the path as the runner approaches
  *           (62 → 34 m ahead), bounces off the far wall and drops to rest wedged at chest height: the
  *           fall is visible from far away, so you know a slide is coming (jumping works too)
- *  branch – a low stone gate: two carved posts with pyramid caps, a relief lintel at chest
- *           height and a row of stone teeth on top (must slide)
+ *  branch – a low gate at chest height with teeth on top (must slide), in three looks by id:
+ *           carved stone, a wooden stake barricade, black obsidian with gold
  *  gap    – real break in the embankment; lava or a river far below marks the drop
  */
 
@@ -26,11 +26,13 @@ const dummy = new THREE.Object3D();
 const tmpV = new THREE.Vector3();
 
 let fireFront: THREE.InstancedMesh; let fireFanA: THREE.InstancedMesh; let fireFanB: THREE.InstancedMesh; let fireCore: THREE.InstancedMesh;
-let fireGlow: THREE.InstancedMesh; let coals: THREE.InstancedMesh;
+let fireGlow: THREE.InstancedMesh; let coals: THREE.InstancedMesh; let burnLogs: THREE.InstancedMesh; let braziers: THREE.InstancedMesh;
 let fireLight: THREE.PointLight;
 let treeTrunks: THREE.InstancedMesh; let treeRoots: THREE.InstancedMesh; let treeStubs: THREE.InstancedMesh;
+let colShafts: THREE.InstancedMesh; let colCaps: THREE.InstancedMesh;
 const FALL_START = 62; const FALL_END = 34;   // metres ahead of the runner (inside the fog's clear zone)
-let gatePosts: THREE.InstancedMesh; let gateCaps: THREE.InstancedMesh; let gateLintels: THREE.InstancedMesh; let gateTeeth: THREE.InstancedMesh;
+interface GateSet { posts: THREE.InstancedMesh; caps: THREE.InstancedMesh; lintels: THREE.InstancedMesh; teeth: THREE.InstancedMesh; count: number }
+const gates: GateSet[] = [];
 let pits: THREE.InstancedMesh;
 let waterPits: THREE.InstancedMesh;
 let waterMaps: ReturnType<typeof remoteSet>;
@@ -79,6 +81,10 @@ export function initObstacleView(scene: THREE.Scene): void {
   const lavaSet = remoteSet('lava', 0xff5a10);
   const coalMat = pbrMaterial(lavaSet, { color: 0xffffff, emissive: 0xff5a10, emissiveIntensity: 1.6, roughness: 0.9 });
   coals = add(new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), coalMat, MAX));
+  // Variant 1: a fallen log burning where it lies (bark with an ember glow); variant 2: a ring of stones.
+  const charred = pbrMaterial(tex.bark, { color: 0x6a4a38, emissive: 0xff5a10, emissiveIntensity: 0.35 });
+  burnLogs = add(new THREE.InstancedMesh(new THREE.CylinderGeometry(0.28, 0.32, 1, 10).rotateZ(Math.PI / 2), charred, MAX));
+  braziers = add(new THREE.InstancedMesh(new THREE.TorusGeometry(0.85, 0.22, 8, 14).rotateX(Math.PI / 2), pbrMaterial(remoteSet('rock', 0x807870), { color: 0xb0a898 }), MAX));
   fireLight = new THREE.PointLight(0xff7a20, 0, 26, 2);
   scene.add(fireLight);
 
@@ -99,17 +105,33 @@ export function initObstacleView(scene: THREE.Scene): void {
   // Broken branch stubs along the upper trunk, pointing out at different angles.
   const stubGeo = mergeSimple([0.5, 0.62, 0.76, 0.88].map((f, k) => new THREE.CylinderGeometry(0.07, 0.16, 2.0, 6).translate(0, 1.0, 0).rotateZ(-0.9 - k * 0.15).rotateY(k * 1.9).translate(0, TREE_LEN * f, 0)));
   treeStubs = add(new THREE.InstancedMesh(stubGeo, barkMat, MAX));
+  // Variant: a stone column (fluted shaft + capital) that topples the same way.
+  const colMat = pbrMaterial(remoteSet('column', 0x9a9088), { color: 0xd0c8bc });
+  colShafts = add(new THREE.InstancedMesh(new THREE.CylinderGeometry(logR * 0.9, logR * 1.1, TREE_LEN - 0.6, 12).translate(0, (TREE_LEN - 0.6) / 2, 0), colMat, MAX));
+  colCaps = add(new THREE.InstancedMesh(mergeSimple([new THREE.BoxGeometry(0.95, 0.35, 0.95).translate(0, TREE_LEN - 0.42, 0), new THREE.BoxGeometry(0.8, 0.3, 0.8).translate(0, 0.15, 0)]), colMat, MAX));
 
-  // Gate ("branch" in the core): posts, caps, lintel, teeth. Everything between y 1.0 and 2.6 is the barrier.
-  const carved = remoteSet('wall-carved', 0x8a7a68);
-  const postMat = pbrMaterial(carved, { color: 0xd8d0c4 });
-  gatePosts = add(new THREE.InstancedMesh(new THREE.BoxGeometry(0.7, GATE_POST_H, 0.7), postMat, MAX * 2));
+  // Gate ("branch" in the core): posts, caps, lintel, teeth in three looks. Everything between y 1.0 and 2.6 is the barrier.
+  const postGeo = new THREE.BoxGeometry(0.7, GATE_POST_H, 0.7);
+  const capGeo = new THREE.ConeGeometry(0.58, 0.5, 4);
+  const lintelGeo = new THREE.BoxGeometry(GAP_WIDTH - 1.0, GATE_LINTEL_H, 0.8);
+  const toothGeo = new THREE.ConeGeometry(0.24, 0.75, 4);
   const stone = remoteSet('rock', 0x807870);
   const stoneMat = pbrMaterial(stone, { color: 0xc8c0b4 });
-  gateCaps = add(new THREE.InstancedMesh(new THREE.ConeGeometry(0.58, 0.5, 4), stoneMat, MAX * 2));
   const relief = remoteSet('relief', 0x6a6060); for (const t of [relief.map, relief.normalMap, relief.roughnessMap]) t.repeat.set(3, 1);
-  gateLintels = add(new THREE.InstancedMesh(new THREE.BoxGeometry(GAP_WIDTH - 1.0, GATE_LINTEL_H, 0.8), pbrMaterial(relief, { color: 0xd8d0c8 }), MAX));
-  gateTeeth = add(new THREE.InstancedMesh(new THREE.ConeGeometry(0.24, 0.75, 4), stoneMat, MAX * GATE_TEETH));
+  const wood = pbrMaterial(tex.bark, { color: 0x8a6a48 });
+  const obsidian = pbrMaterial(remoteSet('floor-obsidian', 0x2a2a30), { color: 0xffffff, metalness: 0.3, roughness: 0.4 });
+  const gold = pbrMaterial(remoteSet('gold-trim', 0xc9a24a), { color: 0xffe0a0, emissive: 0x6a4a10, emissiveIntensity: 0.3, metalness: 0.8, roughness: 0.3 });
+  const gateSet = (post: THREE.Material, cap: THREE.Material, lintel: THREE.Material, tooth: THREE.Material, toothGeometry: THREE.BufferGeometry, postGeometry: THREE.BufferGeometry) => ({
+    posts: add(new THREE.InstancedMesh(postGeometry, post, MAX * 2)), caps: add(new THREE.InstancedMesh(capGeo, cap, MAX * 2)),
+    lintels: add(new THREE.InstancedMesh(lintelGeo, lintel, MAX)), teeth: add(new THREE.InstancedMesh(toothGeometry, tooth, MAX * GATE_TEETH)), count: 0,
+  });
+  gates.push(
+    gateSet(pbrMaterial(remoteSet('wall-carved', 0x8a7a68), { color: 0xd8d0c4 }), stoneMat, pbrMaterial(relief, { color: 0xd8d0c8 }), stoneMat, toothGeo, postGeo),
+    // Wooden barricade: round posts, a rough beam, sharpened stakes.
+    gateSet(wood, wood, wood, wood, new THREE.ConeGeometry(0.16, 1.1, 5), new THREE.CylinderGeometry(0.3, 0.36, GATE_POST_H, 8)),
+    // Obsidian and gold.
+    gateSet(obsidian, gold, obsidian, gold, toothGeo, postGeo),
+  );
 
   // A gap is a real break in the embankment (floor and cliff blocks are skipped there). Far below, on
   // the ground, a pool of lava or a river bend marks where you would land.
@@ -124,7 +146,8 @@ export function initObstacleView(scene: THREE.Scene): void {
 }
 
 export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Camera): void {
-  let nFire = 0; let nLog = 0; let nGate = 0; let nPit = 0; let nWater = 0; let veils = 0;
+  let nFire = 0; let nCoal = 0; let nBurn = 0; let nBraz = 0; let nTree = 0; let nCol = 0; let nPit = 0; let nWater = 0; let veils = 0;
+  for (const g of gates) g.count = 0;
   const t = timeMs * 0.001;
   const track = game.track;
   const playerS = game.player.s;
@@ -146,9 +169,13 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
           dummy.position.y = 1.4 * flicker; dummy.rotation.y = yaw + 1.1; dummy.updateMatrix(); fireFanA.setMatrixAt(nFire, dummy.matrix);
           dummy.rotation.y = yaw - 1.1; dummy.updateMatrix(); fireFanB.setMatrixAt(nFire, dummy.matrix);
           dummy.position.y = 0.95 * flicker; dummy.rotation.y = yaw + 0.5; dummy.updateMatrix(); fireCore.setMatrixAt(nFire, dummy.matrix);
-          // Coal bed the size of the collision box, and a glow disc on the slabs around it.
+          // The base: coal bed / burning log / stone ring by id, sized to the collision box; plus a glow disc on the slabs.
           const w = Math.max(1.4, o.x1 - o.x0); const d = Math.max(1.0, o.s1 - o.s0);
-          dummy.position.set(p.x, 0.12, p.z); faceHeading(dummy, p.dir); dummy.scale.set(w, 0.24, d); dummy.updateMatrix(); coals.setMatrixAt(nFire, dummy.matrix);
+          const fv = o.id % 3;
+          dummy.position.set(p.x, 0.12, p.z); faceHeading(dummy, p.dir);
+          if (fv === 0) { dummy.scale.set(w, 0.24, d); dummy.updateMatrix(); coals.setMatrixAt(nCoal++, dummy.matrix); }
+          else if (fv === 1) { dummy.position.y = 0.3; dummy.rotation.y += 0.25; dummy.scale.set(w + 0.6, 1, 1); dummy.updateMatrix(); burnLogs.setMatrixAt(nBurn++, dummy.matrix); }
+          else { dummy.position.y = 0.16; dummy.scale.set(w / 1.9, 1, d / 1.2); dummy.updateMatrix(); braziers.setMatrixAt(nBraz++, dummy.matrix); }
           const g = 4.4 + Math.sin(t * 11 + o.id * 3) * 0.35;
           dummy.position.set(p.x, 0.05, p.z); dummy.rotation.set(0, o.id * 0.7, 0); dummy.scale.set(g, 1, g); dummy.updateMatrix(); fireGlow.setMatrixAt(nFire, dummy.matrix);
           nFire++;
@@ -157,7 +184,8 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
           break;
         }
         case 'log': {
-          if (nLog >= MAX) break;
+          const column = o.id % 3 === 1;
+          if ((column ? nCol : nTree) >= MAX) break;
           // Topple progress from distance: standing until FALL_START m ahead, at rest from FALL_END m.
           const ahead = midS - playerS;
           const k = THREE.MathUtils.clamp((FALL_START - ahead) / (FALL_START - FALL_END), 0, 1);
@@ -176,29 +204,30 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
           // Once wedged, roll a little so the broken end sits lower than the roots.
           dummy.rotateX(dropK * 0.08);
           dummy.scale.set(1, 1, 1); dummy.updateMatrix();
-          treeTrunks.setMatrixAt(nLog, dummy.matrix); treeRoots.setMatrixAt(nLog, dummy.matrix); treeStubs.setMatrixAt(nLog, dummy.matrix);
-          nLog++;
+          if (column) { colShafts.setMatrixAt(nCol, dummy.matrix); colCaps.setMatrixAt(nCol, dummy.matrix); nCol++; }
+          else { treeTrunks.setMatrixAt(nTree, dummy.matrix); treeRoots.setMatrixAt(nTree, dummy.matrix); treeStubs.setMatrixAt(nTree, dummy.matrix); nTree++; }
           break;
         }
         case 'branch': {
+          const gate = gates[o.id % gates.length]; const nGate = gate.count;
           if (nGate >= MAX) break;
           const wobble = ((o.id * 7919) % 13 - 6) * 0.004;
           faceHeading(dummy, p.dir); dummy.rotation.y += wobble; dummy.scale.set(1, 1, 1);
           for (const side of [-1, 1]) {
             dummy.position.set(p.x + right.x * side * GATE_POST_X, GATE_POST_H / 2, p.z + right.z * side * GATE_POST_X); dummy.updateMatrix();
-            gatePosts.setMatrixAt(nGate * 2 + (side + 1) / 2, dummy.matrix);
+            gate.posts.setMatrixAt(nGate * 2 + (side + 1) / 2, dummy.matrix);
             dummy.position.y = GATE_POST_H + 0.25; dummy.rotation.y += Math.PI / 4; dummy.updateMatrix();
-            gateCaps.setMatrixAt(nGate * 2 + (side + 1) / 2, dummy.matrix);
+            gate.caps.setMatrixAt(nGate * 2 + (side + 1) / 2, dummy.matrix);
             dummy.rotation.y -= Math.PI / 4;
           }
-          dummy.position.set(p.x, GATE_LINTEL_Y0 + GATE_LINTEL_H / 2, p.z); dummy.updateMatrix(); gateLintels.setMatrixAt(nGate, dummy.matrix);
+          dummy.position.set(p.x, GATE_LINTEL_Y0 + GATE_LINTEL_H / 2, p.z); dummy.updateMatrix(); gate.lintels.setMatrixAt(nGate, dummy.matrix);
           for (let k = 0; k < GATE_TEETH; k++) {
             const off = (k - (GATE_TEETH - 1) / 2) * ((GAP_WIDTH - 1.8) / (GATE_TEETH - 1));
             const lean = ((o.id * 31 + k * 17) % 7 - 3) * 0.03;
             dummy.position.set(p.x + right.x * off, GATE_LINTEL_Y0 + GATE_LINTEL_H + 0.36, p.z + right.z * off);
-            dummy.rotation.z = lean; dummy.updateMatrix(); gateTeeth.setMatrixAt(nGate * GATE_TEETH + k, dummy.matrix); dummy.rotation.z = 0;
+            dummy.rotation.z = lean; dummy.updateMatrix(); gate.teeth.setMatrixAt(nGate * GATE_TEETH + k, dummy.matrix); dummy.rotation.z = 0;
           }
-          nGate++;
+          gate.count++;
           break;
         }
         case 'gap': {
@@ -225,8 +254,9 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
     fireLight.intensity = 0;
   }
   const flush = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; };
-  flush(fireFront, nFire); flush(fireFanA, nFire); flush(fireFanB, nFire); flush(fireCore, nFire); flush(fireGlow, nFire); flush(coals, nFire);
-  flush(treeTrunks, nLog); flush(treeRoots, nLog); flush(treeStubs, nLog); flush(gatePosts, nGate * 2); flush(gateCaps, nGate * 2); flush(gateLintels, nGate); flush(gateTeeth, nGate * GATE_TEETH);
+  flush(fireFront, nFire); flush(fireFanA, nFire); flush(fireFanB, nFire); flush(fireCore, nFire); flush(fireGlow, nFire); flush(coals, nCoal); flush(burnLogs, nBurn); flush(braziers, nBraz);
+  flush(treeTrunks, nTree); flush(treeRoots, nTree); flush(treeStubs, nTree); flush(colShafts, nCol); flush(colCaps, nCol);
+  for (const g of gates) { flush(g.posts, g.count * 2); flush(g.caps, g.count * 2); flush(g.lintels, g.count); flush(g.teeth, g.count * GATE_TEETH); }
   flush(pits, nPit); flush(waterPits, nWater); flush(gapVeils, veils);
 }
 

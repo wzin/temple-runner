@@ -37,13 +37,15 @@ export interface SpawnerOptions {
   turnMargin: number;
   coinChance: number;
   powerUpChance: number;
+  /** Expected metres between ruby gems (~2–3 minutes of running). */
+  rubyEvery: number; firstRubyAt: number;
   firstPowerUpAt: number;
   /** Seconds of running after a corner before the first obstacle may appear. */
   afterCornerSeconds: number;
   tuning: (s: number) => SpawnTuning;
 }
 const DEFAULTS: SpawnerOptions = {
-  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.9, powerUpChance: 0.08, firstPowerUpAt: 120, afterCornerSeconds: 1.2,
+  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.9, powerUpChance: 0.08, firstPowerUpAt: 120, rubyEvery: 2600, firstRubyAt: 500, afterCornerSeconds: 1.2,
   tuning: () => ({ obstacleChance: 0.45, obstacleSpacing: 25, speed: 15 }),
 };
 
@@ -84,6 +86,7 @@ export class Spawner {
     const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.corner + afterCorner >= s && w.corner - beforeCorner <= s + len);
     const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
     if (canObstacle && chance(this.rng, t.obstacleChance)) { this.layPattern(pattern, s, t.speed); return; }
+    if (s >= o.firstRubyAt && chance(this.rng, o.chunk / o.rubyEvery) && !this.nearAnyTurn(s, 4)) { this.powerUps.push({ id: this.nextId++, kind: 'ruby', s, x: pick(this.rng, LANES), y: 1.0, taken: false }); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }
     if (chance(this.rng, o.coinChance)) this.layCoinRun(s);
   }

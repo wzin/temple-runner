@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import type { Game } from '../core/game';
 import { yawOf } from './util';
+import { loadGLB } from './loading';
 
 /**
  * The chasers: three big cats — the Quaternius wolf model (CC0) galloping behind the runner, the middle one
@@ -18,9 +18,9 @@ const SPREAD = 1.7;
 interface Beast { group: THREE.Group; mixer: THREE.AnimationMixer | null; run?: THREE.AnimationAction; attack?: THREE.AnimationAction; runDuration: number; attackUntil: number }
 interface Spec { file: string; height: number; run: string; attack: string; lane: number; tint?: number }
 const SPECS: Spec[] = [
-  { file: 'wolf', height: 0.85, run: 'Gallop', attack: 'Attack', lane: -1 },
-  { file: 'wolf', height: 0.9, run: 'Gallop', attack: 'Attack', lane: 0, tint: 0x1a1a1e },
-  { file: 'wolf', height: 0.85, run: 'Gallop', attack: 'Attack', lane: 1, tint: 0x6a5238 },
+  { file: 'wolf', height: 0.7, run: 'Gallop', attack: 'Attack', lane: -1 },
+  { file: 'wolf', height: 0.75, run: 'Gallop', attack: 'Attack', lane: 0, tint: 0x1a1a1e },
+  { file: 'wolf', height: 0.7, run: 'Gallop', attack: 'Attack', lane: 1, tint: 0x6a5238 },
 ];
 const beasts: Beast[] = [];
 let lastMs = 0;
@@ -49,14 +49,13 @@ function setup(beast: Beast, spec: Spec, scene: THREE.Group, clips: THREE.Animat
 }
 
 export function initMonkeyView(scene: THREE.Scene): void {
-  const loader = new GLTFLoader();
   const cache = new Map<string, Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] }>>();
   SPECS.forEach((spec, i) => {
     const beast: Beast = { group: new THREE.Group(), mixer: null, runDuration: 1, attackUntil: 0 };
     beast.group.visible = false;
     scene.add(beast.group);
     beasts.push(beast);
-    if (!cache.has(spec.file)) cache.set(spec.file, new Promise((resolve, reject) => loader.load(`/models/beasts/${spec.file}.glb`, (g) => resolve({ scene: g.scene, clips: g.animations }), undefined, reject)));
+    if (!cache.has(spec.file)) cache.set(spec.file, loadGLB(`/models/beasts/${spec.file}.glb`).then((g) => ({ scene: g.scene, clips: g.animations })));
     cache.get(spec.file)!.then(({ scene: src, clips }) => {
       // Every cat after the first is a skeleton-aware clone of the shared model.
       const model = i === 0 ? src : (cloneSkeleton(src) as THREE.Group);

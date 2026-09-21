@@ -70,6 +70,7 @@ export function updateHUD(): void {
         magnet: 'MAGNET',
         shield: 'SHIELD',
         boost: 'BOOST',
+        ruby: 'RUBY',
       };
       powerUpIndicator.textContent = timeLeft > 0 ? `${names[gameState.activePowerUp]} (${timeLeft}s)` : names[gameState.activePowerUp];
     } else {

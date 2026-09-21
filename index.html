@@ -14,6 +14,7 @@
 </head>
 <body>
   <div id="game-container">
+    <div id="boot" class="boot"><div class="boot-title">TEMPLE RUNNER</div><div class="boot-bar"><span id="boot-fill"></span></div></div>
     <canvas id="game-canvas"></canvas>
 
     <div id="version" class="version"></div>
@@ -35,23 +36,76 @@
     <!-- Main Menu -->
     <div id="main-menu" class="ui-screen">
       <h1>TEMPLE RUNNER</h1>
-      <p class="subtitle">An Endless Runner</p>
       <p class="subtitle" id="menu-highscore"></p>
-      <button id="play-btn" class="menu-btn">PLAY</button>
-      <div class="skin-row"><span class="skin-label">RUNNER</span><div id="skin-picker" class="skin-picker"></div></div>
-      <div id="loading" class="loading hidden">LOADING WORLD <span id="loading-count"></span><span class="bar"><span id="loading-fill"></span></span></div>
+      <div class="lobby">
+        <div class="carousel">
+          <button id="skin-prev" class="carousel-btn" aria-label="Previous character">◄</button>
+          <div class="carousel-stage">
+            <canvas id="skin-preview" width="260" height="320"></canvas>
+            <div id="skin-lock" class="skin-lock hidden"><span class="lock-icon">🔒</span><span id="skin-lock-cost">10 ◆</span></div>
+            <div id="skin-dots" class="dots"></div>
+          </div>
+          <button id="skin-next" class="carousel-btn" aria-label="Next character">►</button>
+        </div>
+        <div class="skin-meta">
+          <div id="skin-name" class="skin-name">Adventurer</div>
+          <div id="skin-blurb" class="skin-blurb"></div>
+          <button id="skin-action" class="menu-btn small">SELECT</button>
+        </div>
+        <button id="play-btn" class="menu-btn">PLAY</button>
+        <div id="account-guest" class="account hidden">
+          <span class="account-hint">Playing as a guest — your rubies live in this browser only.</span>
+          <button id="account-open" class="menu-btn small">CREATE A PASSWORD</button>
+          <button id="account-login-link" class="link-btn">Log in</button>
+        </div>
+        <div id="account-user" class="account user hidden">
+          <span class="account-badge">★</span><span id="account-name" class="account-name"></span>
+          <span id="account-stats" class="account-stats"></span>
+          <button id="account-logout" class="link-btn">Log out</button>
+        </div>
+      </div>
       <div class="menu-board">
         <h3>Hall of Fame</h3>
         <ol id="menu-leaderboard" class="leaderboard compact"></ol>
         <p id="menu-board-status" class="board-status"></p>
+        <button id="scores-open" class="link-btn">Full ladder</button>
       </div>
       <div class="controls-info">
         <h3>Controls</h3>
         <p><span class="key">A</span> / <span class="key">D</span> or <span class="key">←</span> / <span class="key">→</span> - Hold to move, tap to turn at a corner</p>
         <p><span class="key">W</span> / <span class="key">↑</span> / <span class="key">Space</span> - Jump</p>
-        <p><span class="key">S</span> / <span class="key">↓</span> - Slide</p>
+        <p><span class="key">S</span> / <span class="key">↓</span> - Slide · <span class="key">E</span> - Boost when charged</p>
         <p><span class="key">ESC</span> - Pause</p>
       </div>
+    </div>
+
+    <!-- Full high-score ladder -->
+    <div id="scores-screen" class="ui-screen hidden">
+      <h2>HALL OF FAME</h2>
+      <div class="ladder-wrap">
+        <table class="ladder"><thead><tr><th>#</th><th>Name</th><th>Score</th><th>Coins</th><th>When</th></tr></thead><tbody id="ladder-body"></tbody></table>
+      </div>
+      <p id="ladder-status" class="board-status"></p>
+      <button id="scores-close" class="menu-btn">BACK</button>
+    </div>
+
+    <!-- Rubies: always visible -->
+    <div id="rubies" class="rubies hidden"><span class="ruby">◆</span><span id="ruby-count">0</span><span id="ruby-next" class="ruby-next"></span></div>
+
+    <!-- Account modal -->
+    <div id="account-modal" class="modal hidden">
+      <form id="account-form" class="modal-box">
+        <h2 id="account-title">CREATE YOUR ACCOUNT</h2>
+        <p id="account-note" class="account-note"></p>
+        <input id="account-username" maxlength="12" autocomplete="username" placeholder="username" required>
+        <input id="account-password" type="password" maxlength="64" autocomplete="current-password" placeholder="password" required>
+        <p id="account-error" class="account-error"></p>
+        <div class="modal-row">
+          <button id="account-submit" type="submit" class="menu-btn small">CREATE</button>
+          <button id="account-close" type="button" class="menu-btn small">CANCEL</button>
+        </div>
+        <button id="account-switch" type="button" class="link-btn">I already have an account</button>
+      </form>
     </div>
 
     <!-- HUD -->
