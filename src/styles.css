@@ -343,7 +343,7 @@ html, body, #game-container { user-select: none; -webkit-user-select: none; -web
 .skin-name { font-size: 1.3rem; letter-spacing: 0.2em; color: #fff; }
 .skin-blurb { font-size: 0.8rem; color: #bbb; margin: 0.15rem 0 0.45rem; min-height: 1.1rem; }
 #skin-action:disabled { opacity: 0.7; cursor: default; }
-.rubies { position: absolute; bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); z-index: 20; display: flex; align-items: baseline; gap: 0.35rem; padding: 0.25rem 0.8rem; border-radius: 999px; background: rgba(0,0,0,0.5); border: 1px solid rgba(233,69,96,0.5); color: #fff; font-size: 1rem; pointer-events: none; }
+.rubies { position: absolute; top: 6.4rem; left: 1rem; z-index: 20; display: flex; align-items: baseline; gap: 0.35rem; padding: 0.25rem 0.8rem; border-radius: 999px; background: rgba(0,0,0,0.5); border: 1px solid rgba(233,69,96,0.5); color: #fff; font-size: 1rem; pointer-events: none; }
 .rubies.hidden { display: none; }
 .ruby { color: #e94560; text-shadow: 0 0 8px rgba(233,69,96,0.9); }
 .ruby-next { font-size: 0.6rem; color: #999; letter-spacing: 0.05em; }
@@ -396,3 +396,6 @@ body.logged-in #main-menu h1 { text-shadow: 0 0 24px rgba(255,200,80,0.6), 0 0 4
 
 .skin-trait { font-size: 0.78rem; color: #ffc850; letter-spacing: 0.05em; margin-bottom: 0.45rem; min-height: 1rem; }
 .skin-trait::before { content: "✦ "; }
+
+.fps { position: absolute; top: 4.7rem; right: 1rem; font-size: 0.7rem; color: #9a9; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; }
+@media (pointer: coarse) { .fps { right: 5.6rem; } }

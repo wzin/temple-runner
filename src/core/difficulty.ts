@@ -18,10 +18,10 @@ export function difficultyAt(s: number): Difficulty {
   const t = Math.max(0, Math.min(1, s / RAMP_DISTANCE));
   return {
     speed: lerp(BASE_SPEED, MAX_SPEED, t),
-    turnChance: lerp(0.35, 0.5, t),   // frequent corners keep the visible stretch short (a cheap render-distance limiter)
+    turnChance: lerp(0.55, 0.7, t),   // frequent corners keep the visible stretch short (a cheap render-distance limiter)
     obstacleChance: lerp(0.45, 0.7, t),
     // Spacing is a reaction budget in seconds converted to metres, so chained obstacles stay doable at speed.
-    obstacleSpacing: lerp(BASE_SPEED, MAX_SPEED, t) * lerp(1.7, 1.05, t),
+    obstacleSpacing: lerp(BASE_SPEED, MAX_SPEED, t) * lerp(1.2, 1.0, t),
     reactionTime: 0.4,
   };
 }

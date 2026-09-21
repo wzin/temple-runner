@@ -101,7 +101,8 @@ export function playCoin(): void {
   if (muted) return;
   const ctx = ensureAudioContext(); if (!ctx || !masterGain) return;
   const now = performance.now();
-  coinStreak = now - lastCoinMs < 800 ? Math.min(coinStreak + 1, 16) : 0;
+  // Climb an octave, then start over from the base note.
+  coinStreak = now - lastCoinMs < 800 ? (coinStreak >= 12 ? 0 : coinStreak + 1) : 0;
   lastCoinMs = now;
   const pitch = Math.pow(2, coinStreak / 12);
   const parts = SOUNDS.coin; const list = Array.isArray(parts) ? parts : [parts];

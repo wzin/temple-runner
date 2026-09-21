@@ -167,12 +167,17 @@ export function updatePlayerView(game: Game, timeMs: number): void {
 
   const lift = game.boosting ? 1.2 : 0;
   const w = game.track.sample(p.s, p.x, p.y + lift);
-  group.position.set(w.x, w.y, w.z);
+  const miss = game.missedCorner;
+  if (miss) {
+    // Did not turn: keep running straight over the corner square towards the wall/void until the fall.
+    const right = { x: -miss.dir.z, z: miss.dir.x };
+    group.position.set(miss.x + miss.dir.x * miss.past + right.x * p.x, p.y + lift, miss.z + miss.dir.z * miss.past + right.z * p.x);
+  } else group.position.set(w.x, w.y, w.z);
   // The shadow stays on the slabs while the runner is in the air, fading with height.
   shadowBlob.position.y = 0.03 - (p.y + lift); shadowBlob.scale.setScalar(Math.max(0.5, 1 - (p.y + lift) * 0.25)); (shadowBlob.material as THREE.MeshBasicMaterial).opacity = Math.max(0.25, 1 - (p.y + lift) * 0.3);
   const speedRatio = p.speed / p.cfg.speed;
   const lean = 0.06 + (speedRatio - 1) * 0.1;
-  group.rotation.set(-lean, yawOf(w.dir), p.stumbleTimer > 0 ? Math.sin(timeMs * 0.03) * 0.15 : 0);
+  group.rotation.set(-lean, yawOf(miss ? miss.dir : w.dir), p.stumbleTimer > 0 ? Math.sin(timeMs * 0.03) * 0.15 : 0);
 
   squash *= Math.exp(-0.012 * 16.7);
   const sliding = p.state === 'sliding';

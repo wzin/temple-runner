@@ -18,6 +18,8 @@ import { faceHeading } from './util';
  *  branch – a tall gate (must slide): posts 4.2 m high, a lintel at chest height to slide under, a solid panel above it up
  *           to 4 m and teeth on top, so it clearly cannot be jumped; three looks by id: carved stone, wooden stakes, obsidian with gold
  *  gap    – real break in the embankment; lava or a river far below marks the drop
+ *  chasm  – the same break with a plank-and-rope bridge one lane wide across it (drawn once per pair of pieces)
+ *  spikegate – the gate's deadly cousin: iron spikes hang under the lintel and glow red; pass under it or die
  */
 
 const MAX = 64;
@@ -34,6 +36,8 @@ const FALL_START = 62; const FALL_END = 34;   // metres ahead of the runner (ins
 interface GateSet { posts: THREE.InstancedMesh; caps: THREE.InstancedMesh; lintels: THREE.InstancedMesh; panels: THREE.InstancedMesh; teeth: THREE.InstancedMesh; count: number }
 const gates: GateSet[] = [];
 let pits: THREE.InstancedMesh;
+let planks: THREE.InstancedMesh; let ropes: THREE.InstancedMesh;
+let spikeGate: GateSet; let spikeHang: THREE.InstancedMesh;
 let waterPits: THREE.InstancedMesh;
 let waterMaps: ReturnType<typeof remoteSet>;
 let gapVeils: THREE.InstancedMesh;
@@ -125,6 +129,15 @@ export function initObstacleView(scene: THREE.Scene): void {
     gateSet(obsidian, gold, obsidian, gold, toothGeo, postGeo),
   );
 
+  // Plank bridge over a chasm: boards one lane wide, ropes along both edges.
+  const plankSet = remoteSet('bridge-plank', 0x8a6a48); for (const t of [plankSet.map, plankSet.normalMap, plankSet.roughnessMap]) t.repeat.set(1, 3);
+  planks = add(new THREE.InstancedMesh(new THREE.BoxGeometry(1.8, 0.12, 1), pbrMaterial(plankSet, { color: 0xd8c0a0 }), MAX));
+  ropes = add(new THREE.InstancedMesh(new THREE.CylinderGeometry(0.03, 0.03, 1, 6).rotateX(Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x6a5030, roughness: 1 }), MAX * 2));
+  // Spike gate: obsidian frame, red-hot iron spikes hanging from the lintel down to the head line.
+  const iron = new THREE.MeshStandardMaterial({ color: 0x3a3438, metalness: 0.9, roughness: 0.35, emissive: 0xff2010, emissiveIntensity: 0.6 });
+  spikeGate = gateSet(obsidian, iron, obsidian, iron, new THREE.ConeGeometry(0.2, 0.7, 4), postGeo);
+  spikeHang = add(new THREE.InstancedMesh(new THREE.ConeGeometry(0.12, 0.55, 5).rotateX(Math.PI), iron, MAX * 9));
+
   // A gap is a real break in the embankment (floor and cliff blocks are skipped there). Far below, on
   // the ground, a pool of lava or a river bend marks where you would land.
   const lava = pbrMaterial(lavaSet, { color: 0xffffff, emissive: 0xff6a20, emissiveIntensity: 1.2 });
@@ -138,8 +151,9 @@ export function initObstacleView(scene: THREE.Scene): void {
 }
 
 export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Camera): void {
-  let nFire = 0; let nCoal = 0; let nBurn = 0; let nBraz = 0; let nPit = 0; let nWater = 0; let veils = 0;
-  for (const g of gates) g.count = 0;
+  let nFire = 0; let nCoal = 0; let nBurn = 0; let nBraz = 0; let nPit = 0; let nWater = 0; let veils = 0; let nPlank = 0; let nRope = 0; let nHang = 0;
+  for (const g of gates) g.count = 0; spikeGate.count = 0;
+  const bridgesDrawn = new Set<number>();
   for (const c of columns) c.count = 0;
   const t = timeMs * 0.001;
   const track = game.track;
@@ -200,8 +214,8 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
           col.shafts.setMatrixAt(col.count, dummy.matrix); col.caps.setMatrixAt(col.count, dummy.matrix); col.count++;
           break;
         }
-        case 'branch': {
-          const gate = gates[o.id % gates.length]; const nGate = gate.count;
+        case 'branch': case 'spikegate': {
+          const gate = o.kind === 'spikegate' ? spikeGate : gates[o.id % gates.length]; const nGate = gate.count;
           if (nGate >= MAX) break;
           const wobble = ((o.id * 7919) % 13 - 6) * 0.004;
           faceHeading(dummy, p.dir); dummy.rotation.y += wobble; dummy.scale.set(1, 1, 1);
@@ -220,7 +234,37 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
             dummy.position.set(p.x + right.x * off, GATE_PANEL_TOP + 0.36, p.z + right.z * off);
             dummy.rotation.z = lean; dummy.updateMatrix(); gate.teeth.setMatrixAt(nGate * GATE_TEETH + k, dummy.matrix); dummy.rotation.z = 0;
           }
+          if (o.kind === 'spikegate') {
+            // Nine spikes hanging from the lintel's underside, tips at the 1.0 m head line.
+            for (let k = 0; k < 9 && nHang < MAX * 9; k++) {
+              const off = (k - 4) * ((GAP_WIDTH - 1.6) / 8);
+              dummy.position.set(p.x + right.x * off, GATE_LINTEL_Y0 - 0.02 + 0.28, p.z + right.z * off); dummy.rotation.z = 0; dummy.updateMatrix();
+              spikeHang.setMatrixAt(nHang++, dummy.matrix);
+            }
+          }
           gate.count++;
+          break;
+        }
+        case 'chasm': {
+          // Pit below like a gap, plus one bridge per hole (the two pieces share s0).
+          if ((o.id * 2654435761) % 5 < 2) { if (nWater < MAX) { const q = track.sample(midS, 0); dummy.position.set(q.x, GROUND_Y + 0.08, q.z); faceHeading(dummy, q.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); waterPits.setMatrixAt(nWater++, dummy.matrix); } }
+          else if (nPit < MAX) { const q = track.sample(midS, 0); dummy.position.set(q.x, GROUND_Y + 0.08, q.z); faceHeading(dummy, q.dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); pits.setMatrixAt(nPit++, dummy.matrix); }
+          const key = Math.round(o.s0 * 10);
+          if (o.plankX !== undefined && !bridgesDrawn.has(key)) {
+            bridgesDrawn.add(key);
+            const len = o.s1 - o.s0 + 1.0;
+            for (const q of track.samplesAt(midS, o.plankX)) {
+              if (nPlank >= MAX) break;
+              dummy.position.set(q.x, -0.06 + Math.sin(timeMs * 0.003 + o.id) * 0.02, q.z); faceHeading(dummy, q.dir); dummy.scale.set(1, 1, len); dummy.updateMatrix();
+              planks.setMatrixAt(nPlank++, dummy.matrix);
+              const r2 = { x: -q.dir.z, z: q.dir.x };
+              for (const sd of [-1, 1]) { if (nRope >= MAX * 2) break; dummy.position.set(q.x + r2.x * sd * 0.95, 0.55, q.z + r2.z * sd * 0.95); dummy.scale.set(1, 1, len); dummy.updateMatrix(); ropes.setMatrixAt(nRope++, dummy.matrix); }
+            }
+          }
+          if (game.invulnerable && veils < MAX && !(game.boostEnding && Math.floor(timeMs / 120) % 2 === 0)) {
+            dummy.position.set(p.x, 0.04, p.z); faceHeading(dummy, p.dir); dummy.scale.set((o.x1 - o.x0) / GAP_WIDTH, 1 + Math.sin(timeMs * 0.01) * 0.3, o.s1 - o.s0); dummy.updateMatrix();
+            gapVeils.setMatrixAt(veils++, dummy.matrix);
+          }
           break;
         }
         case 'gap': case 'halfgap': {
@@ -249,8 +293,9 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
   const flush = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; };
   flush(fireFront, nFire); flush(fireFanA, nFire); flush(fireFanB, nFire); flush(fireCore, nFire); flush(fireGlow, nFire); flush(coals, nCoal); flush(burnLogs, nBurn); flush(braziers, nBraz);
   for (const c of columns) { flush(c.shafts, c.count); flush(c.caps, c.count); }
-  for (const g of gates) { flush(g.posts, g.count * 2); flush(g.caps, g.count * 2); flush(g.lintels, g.count); flush(g.panels, g.count); flush(g.teeth, g.count * GATE_TEETH); }
+  for (const g of [...gates, spikeGate]) { flush(g.posts, g.count * 2); flush(g.caps, g.count * 2); flush(g.lintels, g.count); flush(g.panels, g.count); flush(g.teeth, g.count * GATE_TEETH); }
+  flush(planks, nPlank); flush(ropes, nRope); flush(spikeHang, nHang);
   flush(pits, nPit); flush(waterPits, nWater); flush(gapVeils, veils);
 }
 
-export const OBSTACLE_KINDS: ObstacleKind[] = ['fire', 'log', 'branch', 'gap', 'halfgap'];
+export const OBSTACLE_KINDS: ObstacleKind[] = ['fire', 'log', 'branch', 'gap', 'halfgap', 'chasm', 'spikegate'];

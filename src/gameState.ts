@@ -11,6 +11,7 @@ export interface GameState {
   proximityBar: number;
   energy: number;
   activePowerUp: PowerUpType | null;
+  activePowerUps: { kind: string; timer: number }[];
   powerUpTimer: number;
 }
 
@@ -22,5 +23,6 @@ export const gameState: GameState = {
   proximityBar: 0,
   energy: 0,
   activePowerUp: null,
+  activePowerUps: [],
   powerUpTimer: 0,
 };

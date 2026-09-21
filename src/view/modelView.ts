@@ -225,7 +225,7 @@ export function updateModels(game: Game): void {
   for (const e of loaded.values()) e.count = 0;
   mistPatches.length = 0;
   const track = game.track;
-  const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap' || o.kind === 'halfgap');
+  const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap' || o.kind === 'halfgap' || o.kind === 'chasm');
   const nearGap = (s: number, pad = 1) => gaps.some((g) => s > g.s0 - pad && s < g.s1 + pad);
   for (const seg of game.visibleSegments()) {
     if (seg.kind !== 'straight') { statuesAt(track, seg); continue; }

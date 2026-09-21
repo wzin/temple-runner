@@ -294,7 +294,7 @@ describe('character traits', () => {
     expect(g.shield).toBe(true);
     expect(g.coins).toBe(6);                       // 5 × 1.2
     // Two stumbles are absorbed, the third hurts.
-    for (let i = 0; i < 3; i++) g.spawner.obstacles.push({ id: 10 + i, kind: 'log', s0: g.player.s + 2 + i * 6, s1: g.player.s + 3.2 + i * 6, x0: -3, x1: 3, y0: 1, y1: 1.6, hit: false, passed: false });
+    for (let i = 0; i < 3; i++) g.spawner.obstacles.push({ id: 10 + i, kind: 'log', s0: g.player.s + 2 + i * 5, s1: g.player.s + 3.2 + i * 5, x0: -3, x1: 3, y0: 1, y1: 1.6, hit: false, passed: false });
     const events = sim.run(() => g.spawner.obstacles.every((o) => o.hit || o.passed), { autopilot: true, forkChoice: 'left' });
     expect(events.filter((e) => e.type === 'shielded').length).toBe(2);
     expect(events.filter((e) => e.type === 'hit').length).toBe(1);

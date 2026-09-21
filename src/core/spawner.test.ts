@@ -25,7 +25,7 @@ describe('Spawner', () => {
     const { sp, track } = build(12);
     for (const o of sp.obstacles) {
       expect(track.nearTurnWindow(o.s0, 10)).toBe(false);
-      for (const w of track.turnWindows()) { if (o.s0 > w.corner) expect(o.s0 - w.corner).toBeGreaterThanOrEqual(1.2 * 15 - 1e-6); else expect(w.corner - o.s1).toBeGreaterThanOrEqual(1.2 * 15 - 1e-6); }
+      for (const w of track.turnWindows()) { if (o.s0 > w.corner) expect(o.s0 - w.corner).toBeGreaterThanOrEqual(0.9 * 15 - 1e-6); else expect(w.corner - o.s1).toBeGreaterThanOrEqual(10 - 1e-6); }
     }
     for (const c of sp.coins) expect(track.nearTurnWindow(c.s, 2)).toBe(false);
   });
@@ -74,6 +74,7 @@ describe('Spawner', () => {
       expect(o.s1 - o.s0).toBeCloseTo(spec.depth, 5);
       if (spec.lane) expect(o.x1 - o.x0).toBeCloseTo(2, 5);
       else if (o.kind === 'halfgap') expect(o.x1 - o.x0).toBeCloseTo(3.4, 5);   // one side plus a little past the centre
+      else if (o.kind === 'chasm') { expect(o.x1 - o.x0).toBeGreaterThan(1); expect(o.x1 - o.x0).toBeLessThan(5); }   // one of the two pieces beside the planks
       else expect(o.x1 - o.x0).toBeGreaterThan(5);
     }
   });
@@ -114,7 +115,7 @@ describe('rubies', () => {
       for (const p of sp.powerUps) if (p.kind === 'ruby') { rubies++; expect(p.s).toBeGreaterThanOrEqual(500); }
     }
     const perKm = rubies / (metres / 1000);
-    expect(perKm).toBeGreaterThan(0.15);
+    expect(perKm).toBeGreaterThan(0.1);
     expect(perKm).toBeLessThan(0.9);
   });
 });

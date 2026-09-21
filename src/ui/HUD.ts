@@ -72,7 +72,9 @@ export function updateHUD(): void {
         boost: 'BOOST',
         ruby: 'RUBY',
       };
-      powerUpIndicator.textContent = timeLeft > 0 ? `${names[gameState.activePowerUp]} (${timeLeft}s)` : names[gameState.activePowerUp];
+      // Every running effect, e.g. "BOOST (4s) · MAGNET (7s) · SHIELD".
+      const parts = gameState.activePowerUps.map((a) => a.timer > 0 ? `${names[a.kind] ?? a.kind} (${Math.ceil(a.timer)}s)` : (names[a.kind] ?? a.kind));
+      powerUpIndicator.textContent = parts.length ? parts.join(' · ') : (timeLeft > 0 ? `${names[gameState.activePowerUp]} (${timeLeft}s)` : names[gameState.activePowerUp]);
     } else {
       powerUpIndicator.classList.remove('active');
     }

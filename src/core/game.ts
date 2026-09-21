@@ -57,7 +57,13 @@ export class Game {
   rubiesFound = 0;
   /** Seconds since the run started or the last boost was fired; caps how fast the meter can fill. */
   private energyTime = 0;
-  active: ActivePowerUp | null = null;
+  /** Running power-ups by kind (they stack: a magnet does not cancel a boost). */
+  private timers: Partial<Record<PowerUpKind, number>> = {};
+  /** All running effects, boost first. */
+  get actives(): ActivePowerUp[] { return (['boost', 'magnet'] as PowerUpKind[]).filter((k) => (this.timers[k] ?? 0) > 0).map((k) => ({ kind: k, timer: this.timers[k]! })); }
+  /** The most prominent running effect (boost, else magnet), for callers that show one. */
+  get active(): ActivePowerUp | null { return this.actives[0] ?? null; }
+  set active(v: ActivePowerUp | null) { this.timers = v ? { [v.kind]: v.timer } : {}; }
   /** Character traits for this run (see economy.ts); set before `reset`/start. */
   traits: Traits = { ...DEFAULT_TRAITS };
   private shieldHits = 0;
@@ -88,17 +94,27 @@ export class Game {
     this.spawner = new Spawner(rng, this.track, { tuning: (s) => difficultyAt(s) });
     this.buffer.clear();
     this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false; this.energy = 0; this.energyTime = 0; this.rubiesFound = 0;
-    this.active = null; this.shieldHits = 0; this.boostGrace = 0; this.lastTurn = null; this.forkIntent = null; this.fallPose = null; this.deadReported = false;
+    this.timers = {}; this.shieldHits = 0; this.boostGrace = 0; this.lastTurn = null; this.forkIntent = null; this.fallPose = null; this.deadReported = false;
     this.applyDifficulty();
     this.layAhead();
   }
 
-  get boosting(): boolean { return this.active?.kind === 'boost'; }
+  get boosting(): boolean { return (this.timers.boost ?? 0) > 0; }
   /** Boost or its landing grace: no collisions, turns are taken automatically, presses are ignored. */
   get invulnerable(): boolean { return this.boosting || this.boostGrace > 0; }
-  get magnet(): boolean { return this.active?.kind === 'magnet'; }
+  get magnet(): boolean { return (this.timers.magnet ?? 0) > 0; }
   /** Last 1.5 s of a boost: the view blinks the aura and the gap veils as a warning. */
-  get boostEnding(): boolean { return this.boosting && (this.active?.timer ?? 0) < 1.5; }
+  get boostEnding(): boolean { return this.boosting && (this.timers.boost ?? 0) < 1.5; }
+  /** Past a corner without having turned (and not flying through on a boost): where the runner really is —
+   *  straight on from the corner. The view uses it so a missed turn looks like running off, not like turning. */
+  get missedCorner(): { x: number; z: number; dir: Vec2; past: number } | null {
+    const p = this.player;
+    if (this.invulnerable || p.down) return null;
+    const w = this.track.turnWindowAt(p.s);
+    if (!w || w.segment.turnDone || p.s <= w.corner) return null;
+    const c = this.track.sample(w.corner - 1e-6, 0);
+    return { x: c.x, z: c.z, dir: c.dir, past: p.s - w.corner };
+  }
   /** Segments worth drawing: everything laid up to a little past the fog, so the far end costs nothing. */
   visibleSegments(): Segment[] {
     const limit = this.player.s + this.lookahead * RENDER_AHEAD_FRACTION;
@@ -188,20 +204,20 @@ export class Game {
     if (kind === 'shield') { this.shieldHits = this.traits.shieldHits; }
     else {
       if (kind === 'boost') this.proximity = 0;   // the monkeys are left behind
-      if (this.active) events.push({ type: 'powerupEnd', kind: this.active.kind });
+      // Effects stack; picking the same kind again refreshes its timer.
       const mul = kind === 'boost' ? this.traits.boostMul : kind === 'magnet' ? this.traits.magnetMul : 1;
-      this.active = { kind, timer: POWERUPS[kind].duration * mul };
+      this.timers[kind] = Math.max(this.timers[kind] ?? 0, POWERUPS[kind].duration * mul);
     }
     events.push({ type: 'powerup', kind });
   }
 
   private tickPowerUp(dt: number, events: GameEvent[]): void {
-    if (!this.active) return;
-    this.active.timer -= dt;
-    if (this.active.timer <= 0) {
-      if (this.active.kind === 'boost') this.boostGrace = BOOST_GRACE;
-      events.push({ type: 'powerupEnd', kind: this.active.kind });
-      this.active = null;
+    for (const kind of Object.keys(this.timers) as PowerUpKind[]) {
+      const left = (this.timers[kind] ?? 0) - dt;
+      if (left > 0) { this.timers[kind] = left; continue; }
+      delete this.timers[kind];
+      if (kind === 'boost') this.boostGrace = BOOST_GRACE;
+      events.push({ type: 'powerupEnd', kind });
     }
   }
 

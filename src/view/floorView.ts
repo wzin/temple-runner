@@ -133,11 +133,14 @@ export function updateFloorView(game: Game): void {
     variant = variantFor(seg.id);
     const wv = wallVariantFor(seg.id);
     for (let s = from + SLAB / 2; s < to + 1e-6; s += SLAB) {
-      if (holed(s)) continue;
+      const bridged = holes.bridged(s);
+      if (holed(s) && !bridged) continue;
       const w = track.sampleSegment(seg, s);
       const hs = holes.halfAt(s);
       const edge = gapEdge(s);
-      if (hs !== 0) {
+      if (bridged) {
+        // Chasm with planks: no slab (obstacleView draws the bridge), walls below keep standing.
+      } else if (hs !== 0) {
         // Half the ridge is gone: a narrow strip of broken slabs survives along the far wall.
         if (nHalf < 128) {
           const hw = track.sampleSegment(seg, s, -hs * (TRACK_HALF_WIDTH - SAFE_W / 2));

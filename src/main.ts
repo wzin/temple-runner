@@ -136,10 +136,13 @@ function init(): void {
   });
 }
 
+let fpsFrames = 0; let fpsAt = 0;
 function loop(now: number): void {
   requestAnimationFrame(loop);
   const dt = Math.min((now - lastTime) / 1000, 0.1);
   lastTime = now;
+  fpsFrames++;
+  if (now - fpsAt > 500) { const el = document.getElementById('fps'); if (el) el.textContent = `${Math.round(fpsFrames * 1000 / (now - fpsAt))} FPS`; fpsFrames = 0; fpsAt = now; }
 
   if (wasBoostPressed() && gameState.screen === 'playing') game.pressBoost();   // the 'powerup' event follows on the next tick
   if (wasPausePressed()) {
@@ -234,7 +237,9 @@ function syncState(): void {
   gameState.proximityBar = game.proximity;
   gameState.energy = game.energy;
   gameState.activePowerUp = game.active?.kind ?? (game.shield ? 'shield' : null);
+  if (game.shield && game.active) gameState.activePowerUps.push({ kind: 'shield', timer: 0 });
   gameState.powerUpTimer = game.active?.timer ?? 0;
+  gameState.activePowerUps = game.actives.map((a) => ({ kind: a.kind, timer: a.timer }));
 }
 
 function syncViews(now: number): void {

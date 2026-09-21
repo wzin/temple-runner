@@ -70,7 +70,7 @@ via `allSegments()`; `resolveFork(seg, dir)` adopts the chosen branch. If a bran
 returned (a tester once saw a branch vanish in view, pressed towards it and died at the corner). Segments
 behind `player.s − 40` are dropped. Stress tests simulate 3 km runs with drop-behind and fork resolution.
 
-**Turn windows** (`TurnWindow {from, strictFrom, corner, to}`): `turnLead = 1.0 s × speed` before the corner (a correct
+**Turn windows** (`TurnWindow {from, strictFrom, corner, to}`): a missed corner is drawn as running straight over the corner square (`game.missedCorner`, playerView) so it never looks like an auto-turn. `turnLead = 1.0 s × speed` before the corner (a correct
 press is accepted from here), `turnEarly = 0.4 s × speed` (`strictFrom`, the reaction zone), `turnLate = max(3 m,
 0.35 s × speed)` after the corner. Missing the corner falls only once `s > to` (the runner visibly follows the bend
 meanwhile; the fall pose is staged back at the corner). **A wrong-direction press never kills**: A/D and ←/→ both
@@ -84,9 +84,9 @@ airtime, 2.2 m apex), slide 0.7 s (height 0.9), stumble slows 0.6× for 0.5 s, f
 **Spawner** (`spawner.ts`): 12 m chunks; obstacle chance 0.45 → 0.7; spacing is time-based (1.7 s → 1.05 s of running);
 nothing within `1.2 s × speed` before or after a corner (`afterCornerSeconds`) and whole patterns stay clear of turn
 windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log (y 1.0–1.6, slide/jump; drawn as a stone column that topples off a wall 62 → 34 m ahead and drops to chest height), branch (y
-1.0–2.6, slide; drawn as a 4.2 m gate with a solid panel above the lintel, unmistakably not jumpable), gap (4 m = two slabs, fatal, jump), **halfgap** (8 m; one side of the ridge from the wall to 0.4 m past the centre is gone, only the far lane is safe; floor, walls, embankment, decals and torches all break on that side via `view/holes.ts`). Singles: gap and halfgap have double weight. Patterns unlock with distance: logWithArc 100 m, twoLaneFire
+1.0–2.6, slide; drawn as a 4.2 m gate with a solid panel above the lintel, unmistakably not jumpable), gap (4 m = two slabs, fatal, jump), **halfgap** (8 m; one side of the ridge from the wall to 0.4 m past the centre is gone, only the far lane is safe; floor, walls, embankment, decals and torches all break on that side via `view/holes.ts`), **chasm** (6 m full break with a plank-and-rope bridge one lane wide, laid as two fatal pieces either side of the planks, `plankX`; walls stay), **spikegate** (from 300 m: the gate shape with red-hot iron spikes, fatal — pass under or die). Singles: gap, halfgap, chasm and spikegate carry double weight. **Every segment gets something**: one segment (20 m) after the last obstacle the next clear spot is forced; corner clearance 0.9 s after / 10 m before; spacing 1.2 → 1.0 s. Patterns unlock with distance: logWithArc 100 m, twoLaneFire
 200 m, gapThenBranch 400 m (branch placed at `gap + 0.77 s × speed + 4 m`), laneFireRow 600 m. Coins in runs of 5–8
-(some arcs), `value` 1 or 5 (big medallion). Power-ups from 120 m, 8%/chunk, one live: magnet 10 s (pull
+(some arcs), `value` 1 or 5 (big medallion). Power-ups from 120 m, 8%/chunk, **stacking** (`game.timers` per kind; picking the same kind refreshes it; HUD lists them all): magnet 10 s (pull
 `max(20, 1.8 × speed)` m/s), shield (one stumble), boost 5 s (×1.6, invulnerable, auto-turns) + 0.6 s grace.
 Proximity meter +25 per hit, −2/s, 100 = caught; boost resets it and hides the cats. **Coin energy**: each coin value adds 0.6 to `game.energy` (~170 coin-points), capped at `100 × seconds/45` since the run or last boost, so a boost is never ready before 45 s of running (typically ~60 s); at 100 the `energyFull` event fires and `pressBoost()` (E / Enter / Shift / B, tapping the HUD bar or the pad's ⚡) spends it on a normal 5 s boost.
 
@@ -163,7 +163,7 @@ ruby pill on every screen (`#rubies`), guest nudge → CREATE A PASSWORD modal (
 phrases regenerated every four bars) at 96 bpm, scheduled a beat ahead; `startMusic` on the first pointer gesture, intensity ducked to
 0.35 in menus/after death, 0.25 paused; MUSIC toggle in the pause menu (`temple-runner.music`).
 **Mosaic**: the start sun mosaic is also laid every ~650 m (3% of straights, never over a hole).
-**Forks**: 50% of corners are T-junctions (`forkChance`).
+**Forks**: 70% of corners are T-junctions (`forkChance`); turn chance 0.55 → 0.7. (16 m segments were tried: the generator hangs — keep 20.)
 **Loading** (`view/loading.ts`): two stages — `lobby` (menu backdrop + previewed character) behind the `#boot` overlay,
 `game` (all texture sets + every GLB through `loadGLB`) shown as the PLAY button filling up; `startGame` refuses until
 `progress('game').complete`. **Pillarbox** (`view/viewport.ts`): on wide screens the play area is capped at aspect 0.9
@@ -221,6 +221,7 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
+0.14.0 plank-bridge chasms, spike gates, an obstacle in every segment, 70% forks, stacking power-ups, straight-on missed corners, FPS meter, coin pitch loop ·
 0.13.0 ten runners with traits, procedural music, mosaics along the path, 50% forks ·
 0.12.0 half-broken runways, 4.2 m gates, toppling columns, tile variation, fogged flames, distance culling + more turns, chevron boost, real magnet, boost blink, ruby per 1000 coins ·
 0.11.0 accounts + rubies + lobby carousel + full ladder, two-stage loading, pillarbox, obstacle and pickup variants, ruby gems, three cats 0.7 m ·

@@ -2,9 +2,9 @@ import { POWERUP_KINDS, PowerUp } from './powerups';
 import { Rng, chance, int, pick } from './rng';
 import { TRACK_HALF_WIDTH, Track } from './track';
 
-export type ObstacleKind = 'fire' | 'log' | 'branch' | 'gap' | 'halfgap';
+export type ObstacleKind = 'fire' | 'log' | 'branch' | 'gap' | 'halfgap' | 'chasm' | 'spikegate';
 
-export interface Obstacle { id: number; kind: ObstacleKind; s0: number; s1: number; x0: number; x1: number; y0: number; y1: number; hit: boolean; passed: boolean }
+export interface Obstacle { id: number; kind: ObstacleKind; s0: number; s1: number; x0: number; x1: number; y0: number; y1: number; hit: boolean; passed: boolean; /** chasm pieces: centre x of the plank bridge that spans the whole hole */ plankX?: number }
 export interface Coin { id: number; s: number; x: number; y: number; collected: boolean; value: number }
 
 /** y ranges are chosen against the player: standing 0–1.8, sliding 0–0.9, jump apex 2.2. */
@@ -14,6 +14,8 @@ export const OBSTACLES: Record<ObstacleKind, { depth: number; y0: number; y1: nu
   branch: { depth: 0.6, y0: 1.0,  y1: 2.6, lane: false, fatal: false }, // must slide
   gap:    { depth: 4.0, y0: -10,  y1: 0.0, lane: false, fatal: true  }, // must jump; 4 m = two floor slabs, so the hole matches the collision
   halfgap: { depth: 8.0, y0: -10, y1: 0.0, lane: false, fatal: true }, // one side of the ridge is gone for four slabs: run along the other wall
+  chasm:   { depth: 6.0, y0: -10, y1: 0.0, lane: false, fatal: true }, // full break with a plank bridge on one lane; laid as two pieces either side of the planks
+  spikegate: { depth: 0.6, y0: 1.0, y1: 2.6, lane: false, fatal: true }, // spiked gate: pass under it or die
 };
 
 export const LANES = [-1.5, 0, 1.5];
@@ -46,7 +48,7 @@ export interface SpawnerOptions {
   tuning: (s: number) => SpawnTuning;
 }
 const DEFAULTS: SpawnerOptions = {
-  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.9, powerUpChance: 0.08, firstPowerUpAt: 120, rubyEvery: 2600, firstRubyAt: 500, afterCornerSeconds: 1.2,
+  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.9, powerUpChance: 0.08, firstPowerUpAt: 120, rubyEvery: 2200, firstRubyAt: 500, afterCornerSeconds: 0.9,
   tuning: () => ({ obstacleChance: 0.45, obstacleSpacing: 25, speed: 15 }),
 };
 
@@ -88,7 +90,9 @@ export class Spawner {
     const beforeCorner = Math.max(o.turnMargin, o.afterCornerSeconds * t.speed);   // a clean approach too
     const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.corner + afterCorner >= s && w.corner - beforeCorner <= s + len);
     const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
-    if (canObstacle && chance(this.rng, t.obstacleChance)) { this.layPattern(pattern, s, t.speed); return; }
+    // Never an empty stretch: one segment (20 m) after the last obstacle the next clear spot gets one for sure.
+    const overdue = s - this.lastObstacleEnd > 20;
+    if (canObstacle && (overdue || chance(this.rng, t.obstacleChance))) { this.layPattern(pattern, s, t.speed); return; }
     if (s >= o.firstRubyAt && chance(this.rng, o.chunk / (o.rubyEvery * this.rubyScale)) && !this.nearAnyTurn(s, 4)) { this.powerUps.push({ id: this.nextId++, kind: 'ruby', s, x: pick(this.rng, LANES), y: 1.0, taken: false }); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }
     if (chance(this.rng, o.coinChance)) this.layCoinRun(s);
@@ -98,6 +102,17 @@ export class Spawner {
     const available = (Object.keys(PATTERNS) as PatternKind[]).filter((k) => s >= PATTERNS[k].minS);
     // Singles stay common so patterns feel like set pieces.
     return chance(this.rng, 0.5) ? 'single' : pick(this.rng, available);
+  }
+
+  /** The whole ridge is gone for three slabs; a plank bridge one lane wide (centre `plankX`) crosses it. Two fatal pieces flank the planks. */
+  private placeBridge(s: number): void {
+    const lane = pick(this.rng, LANES);
+    const spec = OBSTACLES.chasm;
+    const mk = (x0: number, x1: number): Obstacle => ({ id: this.nextId++, kind: 'chasm', s0: s, s1: s + spec.depth, x0, x1, y0: spec.y0, y1: spec.y1, hit: false, passed: false, plankX: lane });
+    if (lane - 0.9 > -TRACK_HALF_WIDTH) this.obstacles.push(mk(-TRACK_HALF_WIDTH, lane - 0.9));
+    if (lane + 0.9 < TRACK_HALF_WIDTH) this.obstacles.push(mk(lane + 0.9, TRACK_HALF_WIDTH));
+    this.lastObstacleEnd = Math.max(this.lastObstacleEnd, s + spec.depth);
+    for (let i = this.coins.length - 1; i >= 0; i--) { const c = this.coins[i]; if (c.s >= s - 1 && c.s <= s + spec.depth + 1 && Math.abs(c.x - lane) > 0.5) this.coins.splice(i, 1); }
   }
 
   /** Half the ridge falls away: the hole covers one side up to 0.4 m past the centre, so only the far lane is safe. */
@@ -129,7 +144,7 @@ export class Spawner {
   private patternLength(pattern: PatternKind, speed: number): number {
     if (pattern === 'gapThenBranch') return OBSTACLES.gap.depth + this.jumpReach(speed) + OBSTACLES.branch.depth;
     if (pattern === 'laneFireRow') return 2 * this.fireStep(speed) + OBSTACLES.fire.depth;
-    if (pattern === 'single') return OBSTACLES.halfgap.depth;   // the longest thing a single can be
+    if (pattern === 'single') return OBSTACLES.halfgap.depth;   // the longest thing a single can be (chasm 6, halfgap 8)
     return PATTERNS[pattern].length;
   }
 
@@ -140,8 +155,9 @@ export class Spawner {
     switch (pattern) {
       case 'single': {
         // Gaps twice as likely as the others: holes in the road are the signature hazard.
-        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap', 'halfgap', 'halfgap', 'halfgap'] as const);
+        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap', 'halfgap', 'halfgap', 'chasm', 'chasm', ...(s >= 300 ? ['spikegate', 'spikegate'] as const : [])] as const);
         if (kind === 'halfgap') { this.placeHalfGap(s); return; }
+        if (kind === 'chasm') { this.placeBridge(s); return; }
         this.place(kind, s, null);
         return;
       }
