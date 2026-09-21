@@ -32,7 +32,7 @@ export function updateProps(game: Game, camera: THREE.Camera): void {
   let nR = 0; let nC = 0; let nF = 0; let nB = 0; let nS = 0; let nP = 0; let nK = 0; let nPa = 0;
   const track = game.track;
   const bill = (x: number, z: number) => Math.atan2(camera.position.x - x, camera.position.z - z);
-  for (const seg of track.allSegments()) {
+  for (const seg of game.visibleSegments()) {
     if (seg.kind !== 'straight') continue;   // bends get real statue models (modelView)
     for (let i = 0; i < 10; i++) {
       const side = i % 2 === 0 ? -1 : 1;

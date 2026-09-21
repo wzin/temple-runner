@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { holesOf } from './holes';
 import type { Game } from '../core/game';
 import { TRACK_HALF_WIDTH } from '../core/track';
 import { pbrMaterial, remoteSet, sprite } from './textures';
@@ -46,8 +47,9 @@ export function initDecals(scene: THREE.Scene): void {
 
 export function updateDecals(game: Game, timeMs: number): void {
   const track = game.track;
-  const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
-  const holed = (s: number) => gaps.some((g) => s + 1 > g.s0 + 1e-6 && s - 1 < g.s1 - 1e-6);
+  const holes = holesOf(game, 2);
+  let side: -1 | 1 = 1;   // set by the per-side loops below
+  const holed = (s: number) => holes.holedSide(s, side);
   let nR = 0; let nA = 0; let nP = 0; let nC = 0; let nT = 0; let nB = 0;
   mosaic.visible = track.segments.length > 0 && track.segments[0].s0 === 0;
   const cornice = (x: number, z: number, dir: { x: number; z: number }) => {
@@ -55,9 +57,9 @@ export function updateDecals(game: Game, timeMs: number): void {
     dummy.position.set(x, 2.14, z); faceHeading(dummy, dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
     cornices.setMatrixAt(nC++, dummy.matrix);
   };
-  for (const seg of track.allSegments()) {
+  for (const seg of game.visibleSegments()) {
     if (seg.kind === 'straight') {
-      for (const side of [-1, 1] as const) {
+      for (side of [-1, 1] as const) {
         const w0 = track.sampleSegment(seg, seg.s0 + seg.length / 2, side * (TRACK_HALF_WIDTH - 0.03));
         const right = { x: -w0.dir.z, z: w0.dir.x };
         const yawIn0 = Math.atan2(-side * right.x, -side * right.z);

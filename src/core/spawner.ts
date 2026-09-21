@@ -2,7 +2,7 @@ import { POWERUP_KINDS, PowerUp } from './powerups';
 import { Rng, chance, int, pick } from './rng';
 import { TRACK_HALF_WIDTH, Track } from './track';
 
-export type ObstacleKind = 'fire' | 'log' | 'branch' | 'gap';
+export type ObstacleKind = 'fire' | 'log' | 'branch' | 'gap' | 'halfgap';
 
 export interface Obstacle { id: number; kind: ObstacleKind; s0: number; s1: number; x0: number; x1: number; y0: number; y1: number; hit: boolean; passed: boolean }
 export interface Coin { id: number; s: number; x: number; y: number; collected: boolean; value: number }
@@ -13,6 +13,7 @@ export const OBSTACLES: Record<ObstacleKind, { depth: number; y0: number; y1: nu
   log:    { depth: 1.2, y0: 1.0,  y1: 1.6, lane: false, fatal: false }, // slide under or jump over
   branch: { depth: 0.6, y0: 1.0,  y1: 2.6, lane: false, fatal: false }, // must slide
   gap:    { depth: 4.0, y0: -10,  y1: 0.0, lane: false, fatal: true  }, // must jump; 4 m = two floor slabs, so the hole matches the collision
+  halfgap: { depth: 8.0, y0: -10, y1: 0.0, lane: false, fatal: true }, // one side of the ridge is gone for four slabs: run along the other wall
 };
 
 export const LANES = [-1.5, 0, 1.5];
@@ -97,6 +98,17 @@ export class Spawner {
     return chance(this.rng, 0.5) ? 'single' : pick(this.rng, available);
   }
 
+  /** Half the ridge falls away: the hole covers one side up to 0.4 m past the centre, so only the far lane is safe. */
+  private placeHalfGap(s: number): Obstacle {
+    const side = chance(this.rng, 0.5) ? -1 : 1;
+    const spec = OBSTACLES.halfgap;
+    const ob: Obstacle = { id: this.nextId++, kind: 'halfgap', s0: s, s1: s + spec.depth, x0: side < 0 ? -TRACK_HALF_WIDTH : -0.4, x1: side < 0 ? 0.4 : TRACK_HALF_WIDTH, y0: spec.y0, y1: spec.y1, hit: false, passed: false };
+    this.obstacles.push(ob);
+    this.lastObstacleEnd = Math.max(this.lastObstacleEnd, ob.s1);
+    for (let i = this.coins.length - 1; i >= 0; i--) { const c = this.coins[i]; if (c.s >= ob.s0 - 1 && c.s <= ob.s1 + 1 && c.x > ob.x0 - 0.5 && c.x < ob.x1 + 0.5) this.coins.splice(i, 1); }
+    return ob;
+  }
+
   private place(kind: ObstacleKind, s: number, lane: number | null): Obstacle {
     const spec = OBSTACLES[kind];
     const centre = spec.lane ? (lane ?? pick(this.rng, LANES)) : 0;
@@ -115,6 +127,7 @@ export class Spawner {
   private patternLength(pattern: PatternKind, speed: number): number {
     if (pattern === 'gapThenBranch') return OBSTACLES.gap.depth + this.jumpReach(speed) + OBSTACLES.branch.depth;
     if (pattern === 'laneFireRow') return 2 * this.fireStep(speed) + OBSTACLES.fire.depth;
+    if (pattern === 'single') return OBSTACLES.halfgap.depth;   // the longest thing a single can be
     return PATTERNS[pattern].length;
   }
 
@@ -125,7 +138,8 @@ export class Spawner {
     switch (pattern) {
       case 'single': {
         // Gaps twice as likely as the others: holes in the road are the signature hazard.
-        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap'] as const);
+        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap', 'halfgap', 'halfgap'] as const);
+        if (kind === 'halfgap') { this.placeHalfGap(s); return; }
         this.place(kind, s, null);
         return;
       }

@@ -17,6 +17,7 @@ const materials: THREE.ShaderMaterial[] = [];
 export function flameMaterial(opts: { scale?: number; speed?: number; width?: number; glow?: number } = {}): THREE.ShaderMaterial {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),   // fog: true needs fogColor/fogNear/fogFar present
       time: { value: 0 },
       uScale: { value: opts.scale ?? 1 },
       uSpeed: { value: opts.speed ?? 1 },
@@ -27,7 +28,9 @@ export function flameMaterial(opts: { scale?: number; speed?: number; width?: nu
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     side: THREE.DoubleSide,
+    fog: true,
     vertexShader: /* glsl */ `
+      #include <fog_pars_vertex>
       varying vec2 vUv;
       varying float vSeed;
       void main() {
@@ -39,9 +42,12 @@ export function flameMaterial(opts: { scale?: number; speed?: number; width?: nu
           mat4 m = modelMatrix;
           vSeed = 0.0;
         #endif
-        gl_Position = projectionMatrix * viewMatrix * m * vec4(position, 1.0);
+        vec4 mvPosition = viewMatrix * m * vec4(position, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
       }`,
     fragmentShader: /* glsl */ `
+      #include <fog_pars_fragment>
       uniform float time; uniform float uScale; uniform float uSpeed; uniform float uWidth; uniform float uGlow;
       varying vec2 vUv; varying float vSeed;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -82,6 +88,12 @@ export function flameMaterial(opts: { scale?: number; speed?: number; width?: nu
         float alpha = smoothstep(0.08, 0.45, heat);
         col = col * alpha * 1.7 * uGlow + vec3(1.0, 0.75, 0.3) * sp * 2.0;
         gl_FragColor = vec4(col, max(alpha, sp));
+        // Additive: fading towards black is fading into the fog.
+        #ifdef USE_FOG
+          float fogFactor = smoothstep(fogNear, fogFar, vFogDepth);
+          gl_FragColor.rgb *= (1.0 - fogFactor);
+          gl_FragColor.a *= (1.0 - fogFactor);
+        #endif
       }`,
   });
   materials.push(mat);

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { holesOf } from './holes';
 import type { Game } from '../core/game';
 import { Segment, TRACK_HALF_WIDTH, Track } from '../core/track';
 import { flameMaterial } from './flameMaterial';
@@ -43,9 +44,11 @@ export function* torchSpots(track: Track, seg: Segment): Generator<{ s: number; 
 export function updateTorches(game: Game, timeMs: number): void {
   let n = 0;
   const track = game.track;
-  for (const seg of track.allSegments()) {
+  const holes = holesOf(game, 2);
+  for (const seg of game.visibleSegments()) {
     for (const spot of torchSpots(track, seg)) {
       if (n >= MAX) break;
+      if (holes.holedSide(spot.s, spot.side as -1 | 1)) continue;
       const w = track.sampleSegment(seg, spot.s, spot.side * (TRACK_HALF_WIDTH - 0.05));
       const right = { x: -w.dir.z, z: w.dir.x };
       const off = -spot.side * 0.22;

@@ -77,7 +77,7 @@ function texturedBox(w: number, h: number, d: number): THREE.BoxGeometry {
 
 export function updateTrackView(game: Game): void {
   const live = new Set<number>();
-  for (const seg of game.track.allSegments()) {
+  for (const seg of game.visibleSegments()) {
     live.add(seg.id);
     if (!groups.has(seg.id)) {
       const g = buildSegment(game.track, seg);

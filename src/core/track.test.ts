@@ -14,7 +14,7 @@ describe('heading helpers', () => {
 });
 
 describe('Track generation', () => {
-  it('starts with straights and always follows a turn with two straights', () => {
+  it('starts with straights and always follows a turn with a straight', () => {
     const t = new Track(mulberry32(3), { turnChance: 0.9 });
     t.extendTo(2000);
     const kinds = t.segments.map((s) => s.kind);
@@ -22,7 +22,7 @@ describe('Track generation', () => {
     // Collision avoidance may occasionally force a turn early; it must stay rare.
     let turns = 0; let early = 0;
     for (let i = 0; i < kinds.length - 2; i++) {
-      if (kinds[i] === 'turn') { turns++; if (kinds[i + 1] !== 'straight' || kinds[i + 2] !== 'straight') early++; }
+      if (kinds[i] === 'turn') { turns++; if (kinds[i + 1] !== 'straight') early++; }
     }
     expect(turns).toBeGreaterThan(5);
     expect(early / turns).toBeLessThan(0.1);
@@ -103,8 +103,8 @@ describe('forks', () => {
     expect(next.dir).toEqual(fork!.outDir);
     const end = t.sample(fork!.s0 + fork!.length - 1e-6);
     expect(Math.hypot(end.x - next.start.x, end.z - next.start.z)).toBeLessThan(1e-3);
-    // Two straights follow a resolved fork, like any turn.
-    expect(t.segments.slice(mainCount, mainCount + 2).every((s) => s.kind === 'straight')).toBe(true);
+    // A straight follows a resolved fork, like any turn.
+    expect(t.segments[mainCount].kind).toBe('straight');
   });
   it('does not fork before forkMinS', () => {
     const t = new Track(mulberry32(9), { turnChance: 1, forkChance: 1, forkMinS: 300 });

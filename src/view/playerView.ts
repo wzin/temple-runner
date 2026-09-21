@@ -199,9 +199,10 @@ export function updatePlayerView(game: Game, timeMs: number): void {
   shieldMesh.rotation.y = timeMs * 0.001;
   // Invulnerable (boost or its grace): ghostly runner with a pulsing aura.
   const ghost = game.invulnerable;
-  const opacity = ghost ? 0.45 + Math.sin(timeMs * 0.02) * 0.1 : 1;
+  const blinkOff = game.boostEnding && Math.floor(timeMs / 120) % 2 === 0;   // the boost is about to wear off
+  const opacity = ghost ? (blinkOff ? 0.95 : 0.45 + Math.sin(timeMs * 0.02) * 0.1) : 1;
   for (const m of bodyMaterials) m.opacity = opacity;
-  boostAura.visible = ghost;
+  boostAura.visible = ghost && !blinkOff;
   boostAura.scale.setScalar(1 + Math.sin(timeMs * 0.012) * 0.08);
   lamp.intensity = 6.5 + Math.sin(timeMs * 0.02) * 0.8;
 }

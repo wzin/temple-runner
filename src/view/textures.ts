@@ -305,6 +305,8 @@ export function sprite(name: string): THREE.Texture {
 
 /** Standard material wired to a PBR map set. */
 export function pbrMaterial(maps: Maps, extra: THREE.MeshStandardMaterialParameters = {}): THREE.MeshStandardMaterial {
+  // Anisotropic filtering keeps the slabs crisp at the grazing angles a runner camera always has.
+  for (const t of [maps.map, maps.normalMap, maps.roughnessMap]) t.anisotropy = 8;
   return new THREE.MeshStandardMaterial({
     map: maps.map, normalMap: maps.normalMap, roughnessMap: maps.roughnessMap,
     normalScale: new THREE.Vector2(1, 1), roughness: 1, metalness: 0.02, ...extra,

@@ -1,3 +1,4 @@
+import type { Segment } from './track';
 import { pickCoins, pickPowerUps, sweepObstacles } from './collision';
 import { difficultyAt } from './difficulty';
 import { TickInput, TurnBuffer } from './input';
@@ -26,8 +27,10 @@ export type GameEvent =
 
 /** Content is laid this many seconds of running ahead (clamped); the fog is tuned to hide the far end. */
 export const LOOKAHEAD_SECONDS = 12;
-export const LOOKAHEAD_MIN = 150;
-export const LOOKAHEAD_MAX = 300;
+export const LOOKAHEAD_MIN = 140;
+export const LOOKAHEAD_MAX = 230;
+/** Fraction of the lookahead that is drawn (the fog ends at 40%); the rest exists only for the spawner. */
+export const RENDER_AHEAD_FRACTION = 0.5;
 export const LOOKAHEAD = LOOKAHEAD_MIN; // kept for callers that want a static number
 export const KEEP_BEHIND = 40;
 export const COIN_RADIUS = 1.2;
@@ -88,6 +91,13 @@ export class Game {
   /** Boost or its landing grace: no collisions, turns are taken automatically, presses are ignored. */
   get invulnerable(): boolean { return this.boosting || this.boostGrace > 0; }
   get magnet(): boolean { return this.active?.kind === 'magnet'; }
+  /** Last 1.5 s of a boost: the view blinks the aura and the gap veils as a warning. */
+  get boostEnding(): boolean { return this.boosting && (this.active?.timer ?? 0) < 1.5; }
+  /** Segments worth drawing: everything laid up to a little past the fog, so the far end costs nothing. */
+  visibleSegments(): Segment[] {
+    const limit = this.player.s + this.lookahead * RENDER_AHEAD_FRACTION;
+    return this.track.allSegments().filter((seg) => seg.s0 < limit);
+  }
 
   pressTurn(dir: TurnDir, nowMs: number): void { if (!this.over && !this.player.down) this.buffer.press(dir, nowMs); }
 

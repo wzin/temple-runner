@@ -7,7 +7,7 @@ import { SKINS } from '../core/economy';
 
 export interface PlayerView { guest: boolean; username: string | null; coinsTotal: number; rubies: number; nextRubyIn: number; unlocked: string[]; bestScore: number; runs: number; skinCost: Record<string, number> }
 
-const OFFLINE: PlayerView = { guest: true, username: null, coinsTotal: 0, rubies: 0, nextRubyIn: 10_000, unlocked: [SKINS[0].id], bestScore: 0, runs: 0, skinCost: {} };
+const OFFLINE: PlayerView = { guest: true, username: null, coinsTotal: 0, rubies: 0, nextRubyIn: 1_000, unlocked: [SKINS[0].id], bestScore: 0, runs: 0, skinCost: {} };
 let current: PlayerView = OFFLINE;
 let online = false;
 const listeners: ((p: PlayerView) => void)[] = [];

@@ -1,6 +1,6 @@
 /** Rubies and the character catalogue: pure rules shared by the menu, the runner view and the tests. */
 
-export const RUBY_COINS = 10_000;
+export const RUBY_COINS = 1_000;
 
 export interface SkinDef { id: string; name: string; file: string; cost: number; blurb: string }
 /** In unlock order: the first is free, then 1, 5 and 10 rubies. `id` is also the server's key. */

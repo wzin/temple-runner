@@ -9,7 +9,7 @@
 //   POST /api/login               -> { username, password } -> view (new session)
 //   POST /api/logout              -> fresh guest view
 //   POST /api/unlock              -> { skin } spends rubies -> view
-// Economy: 1 ruby per 10 000 coins collected across all runs; skins cost 0/1/5/10/10/10 rubies.
+// Economy: 1 ruby per 1 000 coins collected across all runs; skins cost 0/1/5/10/10/10 rubies.
 import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
@@ -23,7 +23,7 @@ const USER_RE = /^[A-Za-z0-9_]{3,12}$/;
 const MAX_LIMIT = 200;
 const POST_COOLDOWN_MS = 3000;
 const REGISTRATIONS_PER_IP_PER_HOUR = 10;
-const RUBY_COINS = 10000;
+const RUBY_COINS = 1000;
 const SKIN_COST = { adventurer: 0, 'adventurer-f': 1, hooded: 5, king: 10, witch: 10, soldier: 10 };
 const COOKIE = 'tr_session';
 const YEAR = 365 * 24 * 3600;

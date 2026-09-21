@@ -105,7 +105,7 @@ export class Track {
   constructor(private readonly rng: Rng, opts: TrackOptions = {}) {
     const tc = opts.turnChance ?? 0.15;
     this.turnChance = typeof tc === 'function' ? tc : () => tc;
-    this.straightsAfterTurn = opts.straightsAfterTurn ?? 2;
+    this.straightsAfterTurn = opts.straightsAfterTurn ?? 1;
     this.initialStraights = opts.initialStraights ?? 3;
     this.forkChance = opts.forkChance ?? 0.35;
     this.forkMinS = opts.forkMinS ?? 150;

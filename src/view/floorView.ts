@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Game } from '../core/game';
 import { Segment, TRACK_HALF_WIDTH } from '../core/track';
 import { pbrMaterial, remoteSet, textures } from './textures';
+import { holesOf } from './holes';
 import { activeBiome } from './biome';
 import { faceHeading } from './util';
 
@@ -16,6 +17,10 @@ export const FLOOR_THICKNESS = 0.5;
 const MAX = 320;
 let slabs: THREE.InstancedMesh;
 let slabVariants: THREE.InstancedMesh[] = [];
+let halfSlabs: THREE.InstancedMesh;
+const SAFE_W = 2.6;   // width left to run on beside a half gap
+const vary = new THREE.Color();
+let nHalf = 0;
 let brokenEdge: THREE.InstancedMesh;
 let wallBlocks: THREE.InstancedMesh[] = [];
 const counts: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
@@ -44,6 +49,8 @@ export function initFloorView(scene: THREE.Scene): void {
   const look = (folder: string, fallback: number) => new THREE.InstancedMesh(geo, pbrMaterial(remoteSet(folder, fallback, 1), { color: tint }), MAX);
   // Looks: 0 worn path (default), 1 broken, 2 mossy (these three are mixed slab by slab), then whole stretches of
   // glyph tiles, dark cobbles, red sandstone, obsidian with gold joints and the old temple tiles.
+  halfSlabs = new THREE.InstancedMesh(new THREE.BoxGeometry(SAFE_W, FLOOR_THICKNESS, SLAB), pbrMaterial(remoteSet('floor-broken', 0x807870, 1), { color: activeBiome().floorTint }), 128);
+  halfSlabs.count = 0; halfSlabs.frustumCulled = false; scene.add(halfSlabs);
   slabVariants = [slabs, look('floor-broken', 0x807870), look('floor-mossy', 0x6a8060), look('floor-glyph', 0x9a8a6a), look('floor-cobble', 0x585858), look('floor-sand', 0x9a6a50), look('floor-obsidian', 0x2a2a30), look('floor-temple', 0x8a7a68)];
   for (const m of slabVariants) { m.count = 0; m.frustumCulled = false; m.receiveShadow = true; scene.add(m); }
   // Ragged slab at the lip of a gap: the gap-facing edge is torn back randomly.
@@ -96,9 +103,10 @@ function variantFor(segId: number): number {
 }
 
 export function updateFloorView(game: Game): void {
-  const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
-  const holed = (s: number) => gaps.some((g) => s + SLAB / 2 > g.s0 + 1e-6 && s - SLAB / 2 < g.s1 - 1e-6);
-  counts.fill(0); wallCounts.fill(0); nBroken = 0;
+  const holes = holesOf(game, SLAB);
+  const gaps = holes.all.filter((g) => g.kind === 'gap');
+  const holed = holes.holed;
+  counts.fill(0); wallCounts.fill(0); nBroken = 0; nHalf = 0;
   let variant = 0;
   /** Slab with per-slab imperfections: a little tilt and height noise, some sunk, looks mixed per slab. */
   const put = (x: number, z: number, dir: { x: number; z: number }, key = 0) => {
@@ -111,7 +119,10 @@ export function updateFloorView(game: Game): void {
     dummy.rotation.x += (segHash(Math.round(z * 10), 3) - 0.5) * 0.05;
     dummy.rotation.z += (segHash(Math.round(x * 10), 5) - 0.5) * 0.05;
     dummy.updateMatrix();
-    slabVariants[v].setMatrixAt(counts[v]++, dummy.matrix);
+    slabVariants[v].setMatrixAt(counts[v], dummy.matrix);
+    // Subtle per-slab colour variation so a run of the same tile never reads as one repeated stamp.
+    slabVariants[v].setColorAt(counts[v], vary.setRGB(0.9 + j * 0.2, 0.9 + segHash(Math.round(x * 10), 11) * 0.18, 0.88 + segHash(Math.round(z * 10), 13) * 0.2));
+    counts[v]++;
   };
   const track = game.track;
   const gapEdge = (s: number): -1 | 1 | 0 => {
@@ -124,8 +135,16 @@ export function updateFloorView(game: Game): void {
     for (let s = from + SLAB / 2; s < to + 1e-6; s += SLAB) {
       if (holed(s)) continue;
       const w = track.sampleSegment(seg, s);
+      const hs = holes.halfAt(s);
       const edge = gapEdge(s);
-      if (edge !== 0 && nBroken < 64) {
+      if (hs !== 0) {
+        // Half the ridge is gone: a narrow strip of broken slabs survives along the far wall.
+        if (nHalf < 128) {
+          const hw = track.sampleSegment(seg, s, -hs * (TRACK_HALF_WIDTH - SAFE_W / 2));
+          dummy.position.set(hw.x, -FLOOR_THICKNESS / 2, hw.z); dummy.scale.setScalar(1); faceHeading(dummy, hw.dir); dummy.updateMatrix();
+          halfSlabs.setMatrixAt(nHalf++, dummy.matrix);
+        }
+      } else if (edge !== 0 && nBroken < 64) {
         // Torn slab facing the gap (its jagged edge is +z locally, so flip when the gap is behind).
         dummy.position.set(w.x, -FLOOR_THICKNESS / 2, w.z); dummy.scale.setScalar(1); faceHeading(dummy, w.dir);
         if (edge === -1) dummy.rotation.y += Math.PI;
@@ -136,15 +155,17 @@ export function updateFloorView(game: Game): void {
       if (seg.kind === 'straight') {
         // Wall blocks on both sides; a gap cuts them too.
         for (const side of [-1, 1] as const) {
-          if (wallCounts[wv] >= MAX) break;
+          if (wallCounts[wv] >= MAX || hs === side) continue;   // the wall fell with its half of the ridge
           const ws = track.sampleSegment(seg, s, side * (TRACK_HALF_WIDTH + WALL_T / 2));
           dummy.position.set(ws.x, WALL_H / 2, ws.z); dummy.scale.setScalar(1); faceHeading(dummy, ws.dir); dummy.updateMatrix();
-          wallBlocks[wv].setMatrixAt(wallCounts[wv]++, dummy.matrix);
+          wallBlocks[wv].setMatrixAt(wallCounts[wv], dummy.matrix);
+          wallBlocks[wv].setColorAt(wallCounts[wv], vary.setRGB(0.9 + segHash(Math.round(ws.x * 10), 17) * 0.2, 0.9 + segHash(Math.round(ws.z * 10), 19) * 0.18, 0.9 + segHash(Math.round((ws.x + ws.z) * 10), 23) * 0.2));
+          wallCounts[wv]++;
         }
       }
     }
   };
-  for (const seg of track.allSegments()) {
+  for (const seg of game.visibleSegments()) {
     const s1 = seg.s0 + seg.length;
     variant = variantFor(seg.id);
     if (seg.kind === 'straight') { along(seg, seg.s0, s1); continue; }
@@ -156,8 +177,10 @@ export function updateFloorView(game: Game): void {
     if (seg.fork) forkStubs(seg, c, put);   // both run-outs before the choice, the unchosen one after
     if (seg.resolved) along(seg, corner + TRACK_HALF_WIDTH, s1);
   }
-  for (let i = 0; i < slabVariants.length; i++) { slabVariants[i].count = counts[i]; slabVariants[i].instanceMatrix.needsUpdate = true; }
-  for (let i = 0; i < 3; i++) { wallBlocks[i].count = wallCounts[i]; wallBlocks[i].instanceMatrix.needsUpdate = true; }
+  const flushColored = (m: THREE.InstancedMesh, n: number) => { m.count = n; m.instanceMatrix.needsUpdate = true; const ic = m.instanceColor; if (ic) ic.needsUpdate = true; };
+  slabVariants.forEach((m, i) => flushColored(m, counts[i]));
+  wallBlocks.forEach((m, i) => flushColored(m, wallCounts[i]));
+  halfSlabs.count = nHalf; halfSlabs.instanceMatrix.needsUpdate = true;
   brokenEdge.count = nBroken; brokenEdge.instanceMatrix.needsUpdate = true;
 }
 

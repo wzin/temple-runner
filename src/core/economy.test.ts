@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { RUBY_COINS, SKINS, canAfford, coinsToNextRuby, normalizeSkinId, rubiesFromCoins } from './economy';
 
 describe('economy', () => {
-  it('pays one ruby per 10 000 coins, minus what was spent', () => {
-    expect(RUBY_COINS).toBe(10_000);
-    expect(rubiesFromCoins(9_999)).toBe(0);
-    expect(rubiesFromCoins(10_000)).toBe(1);
-    expect(rubiesFromCoins(35_000, 2)).toBe(1);
-    expect(rubiesFromCoins(5_000, 3)).toBe(0);
-    expect(coinsToNextRuby(9_500)).toBe(500);
-    expect(coinsToNextRuby(20_000)).toBe(10_000);
+  it('pays one ruby per 1 000 coins, minus what was spent', () => {
+    expect(RUBY_COINS).toBe(1_000);
+    expect(rubiesFromCoins(999)).toBe(0);
+    expect(rubiesFromCoins(1_000)).toBe(1);
+    expect(rubiesFromCoins(3_500, 2)).toBe(1);
+    expect(rubiesFromCoins(500, 3)).toBe(0);
+    expect(coinsToNextRuby(950)).toBe(50);
+    expect(coinsToNextRuby(2_000)).toBe(1_000);
   });
   it('has six characters priced 0, 1, 5, 10, 10, 10', () => {
     expect(SKINS.map((s) => s.cost)).toEqual([0, 1, 5, 10, 10, 10]);

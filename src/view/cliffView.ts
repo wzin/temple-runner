@@ -5,6 +5,7 @@ import { GROUND_Y } from './groundView';
 import { pbrMaterial, textures } from './textures';
 import { activeBiome } from './biome';
 import { faceHeading } from './util';
+import { holesOf } from './holes';
 
 /**
  * The track runs on top of a stone embankment: one instanced block per 2 m of
@@ -15,7 +16,10 @@ import { faceHeading } from './util';
 const SLAB = 2;
 const MAX = 400;
 const WIDTH = TRACK_HALF_WIDTH * 2 + 1.4;   // a little wider than the walls
-let blocks: THREE.InstancedMesh;
+let blocks: THREE.InstancedMesh; let halfBlocks: THREE.InstancedMesh;
+const HALF_W = WIDTH / 2 - 0.4;
+const tint = new THREE.Color();
+const h3 = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const dummy = new THREE.Object3D();
 
 export function initCliffs(scene: THREE.Scene): void {
@@ -26,28 +30,39 @@ export function initCliffs(scene: THREE.Scene): void {
   const sizes: [number, number][] = [[SLAB, height], [SLAB, height], [WIDTH, SLAB], [WIDTH, SLAB], [WIDTH, height], [WIDTH, height]];
   for (let f = 0; f < 6; f++) for (let i = 0; i < 4; i++) { const idx = f * 4 + i; uv.setXY(idx, uv.getX(idx) * (sizes[f][0] / 2), uv.getY(idx) * (sizes[f][1] / 2)); }
   uv.needsUpdate = true;
-  blocks = new THREE.InstancedMesh(geo, pbrMaterial(textures().cliff, { color: activeBiome().cliffTint }), MAX);
+  const mat = pbrMaterial(textures().cliff, { color: activeBiome().cliffTint });
+  blocks = new THREE.InstancedMesh(geo, mat, MAX);
   blocks.count = 0;
   blocks.frustumCulled = false;
   scene.add(blocks);
+  halfBlocks = new THREE.InstancedMesh(new THREE.BoxGeometry(HALF_W, height, SLAB), mat, 128);
+  halfBlocks.count = 0; halfBlocks.frustumCulled = false; scene.add(halfBlocks);
 }
 
 export function updateCliffs(game: Game): void {
   const track = game.track;
   const yMid = (GROUND_Y + -0.5) / 2;
-  let n = 0;
-  // The embankment is missing where the floor is: a gap is a real break in the ridge.
-  const gaps = game.spawner.obstacles.filter((o) => o.kind === 'gap');
-  const holed = (s: number) => gaps.some((g) => s + SLAB / 2 > g.s0 + 1e-6 && s - SLAB / 2 < g.s1 - 1e-6);
+  let n = 0; let nh = 0;
+  // The embankment is missing where the floor is: a gap is a real break in the ridge; a half gap takes one side.
+  const holes = holesOf(game, SLAB);
+  const holed = holes.holed;
   const put = (x: number, z: number, dir: { x: number; z: number }) => {
     if (n >= MAX) return;
     dummy.position.set(x, yMid, z); dummy.scale.setScalar(1); faceHeading(dummy, dir); dummy.updateMatrix();
-    blocks.setMatrixAt(n++, dummy.matrix);
+    blocks.setMatrixAt(n, dummy.matrix);
+    blocks.setColorAt(n, tint.setRGB(0.88 + h3(Math.round(x * 5), 1) * 0.24, 0.88 + h3(Math.round(z * 5), 2) * 0.22, 0.88 + h3(Math.round((x - z) * 5), 3) * 0.24));
+    n++;
   };
-  for (const seg of track.allSegments()) {
+  const putHalf = (w: { x: number; z: number; dir: { x: number; z: number } }, hs: -1 | 1) => {
+    if (nh >= 128) return;
+    const right = { x: -w.dir.z, z: w.dir.x }; const off = -hs * (WIDTH / 2 - HALF_W / 2);
+    dummy.position.set(w.x + right.x * off, yMid, w.z + right.z * off); dummy.scale.setScalar(1); faceHeading(dummy, w.dir); dummy.updateMatrix();
+    halfBlocks.setMatrixAt(nh++, dummy.matrix);
+  };
+  for (const seg of game.visibleSegments()) {
     const s1 = seg.s0 + seg.length;
     if (seg.kind === 'straight') {
-      for (let s = seg.s0 + SLAB / 2; s < s1; s += SLAB) { if (holed(s)) continue; const w = track.sampleSegment(seg, s); put(w.x, w.z, w.dir); }
+      for (let s = seg.s0 + SLAB / 2; s < s1; s += SLAB) { if (holed(s)) continue; const w = track.sampleSegment(seg, s); const hs = holes.halfAt(s); if (hs !== 0) putHalf(w, hs); else put(w.x, w.z, w.dir); }
       continue;
     }
     const corner = track.cornerOf(seg);
@@ -62,4 +77,6 @@ export function updateCliffs(game: Game): void {
   }
   blocks.count = n;
   blocks.instanceMatrix.needsUpdate = true;
+  if (blocks.instanceColor) blocks.instanceColor.needsUpdate = true;
+  halfBlocks.count = nh; halfBlocks.instanceMatrix.needsUpdate = true;
 }

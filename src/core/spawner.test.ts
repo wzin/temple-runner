@@ -72,7 +72,9 @@ describe('Spawner', () => {
     for (const o of sp.obstacles) {
       const spec = OBSTACLES[o.kind];
       expect(o.s1 - o.s0).toBeCloseTo(spec.depth, 5);
-      if (spec.lane) expect(o.x1 - o.x0).toBeCloseTo(2, 5); else expect(o.x1 - o.x0).toBeGreaterThan(5);
+      if (spec.lane) expect(o.x1 - o.x0).toBeCloseTo(2, 5);
+      else if (o.kind === 'halfgap') expect(o.x1 - o.x0).toBeCloseTo(3.4, 5);   // one side plus a little past the centre
+      else expect(o.x1 - o.x0).toBeGreaterThan(5);
     }
   });
   it('prune removes passed content and reset clears everything', () => {

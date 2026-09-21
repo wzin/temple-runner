@@ -83,14 +83,14 @@ airtime, 2.2 m apex), slide 0.7 s (height 0.9), stumble slows 0.6× for 0.5 s, f
 
 **Spawner** (`spawner.ts`): 12 m chunks; obstacle chance 0.45 → 0.7; spacing is time-based (1.7 s → 1.05 s of running);
 nothing within `1.2 s × speed` before or after a corner (`afterCornerSeconds`) and whole patterns stay clear of turn
-windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log (y 1.0–1.6, slide/jump; drawn as a dead tree that topples off a wall 62 → 34 m ahead and drops to chest height), branch (y
-1.0–2.6, slide; drawn as the stone gate), gap (4 m = two slabs, fatal, jump; twice the weight of the other singles). Patterns unlock with distance: logWithArc 100 m, twoLaneFire
+windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log (y 1.0–1.6, slide/jump; drawn as a stone column that topples off a wall 62 → 34 m ahead and drops to chest height), branch (y
+1.0–2.6, slide; drawn as a 4.2 m gate with a solid panel above the lintel, unmistakably not jumpable), gap (4 m = two slabs, fatal, jump), **halfgap** (8 m; one side of the ridge from the wall to 0.4 m past the centre is gone, only the far lane is safe; floor, walls, embankment, decals and torches all break on that side via `view/holes.ts`). Singles: gap and halfgap have double weight. Patterns unlock with distance: logWithArc 100 m, twoLaneFire
 200 m, gapThenBranch 400 m (branch placed at `gap + 0.77 s × speed + 4 m`), laneFireRow 600 m. Coins in runs of 5–8
 (some arcs), `value` 1 or 5 (big medallion). Power-ups from 120 m, 8%/chunk, one live: magnet 10 s (pull
 `max(20, 1.8 × speed)` m/s), shield (one stumble), boost 5 s (×1.6, invulnerable, auto-turns) + 0.6 s grace.
 Proximity meter +25 per hit, −2/s, 100 = caught; boost resets it and hides the cats. **Coin energy**: each coin value adds 0.6 to `game.energy` (~170 coin-points), capped at `100 × seconds/45` since the run or last boost, so a boost is never ready before 45 s of running (typically ~60 s); at 100 the `energyFull` event fires and `pressBoost()` (E / Enter / Shift / B, tapping the HUD bar or the pad's ⚡) spends it on a normal 5 s boost.
 
-**Lookahead:** `game.lookahead = clamp(12 s × speed, 150, 300)` m; fog near/far are 6%/40% of it (biome fractions; thickened on request so the scattered world reads as one haze).
+**Lookahead:** `game.lookahead = clamp(12 s × speed, 140, 230)` m; fog near/far are 7%/40% of it; views draw only `game.visibleSegments()` (s0 within 50% of the lookahead), the rest exists for the spawner. Turn chance 0.35 → 0.5 with one straight after a turn: frequent corners are the render-distance limiter. Shader flames carry `fog: true` so torches no longer pierce the fog.
 
 ## 4. Rendering (view)
 
@@ -98,7 +98,7 @@ Everything repeated is instanced and rebuilt from the live segments each frame (
 
 | Module | What |
 |---|---|
-| `floorView.ts` | 2 m floor slabs in eight looks (path/broken/mossy mixed per slab, plus whole stretches of glyph, cobble, sand, obsidian, temple) with tilt/height noise and sunk slabs; **wall blocks** (2 m, three looks, straights only) so a gap cuts floor + walls; torn slabs (`brokenSlabGeometry`) at gap lips; fork stubs |
+| `floorView.ts` | 2 m floor slabs in eight looks with per-instance colour variation (`setColorAt`, also on wall and embankment blocks) and 2.6 m half slabs beside half gaps (path/broken/mossy mixed per slab, plus whole stretches of glyph, cobble, sand, obsidian, temple) with tilt/height noise and sunk slabs; **wall blocks** (2 m, three looks, straights only) so a gap cuts floor + walls; torn slabs (`brokenSlabGeometry`) at gap lips; fork stubs |
 | `trackView.ts` | per-segment groups: bend walls (L-shaped outer wall, inner post), T walls for forks, totems, glyph plates. Straight walls are NOT here (see floorView) |
 | `cliffView.ts` | stone embankment blocks from the ground (y −14) to the floor, skipped under gaps |
 | `decalView.ts` | per 2 m block: relief band, gold trim; cornice blocks on wall tops; vines/banners; portal arch or jaguar face on bend walls; arrow glyph decals on corner plates; start mosaic — all skip gap spans |
@@ -106,7 +106,7 @@ Everything repeated is instanced and rebuilt from the live segments each frame (
 | `propView.ts` | remaining billboards: ferns, bushes, skulls, roots on the cliff; textured columns and pillars |
 | `obstacleView.ts` | every obstacle has three looks by `id % 3`. fire = bonfire / burning log / stone brazier ring: coal bed (lava set, emissive), four shader flame sheets (one camera-facing + two fanned + hot core), flickering ground glow, one point light following the nearest fire ahead; log = bark cylinder with tree-ring caps; **branch = low gate** in stone, wooden stakes or obsidian+gold (posts, lintel 1.0–1.8 m, five teeth to 2.6 m — must slide); the toppling log is a dead tree or a stone column; gaps show a lava or river pool below (40% water) and a veil while invulnerable |
 | `coinView.ts` | coin discs with embossed faces; big medallions |
-| `powerUpView.ts` | big model pickups over a halo: red horseshoe magnet (built), Kenney round shield, Poly-by-Google lightning bolt (CC-BY), Kenney jewel recast red = ruby gem |
+| `powerUpView.ts` | big model pickups over a halo: red horseshoe magnet (built), Kenney round shield, golden triple chevron for boost (built), Kenney jewel recast red = ruby gem. The boost blinks (aura + gap veils) in its last 1.5 s (`game.boostEnding`) |
 | `playerView.ts` | animated GLB character (Quaternius, CC0) with an AnimationMixer: Run speed-matched (`STRIDE` 7.5 m/cycle), Roll = slide (compressed to 0.7 s), HitRecieve = stumble, Death = fall, Idle when standing. No jump clip in the pack → `Man_Jump` from the Animated Men pack retargeted by bone name (quaternion tracks only). `SKINS` = files adventurer / adventurer-f / hooded (ids runner / runner-f / guardian kept for saved prefs); only the chosen file is downloaded (~1.2–1.5 MB). Normalised to 1.75 m, feet at 0. Shield aura, boost ghosting, dim lamp kept |
 | `monkeyView.ts` | the chasers: three big cats (the Quaternius wolf model, one recoloured black), animated GLBs `9 → 2.5 m` behind as proximity rises, snapping (Attack/Punch) above 80, hidden while invulnerable |
 | `torchView.ts` | instanced torches: bronze bowls, shader flames, soot decals |
@@ -143,14 +143,14 @@ blocked (fixed Siri/selection popups and hijacked swipes on iOS/Android). Hints:
 
 ## 6. Accounts, rubies, lobby (0.11)
 
-**Economy** (`core/economy.ts`, tested): 1 ruby per 10 000 coins collected across all runs, plus rare ruby gems on the
+**Economy** (`core/economy.ts`, tested): 1 ruby per 1 000 coins collected across all runs, plus rare ruby gems on the
 track (`spawner` lays a `ruby` pickup about once per 2.6 km, never within 4 m of a corner; `game.rubiesFound`).
 Six characters (`SKINS`): adventurer free, adventurer-f 1, hooded 5, king / witch / soldier 10 rubies.
 **Server** (`server/index.mjs`, node:sqlite): every visitor gets a guest player + `tr_session` cookie (httpOnly, 1 year);
 `GET /api/me`, `POST /api/progress {coins, distance, rubies}` (plausibility: coins ≤ 0.8·distance + 30, rubies ≤ 1 + distance/1200),
 `POST /api/register {username, password}` (3–12 chars `[A-Za-z0-9_]`, scrypt; **10 registrations per IP per hour**; the guest's
 progress becomes the account), `/api/login`, `/api/logout`, `POST /api/unlock {skin}` (spends rubies server-side).
-Tables `players`, `sessions`, `registrations`. Rubies = floor(coins_total/10000) + rubies_bonus − rubies_spent.
+Tables `players`, `sessions`, `registrations`. Rubies = floor(coins_total/1000) + rubies_bonus − rubies_spent.
 **Client** (`ui/account.ts`): cookie session, offline queue of unsent runs (`temple-runner.pending-runs`), `onPlayerChange`.
 **Lobby** (`ui/MainMenu.ts`, `ui/skinPreview.ts`): carousel with a live 3D preview (own small renderer, Idle clip, slow turn;
 ← → / A D / swipe on the canvas), locked characters washed out with a 🔒 cost badge, SELECT / UNLOCK FOR N ◆ button,
@@ -213,6 +213,7 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
+0.12.0 half-broken runways, 4.2 m gates, toppling columns, tile variation, fogged flames, distance culling + more turns, chevron boost, real magnet, boost blink, ruby per 1000 coins ·
 0.11.0 accounts + rubies + lobby carousel + full ladder, two-stage loading, pillarbox, obstacle and pickup variants, ruby gems, three cats 0.7 m ·
 0.9.1 three cats · 0.10.0 one-thumb pad + swipe anywhere, falling-tree log, coin energy boost, smaller cats, more gaps/details ·
 0.9.0 feedback round: arches out, root sprite out, textured Quaternius nature library replaces Kenney trees, three cats chase, golden idol at forks, 8 floor looks, thicker fog + mist patches, doubled props/coins/crests, bigger runner, aligned hall of fame.
