@@ -5,8 +5,9 @@ import { yawOf } from './util';
 import { loadGLB } from './loading';
 
 /**
- * The chasers: three big cats — the Quaternius wolf model (CC0) galloping behind the runner, the middle one
- * recoloured black like a panther. (Wojtek asked to keep "the cat" of the two beasts and have three of them.)
+ * The chasers: three tigers — the Quaternius wolf model (CC0; there is no free tiger model) galloping behind the
+ * runner in tiger coats: orange with a darker back, all the same size. A stumble raises `game.proximity` by 25,
+ * which brings them from 9 m to about 7 m behind — into the bottom of the frame.
  * They close in as the proximity meter rises (9 m → 2.5 m behind) and snap when almost on you.
  * The module keeps its old name so main.ts is untouched.
  */
@@ -18,9 +19,9 @@ const SPREAD = 1.7;
 interface Beast { group: THREE.Group; mixer: THREE.AnimationMixer | null; run?: THREE.AnimationAction; attack?: THREE.AnimationAction; runDuration: number; attackUntil: number }
 interface Spec { file: string; height: number; run: string; attack: string; lane: number; tint?: number }
 const SPECS: Spec[] = [
-  { file: 'wolf', height: 0.7, run: 'Gallop', attack: 'Attack', lane: -1 },
-  { file: 'wolf', height: 0.75, run: 'Gallop', attack: 'Attack', lane: 0, tint: 0x1a1a1e },
-  { file: 'wolf', height: 0.7, run: 'Gallop', attack: 'Attack', lane: 1, tint: 0x6a5238 },
+  { file: 'wolf', height: 0.8, run: 'Gallop', attack: 'Attack', lane: -1, tint: 0xd8782a },
+  { file: 'wolf', height: 0.8, run: 'Gallop', attack: 'Attack', lane: 0, tint: 0xc86a20 },
+  { file: 'wolf', height: 0.8, run: 'Gallop', attack: 'Attack', lane: 1, tint: 0xe08a34 },
 ];
 const beasts: Beast[] = [];
 let lastMs = 0;
@@ -37,7 +38,8 @@ function setup(beast: Beast, spec: Spec, scene: THREE.Group, clips: THREE.Animat
     o.frustumCulled = false; o.castShadow = true;
     // Each cat gets its own coat: clone the body materials so a tint does not leak into the others.
     const mats = (Array.isArray(o.material) ? o.material : [o.material]).map((m) => (m as THREE.MeshStandardMaterial).clone());
-    for (const m of mats) if (spec.tint !== undefined && /Main/.test(m.name)) m.color.set(spec.tint).multiplyScalar(m.name.includes('Light') ? 1.6 : 1);
+    // Tiger coat: the main body orange, the lighter belly/muzzle material cream, nose and eyes untouched.
+    for (const m of mats) if (spec.tint !== undefined && /Main/.test(m.name)) { if (m.name.includes('Light')) m.color.set(0xf4e2c0); else { m.color.set(spec.tint); m.emissive.set(0x1a0a00); } }
     o.material = Array.isArray(o.material) ? mats : mats[0];
   });
   beast.group.add(scene);

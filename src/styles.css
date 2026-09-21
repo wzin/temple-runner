@@ -343,7 +343,7 @@ html, body, #game-container { user-select: none; -webkit-user-select: none; -web
 .skin-name { font-size: 1.3rem; letter-spacing: 0.2em; color: #fff; }
 .skin-blurb { font-size: 0.8rem; color: #bbb; margin: 0.15rem 0 0.45rem; min-height: 1.1rem; }
 #skin-action:disabled { opacity: 0.7; cursor: default; }
-.rubies { position: absolute; top: 0.7rem; left: 50%; transform: translateX(-50%); z-index: 20; display: flex; align-items: baseline; gap: 0.35rem; padding: 0.25rem 0.8rem; border-radius: 999px; background: rgba(0,0,0,0.5); border: 1px solid rgba(233,69,96,0.5); color: #fff; font-size: 1rem; pointer-events: none; }
+.rubies { position: absolute; bottom: calc(0.6rem + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); z-index: 20; display: flex; align-items: baseline; gap: 0.35rem; padding: 0.25rem 0.8rem; border-radius: 999px; background: rgba(0,0,0,0.5); border: 1px solid rgba(233,69,96,0.5); color: #fff; font-size: 1rem; pointer-events: none; }
 .rubies.hidden { display: none; }
 .ruby { color: #e94560; text-shadow: 0 0 8px rgba(233,69,96,0.9); }
 .ruby-next { font-size: 0.6rem; color: #999; letter-spacing: 0.05em; }
@@ -367,7 +367,7 @@ body.logged-in #main-menu h1 { text-shadow: 0 0 24px rgba(255,200,80,0.6), 0 0 4
 @media (max-height: 760px) { .carousel-stage, #skin-preview { width: 200px; height: 240px; } .controls-info { display: none; } }
 
 /* ---- Full ladder ---- */
-#scores-screen { background: linear-gradient(rgba(10,8,20,0.8), rgba(10,8,20,0.92)), url('/art/menu-bg.webp') center / cover no-repeat; }
+#scores-screen { z-index: 26; background: linear-gradient(rgba(10,8,20,0.93), rgba(10,8,20,0.97)), url('/art/menu-bg.webp') center / cover no-repeat; }
 .ladder-wrap { width: min(34rem, 94vw); max-height: 62vh; overflow-y: auto; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; background: rgba(0,0,0,0.4); touch-action: pan-y; pointer-events: auto; }
 .ladder { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
 .ladder th, .ladder td { padding: 0.3rem 0.6rem; text-align: right; white-space: nowrap; }

@@ -140,7 +140,7 @@ export class Spawner {
     switch (pattern) {
       case 'single': {
         // Gaps twice as likely as the others: holes in the road are the signature hazard.
-        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap', 'halfgap', 'halfgap'] as const);
+        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap', 'halfgap', 'halfgap', 'halfgap'] as const);
         if (kind === 'halfgap') { this.placeHalfGap(s); return; }
         this.place(kind, s, null);
         return;
