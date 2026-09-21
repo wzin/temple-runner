@@ -45,7 +45,7 @@ node scripts/trim-glb.mjs in.glb out.glb --keep-anims Idle,Run # character → o
 node scripts/trim-glb.mjs in.glb out.glb                    # plain rewrite: embeds external textures (Kenney colormap.png)
 ```
 
-Headless play-testing: Playwright scripts live in the session scratchpad (not in the repo); they drive the game
+Headless play-testing (**always cap the container**: `docker run --memory=2g --memory-swap=2g --cpus=2 --pids-limit=400 …`; an uncapped swiftshader Chromium once took the host's GNOME session down): Playwright scripts live in the session scratchpad (not in the repo); they drive the game
 through `window.__game` (the live `Game`) and `window.__scene`, freeze the simulation for screenshots by wrapping
 `game.tick` (a real screenshot takes ~1 s under swiftshader, during which the runner would travel 15 m), and press
 keys with `page.keyboard`. Image `gamedev-playwright:latest` (local) has Playwright 1.50. Pattern worth keeping.
@@ -84,7 +84,7 @@ airtime, 2.2 m apex), slide 0.7 s (height 0.9), stumble slows 0.6× for 0.5 s, f
 **Spawner** (`spawner.ts`): 12 m chunks; obstacle chance 0.45 → 0.7; spacing is time-based (1.7 s → 1.05 s of running);
 nothing within `1.2 s × speed` before or after a corner (`afterCornerSeconds`) and whole patterns stay clear of turn
 windows (including branch windows). Obstacles: fire (lane, y 0–0.8, jump), log (y 1.0–1.6, slide/jump; drawn as a stone column that topples off a wall 62 → 34 m ahead and drops to chest height), branch (y
-1.0–2.6, slide; drawn as a 4.2 m gate with a solid panel above the lintel, unmistakably not jumpable), gap (4 m = two slabs, fatal, jump), **halfgap** (8 m; one side of the ridge from the wall to 0.4 m past the centre is gone, only the far lane is safe; floor, walls, embankment, decals and torches all break on that side via `view/holes.ts`), **chasm** (6 m full break with a plank-and-rope bridge one lane wide, laid as two fatal pieces either side of the planks, `plankX`; walls stay), **spikegate** (from 300 m: the gate shape with red-hot iron spikes, fatal — pass under or die). Singles: gap, halfgap, chasm and spikegate carry double weight. **Every segment gets something**: one segment (20 m) after the last obstacle the next clear spot is forced; corner clearance 0.9 s after / 10 m before; spacing 1.2 → 1.0 s. Patterns unlock with distance: logWithArc 100 m, twoLaneFire
+1.0–2.6, slide; drawn as a 4.2 m gate with a solid panel above the lintel, unmistakably not jumpable), gap (4 m = two slabs, fatal, jump), **halfgap** (8 m; one side of the ridge from the wall to 0.4 m past the centre is gone, only the far lane is safe; floor, walls, embankment, decals and torches all break on that side via `view/holes.ts`), **chasm** (6 m full break with a plank-and-rope bridge one lane wide, laid as two fatal pieces either side of the planks, `plankX`; walls stay), **spikegate** (from 300 m: the gate shape with red-hot iron spikes, fatal — pass under or die). Singles: gap, halfgap, chasm and spikegate carry double weight. **Density rules** (`density.test.ts` asserts ≤20% of straight segments empty over 1.2 km): chunks of 4 m (12 m steps missed the few free metres on short straights); a single's clearance uses its own depth and falls back to the shallowest kind that fits (fire/log/gap/spikegate); set pieces that do not fit become a fitting single; an obstacle is forced 14 m after the last one; corner clearance 0.7 s after / 8 m before; spacing 0.9 → 0.75 s. Content past a pending fork is laid for both branches at once and stays sparse, so after `resolveFork`/`collapseFork` the spawner re-lays everything beyond corner+10 (`takeResolvedCorners` → `relayFrom`). Turn segments themselves hold nothing (≈40% of segments). Obstacles clear ground coins and power-ups they cover (`clearUnder`). Patterns unlock with distance: logWithArc 100 m, twoLaneFire
 200 m, gapThenBranch 400 m (branch placed at `gap + 0.77 s × speed + 4 m`), laneFireRow 600 m. Coins in runs of 5–8
 (some arcs), `value` 1 or 5 (big medallion). Power-ups from 120 m, 8%/chunk, **stacking** (`game.timers` per kind; picking the same kind refreshes it; HUD lists them all): magnet 10 s (pull
 `max(20, 1.8 × speed)` m/s), shield (one stumble), boost 5 s (×1.6, invulnerable, auto-turns) + 0.6 s grace.
@@ -163,7 +163,7 @@ ruby pill on every screen (`#rubies`), guest nudge → CREATE A PASSWORD modal (
 phrases regenerated every four bars) at 96 bpm, scheduled a beat ahead; `startMusic` on the first pointer gesture, intensity ducked to
 0.35 in menus/after death, 0.25 paused; MUSIC toggle in the pause menu (`temple-runner.music`).
 **Mosaic**: the start sun mosaic is also laid every ~650 m (3% of straights, never over a hole).
-**Forks**: 70% of corners are T-junctions (`forkChance`); turn chance 0.55 → 0.7. (16 m segments were tried: the generator hangs — keep 20.)
+**Forks**: 70% of corners are T-junctions (`forkChance`); turn chance 0.55 → 0.7. (16 m segments were tried and hung — the real cause was the branch pre-generation loop in `append`: when `appendToFree` returned null the loop never advanced; fixed in 0.14.1 with a break + dead branch. Shorter segments remain untested since.)
 **Loading** (`view/loading.ts`): two stages — `lobby` (menu backdrop + previewed character) behind the `#boot` overlay,
 `game` (all texture sets + every GLB through `loadGLB`) shown as the PLAY button filling up; `startGame` refuses until
 `progress('game').complete`. **Pillarbox** (`view/viewport.ts`): on wide screens the play area is capped at aspect 0.9
@@ -221,6 +221,7 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
+0.14.1 freeze fix (boxed-in fresh fork), density rework, far content culled ·
 0.14.0 plank-bridge chasms, spike gates, an obstacle in every segment, 70% forks, stacking power-ups, straight-on missed corners, FPS meter, coin pitch loop ·
 0.13.0 ten runners with traits, procedural music, mosaics along the path, 50% forks ·
 0.12.0 half-broken runways, 4.2 m gates, toppling columns, tile variation, fogged flames, distance culling + more turns, chevron boost, real magnet, boost blink, ruby per 1000 coins ·
