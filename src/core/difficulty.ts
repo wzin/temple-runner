@@ -21,7 +21,7 @@ export function difficultyAt(s: number): Difficulty {
     turnChance: lerp(0.55, 0.7, t),   // frequent corners keep the visible stretch short (a cheap render-distance limiter)
     obstacleChance: lerp(0.45, 0.7, t),
     // Spacing is a reaction budget in seconds converted to metres, so chained obstacles stay doable at speed.
-    obstacleSpacing: lerp(BASE_SPEED, MAX_SPEED, t) * lerp(1.2, 1.0, t),
+    obstacleSpacing: lerp(BASE_SPEED, MAX_SPEED, t) * lerp(0.9, 0.75, t),
     reactionTime: 0.4,
   };
 }

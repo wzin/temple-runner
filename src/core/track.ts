@@ -129,6 +129,9 @@ export class Track {
     return [...this.segments, ...this.branches.left.segments, ...this.branches.right.segments];
   }
   private ghost: { segments: Segment[]; corner: number } | null = null;
+  /** Corners of forks resolved or collapsed since the spawner last asked: content laid for both branches is re-laid there. */
+  private resolvedCorners: number[] = [];
+  takeResolvedCorners(): number[] { const out = this.resolvedCorners; this.resolvedCorners = []; return out; }
 
   /** The last segment, if it is a fork still waiting for the player's choice. */
   pendingFork(): Segment | null {
@@ -183,6 +186,7 @@ export class Track {
     }
     this.branches = null;
     this.deadBranches.clear();
+    this.resolvedCorners.push(this.cornerOf(seg));
     return dir;
   }
 
@@ -424,6 +428,7 @@ export class Track {
     this.resolveFork(fork, keep); // resolveFork checks `fork.fork`, so set the turn data directly below if needed
     if (!fork.resolved) {
       fork.turn = keep; fork.outDir = keep === 'left' ? turnLeft(fork.dir) : turnRight(fork.dir); fork.resolved = true;
+      this.resolvedCorners.push(this.cornerOf(fork));
       const chosen = this.branches[keep];
       for (const b of chosen.segments) { delete b.branch; this.segments.push(b); }
       this.nextS = chosen.nextS; this.nextStart = chosen.nextStart; this.nextDir = chosen.nextDir; this.straightsSinceTurn = chosen.straightsSinceTurn;
@@ -461,7 +466,9 @@ export class Track {
       // extendTo() grows the branches to the same lookahead as the main path.
       for (const d of ['left', 'right'] as const) {
         const b = this.branches[d];
-        while (b.nextS <= seg.s0 + seg.length + BRANCH_AHEAD) this.appendToFree(b, d);
+        // A branch that cannot continue stops here (marked dead); without the break this loop never advanced
+        // and froze the game whenever a fresh fork was boxed in.
+        while (b.nextS <= seg.s0 + seg.length + BRANCH_AHEAD) { if (!this.appendToFree(b, d)) { this.deadBranches.add(d); break; } }
       }
       return seg;
     }

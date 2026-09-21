@@ -48,7 +48,7 @@ export interface SpawnerOptions {
   tuning: (s: number) => SpawnTuning;
 }
 const DEFAULTS: SpawnerOptions = {
-  chunk: 12, firstObstacleAt: 60, turnMargin: 10, coinChance: 0.9, powerUpChance: 0.08, firstPowerUpAt: 120, rubyEvery: 2200, firstRubyAt: 500, afterCornerSeconds: 0.9,
+  chunk: 4, firstObstacleAt: 60, turnMargin: 8, coinChance: 0.35, powerUpChance: 0.03, firstPowerUpAt: 120, rubyEvery: 2200, firstRubyAt: 500, afterCornerSeconds: 0.7,
   tuning: () => ({ obstacleChance: 0.45, obstacleSpacing: 25, speed: 15 }),
 };
 
@@ -66,8 +66,22 @@ export class Spawner {
   constructor(private readonly rng: Rng, private readonly track: Track, opts: Partial<SpawnerOptions> = {}) { this.opts = { ...DEFAULTS, ...opts }; }
 
   fill(upTo: number): void {
+    // Content past a fork was laid for both branches at once, so it had to dodge every corner on either side and came
+    // out sparse. Once the player (or the generator) has chosen, re-lay everything beyond the corner wall for the one path.
+    for (const corner of this.track.takeResolvedCorners()) this.relayFrom(corner + 10);
     const limit = Math.min(upTo, this.track.end() - this.opts.chunk);
     while (this.cursor < limit) { this.layChunk(this.cursor); this.cursor += this.opts.chunk; }
+  }
+
+  private relayFrom(s: number): void {
+    if (s >= this.cursor) return;
+    for (let i = this.obstacles.length - 1; i >= 0; i--) if (this.obstacles[i].s0 >= s) this.obstacles.splice(i, 1);
+    for (let i = this.coins.length - 1; i >= 0; i--) if (this.coins[i].s >= s) this.coins.splice(i, 1);
+    for (let i = this.powerUps.length - 1; i >= 0; i--) if (this.powerUps[i].s >= s && this.powerUps[i].kind !== 'ruby') this.powerUps.splice(i, 1);
+    this.lastObstacleEnd = this.obstacles.reduce((m, o) => Math.max(m, o.s1), -Infinity);
+    const prev = this.cursor;
+    this.cursor = Math.ceil(s / this.opts.chunk) * this.opts.chunk;
+    while (this.cursor < prev) { this.layChunk(this.cursor); this.cursor += this.opts.chunk; }
   }
 
   prune(behind: number): void {
@@ -81,19 +95,35 @@ export class Spawner {
   private layChunk(s: number): void {
     const o = this.opts;
     const t = o.tuning(s);
-    const pattern = this.choosePattern(s);
-    const len = this.patternLength(pattern, t.speed);
+    let pattern = this.choosePattern(s);
     // The whole pattern span must stay clear of every turn window (long patterns can straddle a segment).
     // After a corner the margin is time-based: the outgoing leg is hidden behind the corner wall until
     // the runner has turned, so the first obstacle must be at least `afterCorner` seconds of running away.
     const afterCorner = o.afterCornerSeconds * t.speed;
-    const beforeCorner = Math.max(o.turnMargin, o.afterCornerSeconds * t.speed);   // a clean approach too
-    const clearOfTurns = !this.track.turnWindowsForSpawning().some((w) => w.corner + afterCorner >= s && w.corner - beforeCorner <= s + len);
+    const beforeCorner = o.turnMargin;   // a clean approach: nothing in the last metres before the corner square
+    const windows = this.track.turnWindowsForSpawning();
+    const clearFor = (len: number) => !windows.some((w) => w.corner + afterCorner >= s && w.corner - beforeCorner <= s + len);
+    // For a single, pick the kind now so the clearance check uses its real depth; if the pick does not fit the
+    // free stretch (short straights at speed), fall back to the shallowest kinds so the segment still gets something.
+    let singleKind: ObstacleKind | null = pattern === 'single' ? this.pickSingleKind(s) : null;
+    if (singleKind && !clearFor(OBSTACLES[singleKind].depth)) {
+      const fallback = (['fire', 'log', 'gap'] as ObstacleKind[]).concat(s >= 300 ? ['spikegate'] : ['branch']).sort((a, b) => OBSTACLES[a].depth - OBSTACLES[b].depth);
+      singleKind = fallback.find((k) => clearFor(OBSTACLES[k].depth)) ?? singleKind;
+    }
+    let len = singleKind ? OBSTACLES[singleKind].depth : this.patternLength(pattern, t.speed);
+    if (!singleKind && !clearFor(len)) {
+      // A set piece does not fit between these corners: lay a single that does instead of leaving the stretch empty.
+      pattern = 'single';
+      const fallback = (['fire', 'log', 'gap'] as ObstacleKind[]).concat(s >= 300 ? ['spikegate'] : ['branch']).sort((a, b) => OBSTACLES[a].depth - OBSTACLES[b].depth);
+      singleKind = fallback.find((k) => clearFor(OBSTACLES[k].depth)) ?? 'fire';
+      len = OBSTACLES[singleKind].depth;
+    }
+    const clearOfTurns = clearFor(len);
     const canObstacle = s >= o.firstObstacleAt && s - this.lastObstacleEnd >= t.obstacleSpacing && clearOfTurns;
-    // Never an empty stretch: one segment (20 m) after the last obstacle the next clear spot gets one for sure.
-    const overdue = s - this.lastObstacleEnd > 20;
-    if (canObstacle && (overdue || chance(this.rng, t.obstacleChance))) { this.layPattern(pattern, s, t.speed); return; }
-    if (s >= o.firstRubyAt && chance(this.rng, o.chunk / (o.rubyEvery * this.rubyScale)) && !this.nearAnyTurn(s, 4)) { this.powerUps.push({ id: this.nextId++, kind: 'ruby', s, x: pick(this.rng, LANES), y: 1.0, taken: false }); return; }
+    // Never an empty stretch: 14 m after the last obstacle (about the minimum spacing) the next clear spot gets one for sure.
+    const overdue = s - this.lastObstacleEnd > 14;
+    if (canObstacle && (overdue || chance(this.rng, t.obstacleChance))) { this.layPattern(pattern, s, t.speed, singleKind); return; }
+    if (s >= o.firstRubyAt && chance(this.rng, o.chunk / (o.rubyEvery * this.rubyScale)) && !this.nearAnyTurn(s, 4) && !this.obstacles.some((ob) => s > ob.s0 - 3 && s < ob.s1 + 3)) { this.powerUps.push({ id: this.nextId++, kind: 'ruby', s, x: pick(this.rng, LANES), y: 1.0, taken: false }); return; }
     if (s >= o.firstPowerUpAt && !this.powerUps.some((p) => !p.taken && p.s > s - 200) && chance(this.rng, o.powerUpChance)) { this.layPowerUp(s); return; }
     if (chance(this.rng, o.coinChance)) this.layCoinRun(s);
   }
@@ -112,7 +142,8 @@ export class Spawner {
     if (lane - 0.9 > -TRACK_HALF_WIDTH) this.obstacles.push(mk(-TRACK_HALF_WIDTH, lane - 0.9));
     if (lane + 0.9 < TRACK_HALF_WIDTH) this.obstacles.push(mk(lane + 0.9, TRACK_HALF_WIDTH));
     this.lastObstacleEnd = Math.max(this.lastObstacleEnd, s + spec.depth);
-    for (let i = this.coins.length - 1; i >= 0; i--) { const c = this.coins[i]; if (c.s >= s - 1 && c.s <= s + spec.depth + 1 && Math.abs(c.x - lane) > 0.5) this.coins.splice(i, 1); }
+    if (lane - 0.9 > -TRACK_HALF_WIDTH) this.clearUnder(s, s + spec.depth, -TRACK_HALF_WIDTH, lane - 0.9);
+    if (lane + 0.9 < TRACK_HALF_WIDTH) this.clearUnder(s, s + spec.depth, lane + 0.9, TRACK_HALF_WIDTH);
   }
 
   /** Half the ridge falls away: the hole covers one side up to 0.4 m past the centre, so only the far lane is safe. */
@@ -122,8 +153,14 @@ export class Spawner {
     const ob: Obstacle = { id: this.nextId++, kind: 'halfgap', s0: s, s1: s + spec.depth, x0: side < 0 ? -TRACK_HALF_WIDTH : -0.4, x1: side < 0 ? 0.4 : TRACK_HALF_WIDTH, y0: spec.y0, y1: spec.y1, hit: false, passed: false };
     this.obstacles.push(ob);
     this.lastObstacleEnd = Math.max(this.lastObstacleEnd, ob.s1);
-    for (let i = this.coins.length - 1; i >= 0; i--) { const c = this.coins[i]; if (c.s >= ob.s0 - 1 && c.s <= ob.s1 + 1 && c.x > ob.x0 - 0.5 && c.x < ob.x1 + 0.5) this.coins.splice(i, 1); }
+    this.clearUnder(ob.s0, ob.s1, ob.x0, ob.x1);
     return ob;
+  }
+
+  /** Content laid earlier that a new obstacle makes unreachable: ground coins inside it, power-ups within 2 m of it. */
+  private clearUnder(s0: number, s1: number, x0: number, x1: number): void {
+    for (let i = this.coins.length - 1; i >= 0; i--) { const c = this.coins[i]; if (c.y < 1.0 && c.s >= s0 - 1 && c.s <= s1 + 1 && c.x > x0 - 0.5 && c.x < x1 + 0.5) this.coins.splice(i, 1); }
+    for (let i = this.powerUps.length - 1; i >= 0; i--) { const p = this.powerUps[i]; if (p.s >= s0 - 2 && p.s <= s1 + 2 && p.x > x0 - 0.5 && p.x < x1 + 0.5) this.powerUps.splice(i, 1); }
   }
 
   private place(kind: ObstacleKind, s: number, lane: number | null): Obstacle {
@@ -133,8 +170,7 @@ export class Spawner {
     const ob: Obstacle = { id: this.nextId++, kind, s0: s, s1: s + spec.depth, x0: centre - half, x1: centre + half, y0: spec.y0, y1: spec.y1, hit: false, passed: false };
     this.obstacles.push(ob);
     this.lastObstacleEnd = Math.max(this.lastObstacleEnd, ob.s1);
-    // A coin run laid in an earlier chunk may reach this far: ground coins never sit inside an obstacle.
-    for (let i = this.coins.length - 1; i >= 0; i--) { const c = this.coins[i]; if (c.y < 1.0 && c.s >= ob.s0 - 1 && c.s <= ob.s1 + 1) this.coins.splice(i, 1); }
+    this.clearUnder(ob.s0, ob.s1, ob.x0, ob.x1);
     return ob;
   }
 
@@ -151,11 +187,15 @@ export class Spawner {
   /** Fires in a row are spaced so a jump clears at most one: a bit more than one jump reach. */
   private fireStep(speed: number): number { return this.jumpReach(speed) + 2; }
 
-  private layPattern(pattern: PatternKind, s: number, speed: number): void {
+  private pickSingleKind(s: number): ObstacleKind {
+    return pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap', 'halfgap', 'halfgap', 'chasm', 'chasm', ...(s >= 300 ? ['spikegate', 'spikegate'] as const : [])] as const);
+  }
+
+  private layPattern(pattern: PatternKind, s: number, speed: number, singleKind: ObstacleKind | null = null): void {
     switch (pattern) {
       case 'single': {
         // Gaps twice as likely as the others: holes in the road are the signature hazard.
-        const kind = pick(this.rng, ['fire', 'log', 'branch', 'gap', 'gap', 'halfgap', 'halfgap', 'chasm', 'chasm', ...(s >= 300 ? ['spikegate', 'spikegate'] as const : [])] as const);
+        const kind = singleKind ?? this.pickSingleKind(s);
         if (kind === 'halfgap') { this.placeHalfGap(s); return; }
         if (kind === 'chasm') { this.placeBridge(s); return; }
         this.place(kind, s, null);
@@ -196,6 +236,7 @@ export class Spawner {
   }
 
   private layPowerUp(s: number): void {
+    if (this.obstacles.some((o) => s > o.s0 - 3 && s < o.s1 + 3)) return;   // never right on top of an obstacle
     if (this.nearAnyTurn(s, 4)) return;
     for (const ob of this.obstacles) if (s >= ob.s0 - 2 && s <= ob.s1 + 2) return;
     this.powerUps.push({ id: this.nextId++, kind: pick(this.rng, POWERUP_KINDS), s, x: pick(this.rng, LANES), y: 1.0, taken: false });

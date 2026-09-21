@@ -46,7 +46,7 @@ let turnedOnce = false;        // first successful turn hides the corner coach m
 const COUNTDOWN_MS = 3000;
 
 // Exposed for automated play-testing (headless browser drives the run through these handles).
-declare global { interface Window { __game: Game; __scene: typeof scene } }
+declare global { interface Window { __game: Game; __scene: typeof scene; __renderer: typeof renderer } }
 window.__game = game;
 
 function loadHighScore(): number {
@@ -60,7 +60,7 @@ function init(): void {
   const versionEl = document.getElementById('version');
   if (versionEl) versionEl.textContent = `v${__APP_VERSION__}`;
   initScene();
-  window.__scene = scene;
+  window.__scene = scene; window.__renderer = renderer;
   initCamera();
   initDomInput();
   initAudio();

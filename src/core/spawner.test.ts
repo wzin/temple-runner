@@ -24,8 +24,7 @@ describe('Spawner', () => {
   it('keeps obstacles and coins away from turn windows, with a time-based margin after corners', () => {
     const { sp, track } = build(12);
     for (const o of sp.obstacles) {
-      expect(track.nearTurnWindow(o.s0, 10)).toBe(false);
-      for (const w of track.turnWindows()) { if (o.s0 > w.corner) expect(o.s0 - w.corner).toBeGreaterThanOrEqual(0.9 * 15 - 1e-6); else expect(w.corner - o.s1).toBeGreaterThanOrEqual(10 - 1e-6); }
+      for (const w of track.turnWindows()) { if (o.s0 > w.corner) expect(o.s0 - w.corner).toBeGreaterThanOrEqual(0.9 * 15 - 1e-6); else expect(w.corner - o.s1).toBeGreaterThanOrEqual(8 - 1e-6); }
     }
     for (const c of sp.coins) expect(track.nearTurnWindow(c.s, 2)).toBe(false);
   });
@@ -34,7 +33,8 @@ describe('Spawner', () => {
     expect(sp.coins.length).toBeGreaterThan(20);
     for (const c of sp.coins) {
       if (c.y >= 1.0) continue;
-      for (const o of sp.obstacles) expect(c.s < o.s0 - 1 || c.s > o.s1 + 1).toBe(true);
+      // Coins may sit beside a half gap or on a chasm's plank bridge: only the obstacle's own x-range counts.
+      for (const o of sp.obstacles) if (c.x > o.x0 - 0.5 && c.x < o.x1 + 0.5) expect(c.s < o.s0 - 1 || c.s > o.s1 + 1).toBe(true);
     }
   });
   it('patterns respect lane extents and appear only after their minimum distance', () => {
@@ -62,7 +62,7 @@ describe('Spawner', () => {
         total++;
         expect(p.s).toBeGreaterThanOrEqual(120);
         expect(track.nearTurnWindow(p.s, 4)).toBe(false);
-        for (const o of sp.obstacles) expect(p.s < o.s0 - 2 || p.s > o.s1 + 2).toBe(true);
+        for (const o of sp.obstacles) if (p.x > o.x0 - 0.5 && p.x < o.x1 + 0.5) expect(p.s < o.s0 - 2 || p.s > o.s1 + 2).toBe(true);
       }
     }
     expect(total).toBeGreaterThan(3);
@@ -74,7 +74,7 @@ describe('Spawner', () => {
       expect(o.s1 - o.s0).toBeCloseTo(spec.depth, 5);
       if (spec.lane) expect(o.x1 - o.x0).toBeCloseTo(2, 5);
       else if (o.kind === 'halfgap') expect(o.x1 - o.x0).toBeCloseTo(3.4, 5);   // one side plus a little past the centre
-      else if (o.kind === 'chasm') { expect(o.x1 - o.x0).toBeGreaterThan(1); expect(o.x1 - o.x0).toBeLessThan(5); }   // one of the two pieces beside the planks
+      else if (o.kind === 'chasm') { expect(o.x1 - o.x0).toBeGreaterThan(0.5); expect(o.x1 - o.x0).toBeLessThan(5); }   // one of the two pieces beside the planks (0.6 m when the bridge hugs a wall)
       else expect(o.x1 - o.x0).toBeGreaterThan(5);
     }
   });

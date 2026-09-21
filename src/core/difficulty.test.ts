@@ -13,8 +13,8 @@ describe('difficultyAt', () => {
     const a = difficultyAt(0); const b = difficultyAt(RAMP_DISTANCE);
     expect(b.turnChance).toBeGreaterThan(a.turnChance);
     expect(b.obstacleChance).toBeGreaterThan(a.obstacleChance);
-    expect(b.obstacleSpacing / b.speed).toBeLessThan(a.obstacleSpacing / a.speed); // less reaction time, but never below ~1 s
-    expect(b.obstacleSpacing / b.speed).toBeGreaterThanOrEqual(1.0);
+    expect(b.obstacleSpacing / b.speed).toBeLessThan(a.obstacleSpacing / a.speed); // less reaction time, but never below 0.7 s
+    expect(b.obstacleSpacing / b.speed).toBeGreaterThanOrEqual(0.7);
     expect(b.reactionTime).toBe(a.reactionTime);
   });
 });

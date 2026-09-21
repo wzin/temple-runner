@@ -115,6 +115,8 @@ export class Game {
     const c = this.track.sample(w.corner - 1e-6, 0);
     return { x: c.x, z: c.z, dir: c.dir, past: p.s - w.corner };
   }
+  /** Track position beyond which nothing is drawn (matches `visibleSegments`). */
+  get renderLimit(): number { return this.player.s + this.lookahead * RENDER_AHEAD_FRACTION; }
   /** Segments worth drawing: everything laid up to a little past the fog, so the far end costs nothing. */
   visibleSegments(): Segment[] {
     const limit = this.player.s + this.lookahead * RENDER_AHEAD_FRACTION;

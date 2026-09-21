@@ -30,8 +30,9 @@ export function initCoinView(scene: THREE.Scene): void {
 export function updateCoinView(game: Game, timeMs: number): void {
   let i = 0; let b = 0;
   const spin = timeMs * 0.003;
+  const limit = game.renderLimit;
   for (const c of game.spawner.coins) {
-    if (c.collected) continue;
+    if (c.collected || c.s > limit) continue;
     for (const p of game.track.samplesAt(c.s, c.x, c.y)) {
       const target = c.value >= 5 ? big : mesh;
       const idx = c.value >= 5 ? b : i;

@@ -118,8 +118,9 @@ export function initPowerUpView(scene: THREE.Scene): void {
 
 export function updatePowerUpView(game: Game, timeMs: number, camera: THREE.Camera): void {
   for (const k of kinds.values()) k.count = 0;
+  const limit = game.renderLimit;
   for (const p of game.spawner.powerUps) {
-    if (p.taken) continue;
+    if (p.taken || p.s > limit) continue;
     const entry = kinds.get(p.kind); if (!entry) continue;
     for (const w of game.track.samplesAt(p.s, p.x, p.y + Math.sin(timeMs * 0.004 + p.id) * 0.15)) {
       if (entry.count >= MAX) break;

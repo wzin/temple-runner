@@ -159,7 +159,9 @@ export function updateObstacleView(game: Game, timeMs: number, camera?: THREE.Ca
   const track = game.track;
   const playerS = game.player.s;
   let lightBest = Infinity; let lightX = 0; let lightZ = 0; let lightSeed = 0;
+  const limit = game.renderLimit;
   for (const o of game.spawner.obstacles) {
+    if (o.s0 > limit) continue;
     const midS = (o.s0 + o.s1) / 2; const midX = (o.x0 + o.x1) / 2;
     const spec = OBSTACLES[o.kind];
     for (const p of track.samplesAt(midS, midX)) {
