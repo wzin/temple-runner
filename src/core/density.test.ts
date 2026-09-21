@@ -38,3 +38,27 @@ it('leaves at most 20% of straight segments without an obstacle over a 1.2 km ru
   expect(stats.straightEmpty / stats.straights).toBeLessThanOrEqual(0.2);
   if (details.length) console.log('empty straights:', details.join(' | '));
 });
+
+it('the density knob really thins the track: density 5 leaves most straights empty', async () => {
+  const { setObstacleDensity } = await import('./difficulty');
+  setObstacleDensity(5);
+  try {
+    const g = new Game(2);
+    let ms = 0; let ticks = 0; const seen = new Set<number>(); let straights = 0; let empty = 0;
+    while (g.player.s < 800 && !g.over && ticks++ < 200000) {
+      const w = g.track.turnWindowAt(g.player.s);
+      if (w && w.segment.turn && !w.segment.turnDone) g.pressTurn(w.segment.turn, ms);
+      else if (w && w.segment.fork && !w.segment.resolved) g.pressTurn('left', ms);
+      g.spawner.obstacles.forEach((o) => { if (o.s0 < g.player.s + 3) o.passed = true; });
+      g.tick(1 / 60, NO_INPUT, ms); ms += 1000 / 60;
+      for (const seg of g.track.segments) {
+        const end = seg.s0 + seg.length;
+        if (end > g.player.s || end < g.player.s - 5 || seen.has(seg.id) || seg.s0 < 60 || seg.kind !== 'straight') continue;
+        seen.add(seg.id); straights++;
+        if (!g.spawner.obstacles.some((o) => o.s0 < end && o.s1 > seg.s0)) empty++;
+      }
+    }
+    expect(straights).toBeGreaterThan(15);
+    expect(empty / straights).toBeGreaterThan(0.5);
+  } finally { setObstacleDensity(50); }
+});

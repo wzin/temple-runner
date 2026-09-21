@@ -16,7 +16,7 @@ const SPREAD = 1.7;
 const HEIGHT = 1.3;       // height of the model after normalisation (a real tiger stands ~1 m at the shoulder; a little larger reads better)
 const STRIDE = 3.2;       // metres per gallop cycle
 /** Yaw applied to the model so its nose points along +z (the heading); tuned by eye against the screenshot. */
-const MODEL_YAW = Math.PI;
+const MODEL_YAW = 0;   // the mesh already faces +z (π had them running tail-first)
 
 interface Beast { group: THREE.Group; body: THREE.Group | null; lane: number; phase: number; lungeUntil: number }
 const beasts: Beast[] = [];
