@@ -281,3 +281,28 @@ describe('coin energy', () => {
     expect(g.pressBoost()).toBe(false);
   });
 });
+
+describe('character traits', () => {
+  it('scale boost and magnet duration, coin value, shield hits and cat decay', () => {
+    const g = new Game(3);
+    g.setTraits({ boostMul: 1.2, magnetMul: 1.5, magnetRadiusMul: 1, energyMul: 1, proximityDecayMul: 2, shieldHits: 2, coinMul: 1.2, rubyMul: 1 });
+    const sim = new Sim(g);
+    g.spawner.obstacles.length = 0; g.spawner.powerUps.length = 0; g.spawner.coins.length = 0;
+    g.spawner.powerUps.push({ id: 1, kind: 'shield', s: g.player.s + 3, x: 0, y: 1, taken: false });
+    g.spawner.coins.push({ id: 2, s: g.player.s + 4, x: 0, y: 0.6, collected: false, value: 5 });
+    sim.run(() => g.player.s > 6, { autopilot: true, forkChoice: 'left' });
+    expect(g.shield).toBe(true);
+    expect(g.coins).toBe(6);                       // 5 × 1.2
+    // Two stumbles are absorbed, the third hurts.
+    for (let i = 0; i < 3; i++) g.spawner.obstacles.push({ id: 10 + i, kind: 'log', s0: g.player.s + 2 + i * 6, s1: g.player.s + 3.2 + i * 6, x0: -3, x1: 3, y0: 1, y1: 1.6, hit: false, passed: false });
+    const events = sim.run(() => g.spawner.obstacles.every((o) => o.hit || o.passed), { autopilot: true, forkChoice: 'left' });
+    expect(events.filter((e) => e.type === 'shielded').length).toBe(2);
+    expect(events.filter((e) => e.type === 'hit').length).toBe(1);
+    expect(g.shield).toBe(false);
+    g.spawner.powerUps.push({ id: 3, kind: 'boost', s: g.player.s + 2, x: 0, y: 1, taken: false });
+    g.spawner.obstacles.length = 0;
+    sim.run(() => g.boosting || g.over, { autopilot: true, forkChoice: 'left' });   // (noObstacles would also clear the pickup)
+    expect(g.boosting).toBe(true);
+    expect(g.active!.timer).toBeGreaterThan(5.9);   // 5 s × 1.2 minus a tick
+  });
+});

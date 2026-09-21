@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RUBY_COINS, SKINS, canAfford, coinsToNextRuby, normalizeSkinId, rubiesFromCoins } from './economy';
+import { DEFAULT_TRAITS, RUBY_COINS, SKINS, canAfford, coinsToNextRuby, normalizeSkinId, rubiesFromCoins, traitsOf } from './economy';
 
 describe('economy', () => {
   it('pays one ruby per 1 000 coins, minus what was spent', () => {
@@ -11,9 +11,13 @@ describe('economy', () => {
     expect(coinsToNextRuby(950)).toBe(50);
     expect(coinsToNextRuby(2_000)).toBe(1_000);
   });
-  it('has six characters priced 0, 1, 5, 10, 10, 10', () => {
-    expect(SKINS.map((s) => s.cost)).toEqual([0, 1, 5, 10, 10, 10]);
-    expect(new Set(SKINS.map((s) => s.id)).size).toBe(6);
+  it('has ten characters, priced by the strength of their trait', () => {
+    expect(SKINS.map((s) => s.cost)).toEqual([0, 1, 2, 5, 6, 10, 10, 14, 18, 25]);
+    expect(new Set(SKINS.map((s) => s.id)).size).toBe(10);
+    expect(traitsOf('adventurer')).toEqual(DEFAULT_TRAITS);
+    expect(traitsOf('soldier').shieldHits).toBe(2);
+    expect(traitsOf('scifi').boostMul).toBeCloseTo(1.3);
+    expect(traitsOf('nope').coinMul).toBe(1);
     expect(canAfford(0, 'adventurer')).toBe(true);
     expect(canAfford(4, 'hooded')).toBe(false);
     expect(canAfford(5, 'hooded')).toBe(true);

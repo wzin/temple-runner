@@ -69,6 +69,7 @@ function renderSkin(): void {
   el('skin-lock')?.classList.toggle('hidden', !locked);
   const lockCost = el('skin-lock-cost'); if (lockCost) lockCost.textContent = `${def.cost} ◆`;
   const blurb = el('skin-blurb'); if (blurb) blurb.textContent = def.blurb;
+  const trait = el('skin-trait'); if (trait) trait.textContent = def.trait;
   const dots = el('skin-dots'); if (dots) dots.innerHTML = SKINS.map((s, i) => `<span class="dot${i === index ? ' on' : ''}${isUnlocked(s.id) ? '' : ' locked'}"></span>`).join('');
   const action = el('skin-action') as HTMLButtonElement | null;
   if (!action) return;

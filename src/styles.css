@@ -393,3 +393,6 @@ body.logged-in #main-menu h1 { text-shadow: 0 0 24px rgba(255,200,80,0.6), 0 0 4
 .player-link { cursor: pointer; pointer-events: auto; color: #ffc850; text-decoration: underline dotted; }
 .player-link::before { content: "★ "; font-size: 0.7em; }
 .player-link:hover { color: #fff; }
+
+.skin-trait { font-size: 0.78rem; color: #ffc850; letter-spacing: 0.05em; margin-bottom: 0.45rem; min-height: 1rem; }
+.skin-trait::before { content: "✦ "; }

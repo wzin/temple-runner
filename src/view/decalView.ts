@@ -18,7 +18,8 @@ let portals: THREE.InstancedMesh;
 let cornices: THREE.InstancedMesh;
 let trims: THREE.InstancedMesh;
 let banners: THREE.InstancedMesh;
-let mosaic: THREE.Mesh;
+let mosaic: THREE.InstancedMesh;
+const MOSAICS = 24;
 const segHash = (a: number, b: number) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const dummy = new THREE.Object3D();
 const RELIEF_Y = 1.45;
@@ -39,9 +40,9 @@ export function initDecals(scene: THREE.Scene): void {
   banners = leafy('banner', 1.2, 1.7, 0.4);
   for (const m of [reliefs, arrows, portals, cornices, trims, banners]) { m.count = 0; m.frustumCulled = false; scene.add(m); }
   // Start medallion: a 6 x 6 mosaic plate on the first slabs.
-  mosaic = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 5.6), pbrMaterial(remoteSet('mosaic', 0x907060), { polygonOffset: true, polygonOffsetFactor: -1 }));
-  mosaic.rotation.x = -Math.PI / 2;
-  mosaic.position.set(0, 0.03, -8);
+  // Start medallion, and the same sun mosaic laid into the path every 30–60 s of running.
+  mosaic = new THREE.InstancedMesh(new THREE.PlaneGeometry(5.6, 5.6).rotateX(-Math.PI / 2), pbrMaterial(remoteSet('mosaic', 0x907060), { polygonOffset: true, polygonOffsetFactor: -1 }), MOSAICS);
+  mosaic.count = 0; mosaic.frustumCulled = false;
   scene.add(mosaic);
 }
 
@@ -51,7 +52,22 @@ export function updateDecals(game: Game, timeMs: number): void {
   let side: -1 | 1 = 1;   // set by the per-side loops below
   const holed = (s: number) => holes.holedSide(s, side);
   let nR = 0; let nA = 0; let nP = 0; let nC = 0; let nT = 0; let nB = 0;
-  mosaic.visible = track.segments.length > 0 && track.segments[0].s0 === 0;
+  let nM = 0;
+  const placeMosaic = (x: number, z: number, dir: { x: number; z: number }, spin: number) => {
+    if (nM >= MOSAICS) return;
+    dummy.position.set(x, 0.03, z); dummy.rotation.set(0, Math.atan2(dir.x, dir.z) + spin, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix();
+    mosaic.setMatrixAt(nM++, dummy.matrix);
+  };
+  if (track.segments.length > 0 && track.segments[0].s0 === 0) placeMosaic(0, -8, { x: 0, z: -1 }, 0);
+  for (const seg of game.visibleSegments()) {
+    // ~3% of straights, i.e. one every ~650 m ≈ 30–60 s at running speed; never over a hole.
+    if (seg.kind !== 'straight' || seg.s0 < 60 || segHash(seg.id, 4242) > 0.03) continue;
+    const s = seg.s0 + 10;
+    if (holes.holed(s) || holes.halfAt(s) !== 0 || holes.holed(s + 2) || holes.holed(s - 2)) continue;
+    const w = track.sampleSegment(seg, s);
+    placeMosaic(w.x, w.z, w.dir, Math.floor(segHash(seg.id, 4243) * 4) * Math.PI / 2);
+  }
+  mosaic.count = nM; mosaic.instanceMatrix.needsUpdate = true;
   const cornice = (x: number, z: number, dir: { x: number; z: number }) => {
     if (nC >= 320) return;
     dummy.position.set(x, 2.14, z); faceHeading(dummy, dir); dummy.scale.set(1, 1, 1); dummy.updateMatrix();

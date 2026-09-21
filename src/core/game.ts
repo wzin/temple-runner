@@ -1,6 +1,7 @@
 import type { Segment } from './track';
 import { pickCoins, pickPowerUps, sweepObstacles } from './collision';
 import { difficultyAt } from './difficulty';
+import { DEFAULT_TRAITS, Traits } from './economy';
 import { TickInput, TurnBuffer } from './input';
 import { Player } from './player';
 import { BOOST_SPEED_FACTOR, MAGNET_PULL_SPEED, MAGNET_RADIUS, POWERUPS, PowerUpKind } from './powerups';
@@ -57,7 +58,10 @@ export class Game {
   /** Seconds since the run started or the last boost was fired; caps how fast the meter can fill. */
   private energyTime = 0;
   active: ActivePowerUp | null = null;
-  shield = false;
+  /** Character traits for this run (see economy.ts); set before `reset`/start. */
+  traits: Traits = { ...DEFAULT_TRAITS };
+  private shieldHits = 0;
+  get shield(): boolean { return this.shieldHits > 0; }
   private boostGrace = 0;
   /** Set when a turn was just taken; the camera uses it for its swing. */
   lastTurn: { dir: TurnDir; age: number } | null = null;
@@ -74,6 +78,8 @@ export class Game {
 
   constructor(seed: number) { this.reset(seed); }
 
+  setTraits(t: Traits): void { this.traits = { ...t }; this.spawner.rubyScale = 1 / t.rubyMul; }
+
   reset(seed = Date.now() >>> 0): void {
     const rng = mulberry32(seed);
     this.rng = rng;
@@ -82,7 +88,7 @@ export class Game {
     this.spawner = new Spawner(rng, this.track, { tuning: (s) => difficultyAt(s) });
     this.buffer.clear();
     this.coins = 0; this.distance = 0; this.score = 0; this.proximity = 0; this.over = false; this.energy = 0; this.energyTime = 0; this.rubiesFound = 0;
-    this.active = null; this.shield = false; this.boostGrace = 0; this.lastTurn = null; this.forkIntent = null; this.fallPose = null; this.deadReported = false;
+    this.active = null; this.shieldHits = 0; this.boostGrace = 0; this.lastTurn = null; this.forkIntent = null; this.fallPose = null; this.deadReported = false;
     this.applyDifficulty();
     this.layAhead();
   }
@@ -130,15 +136,16 @@ export class Game {
 
     if (this.magnet) this.pullCoins(dt);
     for (const c of pickCoins(this.spawner.coins, p.s, p.x, p.y, COIN_RADIUS)) {
-      this.coins += c.value; events.push({ type: 'coin', value: c.value });
-      if (!this.boosting) { const was = this.energy; this.energy = Math.min(100, 100 * this.energyTime / ENERGY_MIN_SECONDS, this.energy + c.value * ENERGY_PER_COIN); if (was < 100 && this.energy >= 100) events.push({ type: 'energyFull' }); }
+      const value = Math.round(c.value * this.traits.coinMul);
+      this.coins += value; events.push({ type: 'coin', value });
+      if (!this.boosting) { const was = this.energy; this.energy = Math.min(100, 100 * this.energyTime / (ENERGY_MIN_SECONDS / this.traits.energyMul), this.energy + c.value * ENERGY_PER_COIN * this.traits.energyMul); if (was < 100 && this.energy >= 100) events.push({ type: 'energyFull' }); }
     }
     for (const pu of pickPowerUps(this.spawner.powerUps, p.s, p.x, p.y, POWERUP_RADIUS)) this.activate(pu.kind, events);
 
     if (!this.invulnerable) {
       for (const o of sweepObstacles(this.spawner.obstacles, p.prevS, p.s, p.lateral, p.vertical)) {
         if (OBSTACLES[o.kind].fatal) { events.push({ type: 'hit', kind: o.kind }); this.startFall('gap', events); break; }
-        if (this.shield) { this.shield = false; events.push({ type: 'shielded', kind: o.kind }); events.push({ type: 'powerupEnd', kind: 'shield' }); continue; }
+        if (this.shieldHits > 0) { this.shieldHits--; events.push({ type: 'shielded', kind: o.kind }); if (this.shieldHits === 0) events.push({ type: 'powerupEnd', kind: 'shield' }); continue; }
         events.push({ type: 'hit', kind: o.kind });
         p.stumble(); this.proximity = Math.min(100, this.proximity + PROXIMITY_PER_HIT);
         if (this.proximity >= 100) { this.startFall('caught', events); break; }
@@ -147,7 +154,7 @@ export class Game {
       // Boost flies over everything: mark what we pass so it cannot hit later.
       for (const o of this.spawner.obstacles) if (!o.hit && !o.passed && p.s > o.s1) o.passed = true;
     }
-    if (!p.down) this.proximity = Math.max(0, this.proximity - PROXIMITY_DECAY * dt);
+    if (!p.down) this.proximity = Math.max(0, this.proximity - PROXIMITY_DECAY * this.traits.proximityDecayMul * dt);
 
     this.score = Math.floor(this.distance) + this.coins * 10;
     this.layAhead();
@@ -178,11 +185,12 @@ export class Game {
 
   private activate(kind: PowerUpKind, events: GameEvent[]): void {
     if (kind === 'ruby') { this.rubiesFound++; events.push({ type: 'ruby' }); return; }
-    if (kind === 'shield') { this.shield = true; }
+    if (kind === 'shield') { this.shieldHits = this.traits.shieldHits; }
     else {
       if (kind === 'boost') this.proximity = 0;   // the monkeys are left behind
       if (this.active) events.push({ type: 'powerupEnd', kind: this.active.kind });
-      this.active = { kind, timer: POWERUPS[kind].duration };
+      const mul = kind === 'boost' ? this.traits.boostMul : kind === 'magnet' ? this.traits.magnetMul : 1;
+      this.active = { kind, timer: POWERUPS[kind].duration * mul };
     }
     events.push({ type: 'powerup', kind });
   }
@@ -203,7 +211,7 @@ export class Game {
       if (c.collected) continue;
       const ds = c.s - p.s; const dx = c.x - p.x; const dy = c.y - (p.y + 0.6);
       const dist = Math.hypot(ds, dx, dy);
-      if (dist > MAGNET_RADIUS * (this.boosting ? 1.6 : 1) || dist < 1e-6) continue;
+      if (dist > MAGNET_RADIUS * this.traits.magnetRadiusMul * (this.boosting ? 1.6 : 1) || dist < 1e-6) continue;
       // Pull faster than the runner moves, or coins never catch up during a boost.
       const pull = Math.max(MAGNET_PULL_SPEED, p.speed * 1.8);
       const step = Math.min(dist, pull * dt) / dist;

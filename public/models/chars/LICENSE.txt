@@ -3,4 +3,5 @@ Characters by Quaternius (https://quaternius.com), CC0 1.0 Universal (public dom
   adventurer-f.glb  "Adventurer" (Ultimate Modular Women Pack)   https://poly.pizza/m/ZwF0K7WBmu
   hooded.glb        "Hooded Adventurer" (Ultimate Modular Women) https://poly.pizza/m/y9KWOVG21R
   jump-clip.glb     Man_Jump animation from "Man" (Animated Men Pack), meshes removed  https://poly.pizza/m/HMnuH5geEG
+  king.glb, farmer.glb, astronaut.glb (Ultimate Modular Men: I1gTjmuK2m, 7pn3R6hPvE, 3hC2i0CTuO); witch.glb, soldier.glb, punk.glb, scifi.glb (Ultimate Modular Women: QBEOV9ZUT8, oAArCNHjFB, djXoqejw6w, 4pUXv5V8kq)
 Each file is trimmed to the animations the game plays (scripts/trim-glb.mjs).

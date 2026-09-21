@@ -107,7 +107,7 @@ export class Track {
     this.turnChance = typeof tc === 'function' ? tc : () => tc;
     this.straightsAfterTurn = opts.straightsAfterTurn ?? 1;
     this.initialStraights = opts.initialStraights ?? 3;
-    this.forkChance = opts.forkChance ?? 0.35;
+    this.forkChance = opts.forkChance ?? 0.5;   // half of the corners are T-junctions
     this.forkMinS = opts.forkMinS ?? 150;
   }
 

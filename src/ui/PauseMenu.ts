@@ -1,3 +1,4 @@
+import { musicEnabled, setMusicEnabled } from '../audio';
 import { playSound } from '../audio';
 
 let pauseElement: HTMLElement | null = null;
@@ -16,6 +17,10 @@ export function initPauseMenu(
 ): void {
   pauseElement = document.getElementById('pause-menu');
   resumeButton = document.getElementById('resume-btn') as HTMLButtonElement;
+  const music = document.getElementById('music-toggle');
+  const renderMusic = () => { if (music) music.textContent = musicEnabled() ? 'MUSIC: ON' : 'MUSIC: OFF'; };
+  music?.addEventListener('click', () => { setMusicEnabled(!musicEnabled()); renderMusic(); });
+  renderMusic();
   restartButton = document.getElementById('restart-btn') as HTMLButtonElement;
   quitButton = document.getElementById('quit-btn') as HTMLButtonElement;
 

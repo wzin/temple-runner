@@ -145,7 +145,10 @@ blocked (fixed Siri/selection popups and hijacked swipes on iOS/Android). Hints:
 
 **Economy** (`core/economy.ts`, tested): 1 ruby per 1 000 coins collected across all runs, plus rare ruby gems on the
 track (`spawner` lays a `ruby` pickup about once per 2.6 km, never within 4 m of a corner; `game.rubiesFound`).
-Six characters (`SKINS`): adventurer free, adventurer-f 1, hooded 5, king / witch / soldier 10 rubies.
+Ten characters (`SKINS`, each with a **trait** — `Traits` multipliers applied by `game.setTraits` at run start): adventurer 0 (none),
+adventurer-f 1 (energy ×1.1), farmer 2 (magnet ×1.2), hooded 5 (boost ×1.2), punk 6 (cat decay ×1.3), witch 10 (magnet radius ×1.3 + ×1.2),
+soldier 10 (shield 2 hits), scifi "Pilot" 14 (boost ×1.3, energy ×1.15), king 18 (coins ×1.2), astronaut 25 (ruby gems ×1.5, boost ×1.2).
+Server `SKIN_COST` mirrors the prices.
 **Server** (`server/index.mjs`, node:sqlite): every visitor gets a guest player + `tr_session` cookie (httpOnly, 1 year);
 `GET /api/me`, `POST /api/progress {coins, distance, rubies}` (plausibility: coins ≤ 0.8·distance + 30, rubies ≤ 1 + distance/1200),
 `POST /api/register {username, password}` (3–12 chars `[A-Za-z0-9_]`, scrypt; **10 registrations per IP per hour**; the guest's
@@ -156,6 +159,11 @@ Tables `players`, `sessions`, `registrations`. Rubies = floor(coins_total/1000) 
 ← → / A D / swipe on the canvas), locked characters washed out with a 🔒 cost badge, SELECT / UNLOCK FOR N ◆ button,
 ruby pill on every screen (`#rubies`), guest nudge → CREATE A PASSWORD modal (register/login tabs), logged-in badge
 (`body.logged-in`). `ui/ScoresScreen.ts`: full ladder (up to 200 rows: nick, score, coins, local date without seconds).
+**Music** (`audio.ts`): procedural Andean groove synthesised in WebAudio (skin drum, log drums, seed shaker, pan-flute pentatonic
+phrases regenerated every four bars) at 96 bpm, scheduled a beat ahead; `startMusic` on the first pointer gesture, intensity ducked to
+0.35 in menus/after death, 0.25 paused; MUSIC toggle in the pause menu (`temple-runner.music`).
+**Mosaic**: the start sun mosaic is also laid every ~650 m (3% of straights, never over a hole).
+**Forks**: 50% of corners are T-junctions (`forkChance`).
 **Loading** (`view/loading.ts`): two stages — `lobby` (menu backdrop + previewed character) behind the `#boot` overlay,
 `game` (all texture sets + every GLB through `loadGLB`) shown as the PLAY button filling up; `startGame` refuses until
 `progress('game').complete`. **Pillarbox** (`view/viewport.ts`): on wide screens the play area is capped at aspect 0.9
@@ -213,6 +221,7 @@ mobile fixes, early/late turn windows · 0.6.0 skins, big asset pass, WebP + pro
 fork intent · 0.7.0 Kenney models, gap cuts the ridge, natural slabs, no wrong-turn death · 0.7.1 AI.md, no vine wall ·
 0.8.0 animated Quaternius characters (3 skins), Modular Ruins library (arches, columns, ruin clusters, props), more Kenney
 kits, bonfire shader fire with light, stone gate replaces the leaf-puff branch, score retry + offline queue, API healthcheck ·
+0.13.0 ten runners with traits, procedural music, mosaics along the path, 50% forks ·
 0.12.0 half-broken runways, 4.2 m gates, toppling columns, tile variation, fogged flames, distance culling + more turns, chevron boost, real magnet, boost blink, ruby per 1000 coins ·
 0.11.0 accounts + rubies + lobby carousel + full ladder, two-stage loading, pillarbox, obstacle and pickup variants, ruby gems, three cats 0.7 m ·
 0.9.1 three cats · 0.10.0 one-thumb pad + swipe anywhere, falling-tree log, coin energy boost, smaller cats, more gaps/details ·

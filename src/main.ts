@@ -13,6 +13,8 @@ import { coinBurst, hitSparks, initParticles, landingDust, powerUpBurst, updateP
 import { initClouds, updateClouds } from './view/cloudView';
 import { currentSkinId, setSkin } from './view/playerView';
 import { creditRun, flushRuns } from './ui/account';
+import { traitsOf } from './core/economy';
+import { startMusic, setMusicIntensity } from './audio';
 import { loadImage, onLoadProgress, progress } from './view/loading';
 import { initScoresScreen } from './ui/ScoresScreen';
 import { initFloorView, updateFloorView } from './view/floorView';
@@ -94,6 +96,7 @@ function init(): void {
   });
 
   initMainMenu(startGame, (id) => setSkin(id), currentSkinId());
+  window.addEventListener('pointerdown', () => { setMusicIntensity(gameState.screen === 'playing' ? 1 : 0.35); startMusic(); }, { once: true });
   initScoresScreen();
   void flushRuns().catch(() => undefined);
   initHUD(pauseGame);
@@ -260,6 +263,8 @@ function startGame(): void {
   hideHighScoreBanner();
   beatHighScore = false;
   game.reset(Date.now() >>> 0);
+  game.setTraits(traitsOf(currentSkinId()));
+  startMusic(); setMusicIntensity(1);
   gameState.screen = 'playing';
   setTouchControlsVisible(true);
   hintUntil = performance.now() + 4500;
@@ -279,6 +284,7 @@ function endRun(): void {
     saveHighScore(gameState.highScore);
   }
   hideHUD();
+  setMusicIntensity(0.35);
   void creditRun(game.coins, Math.floor(game.distance), game.rubiesFound).catch(() => undefined);   // rubies: 1 per 10 000 coins across runs
   showGameOver({ score: game.score, coins: game.coins, distance: Math.floor(game.distance) });
 }
@@ -286,6 +292,7 @@ function endRun(): void {
 function pauseGame(): void {
   if (gameState.screen !== 'playing') return;
   gameState.screen = 'paused';
+  setMusicIntensity(0.25);
   setTouchControlsVisible(false);
   showPauseMenu();
   playSound('click');
@@ -293,6 +300,7 @@ function pauseGame(): void {
 
 /** Resume goes through a 3-2-1 countdown so the player can re-read the situation. */
 function resumeGame(): void {
+  setMusicIntensity(1);
   if (gameState.screen !== 'paused') return;
   hidePauseMenu();
   setTouchControlsVisible(true);
@@ -320,6 +328,7 @@ function restartGame(): void {
 }
 
 function quitToMenu(): void {
+  setMusicIntensity(0.35);
   hidePauseMenu();
   hideCountdown();
   hideGameOver();
